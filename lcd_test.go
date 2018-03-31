@@ -3,9 +3,9 @@ package meterman_test
 import (
     "testing"
 
-    "fmt"
     "github.com/aamcrae/config"
     "github.com/aamcrae/MeterMan"
+    "image"
     "image/jpeg"
     "os"
     "path/filepath"
@@ -22,11 +22,11 @@ func runTest(t *testing.T, name string, result string) {
     if err != nil {
         t.Fatalf("Can't read config %s: %v", cname, err)
     }
-    digits, err := meterman.ConfigDigits(conf)
+    lcd := meterman.NewLcdDecoder()
+    err = lcd.Config(conf)
     if err != nil {
-        t.Fatalf("Digit config failed %v", err)
+        t.Fatalf("LCD config failed %v", err)
     }
-    fmt.Printf("Digits: %v\n", digits)
     ifile, err := os.Open(filepath.Join("testdata", imagename))
     if err != nil {
         t.Fatalf("%s: %v", imagename, err)
@@ -35,5 +35,13 @@ func runTest(t *testing.T, name string, result string) {
     if err != nil {
         t.Fatalf("Can't decode %s: %v", imagename, err)
     }
-    _, _ = meterman.Decode(digits, img)
+    // Convert image to gray scale.
+    gi := image.NewGray(img.Bounds())
+    b := img.Bounds()
+    for y := b.Min.Y; y < b.Max.Y; y++ {
+        for x := b.Min.X; x < b.Max.X; x++ {
+            gi.Set(x, y, img.At(x, y))
+        }
+    }
+    _, _ = lcd.Decode(gi)
 }

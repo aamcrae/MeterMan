@@ -22,10 +22,11 @@ func main() {
 		log.Fatalf("Init failed: %v", err)
     }
     for i := 0; i < 5; i++ {
-        img, err := cam.GetFrame()
+        frame, err := cam.GetFrame()
         if err != nil {
             log.Fatalf("Getframe: %v", err)
         }
+        img := cam.ConvertRGBA(frame)
         fname := fmt.Sprintf("i%04d.jpg", i)
         of, err := os.Create(fname)
         if err != nil {

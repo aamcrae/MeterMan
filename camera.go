@@ -83,7 +83,7 @@ func (c *Camera) Init(format Format, resolution string) error {
 	return c.cam.StartStreaming()
 }
 
-func (c *Camera) GetFrame() (*image.RGBA, error) {
+func (c *Camera) GetFrame() ([]byte, error) {
     for {
 	    err := c.cam.WaitForFrame(c.Timeout)
 
@@ -104,18 +104,31 @@ func (c *Camera) GetFrame() (*image.RGBA, error) {
 	    if len(frame) != expLen {
             return nil, fmt.Errorf("Wrong frame length (exp: %d, read %d)", expLen, len(frame))
         }
-        return c.convert(frame), nil
+        return frame, nil
     }
 }
 
-// Convert frame buffer to RGB image.
-func (c *Camera) convert(frame []byte) *image.RGBA {
+// Convert frame buffer to RGBA image.
+func (c *Camera) ConvertRGBA(frame []byte) *image.RGBA {
     img := image.NewRGBA(image.Rect(0, 0, c.Width, c.Height))
     for y := 0; y < c.Height; y++ {
         for x := 0; x < c.Width; x += 2 {
             pix := frame[c.Width * y * 2 + x * 2:]
             img.Set(x, y, color.YCbCr{pix[0], pix[1], pix[3]})
             img.Set(x + 1, y, color.YCbCr{pix[2], pix[1], pix[3]})
+        }
+    }
+    return img
+}
+
+// Convert frame buffer to Grayscale image.
+func (c *Camera) ConvertGray(frame []byte) *image.Gray {
+    img := image.NewGray(image.Rect(0, 0, c.Width, c.Height))
+    for y := 0; y < c.Height; y++ {
+        for x := 0; x < c.Width; x += 2 {
+            pix := frame[c.Width * y * 2 + x * 2:]
+            img.Set(x, y, color.Gray16Model.Convert(color.YCbCr{pix[0], pix[1], pix[3]}))
+            img.Set(x + 1, y, color.Gray16Model.Convert(color.YCbCr{pix[2], pix[1], pix[3]}))
         }
     }
     return img

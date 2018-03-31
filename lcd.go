@@ -5,12 +5,29 @@ import (
     "fmt"
     "image"
     "strconv"
+    "strings"
 )
 
+type point struct {
+    x int
+    y int
+}
+
+type Lcd struct {
+    name string
+    w, h, offset, line, decimalX, decimalY int
+    off []point
+}
+
 type Digit struct {
-    values [8]int
-    decimalX int
-    decimalY int
+    name string
+    descriptor *Lcd
+    pos point
+}
+
+type LcdDecoder struct {
+    digits []*Digit
+    lcdMap map[string]*Lcd
 }
 
 // There are 128 possible values in a 7 segment display,
@@ -35,6 +52,7 @@ const (
 )
 
 var resultTable = map[int]string {
+     X   |  X   |  X   |  X   |  X   |  X   |  X   : " ",
     s_tl | s_t  | s_tr | s_br | s_b  | s_bl |  X   : "0",
      X   |  X   | s_tr | s_br |  X   |  X   |  X   : "1",
      X   | s_t  | s_tr |  X   | s_b  | s_bl | s_m  : "2",
@@ -47,52 +65,75 @@ var resultTable = map[int]string {
     s_tl | s_t  | s_tr | s_br | s_b  |  X   | s_m  : "9",
 }
 
-func ConfigDigits(conf config.Config) ([]Digit, error) {
-    digits := []Digit{}
-    var decimalX, decimalY int
-    tok, ok := conf.GetTokens("decimal")
-    if ok {
-        if len(tok) != 2 {
-            return nil, fmt.Errorf("Bad config for 'decimal'")
-        }
-        x, err := strconv.ParseInt(tok[0], 10, 32)
-        if err != nil {
-            return nil, fmt.Errorf("Bad X value for 'decimal'")
-        }
-        y, err := strconv.ParseInt(tok[1], 10, 32)
-        if err != nil {
-            return nil, fmt.Errorf("Bad Y value for 'decimal'")
-        }
-        decimalX = int(x)
-        decimalY = int(y)
-    } else {
-        fmt.Printf("Warning - no decimal offset\n")
-    }
-    for i := 1; true; i++{
-        digit := Digit{}
-        digName := fmt.Sprintf("digit%d", i)
-        tok, ok := conf.GetTokens(digName)
-        if !ok {
-            break
-        }
-        if len(tok) != 8 {
-            return nil, fmt.Errorf("Bad config for %s", digName)
-        }
-        for j, t := range tok {
-            if v, err := strconv.ParseInt(t, 10, 32); err != nil {
-                return nil, fmt.Errorf("Bad config for %s", digName)
-            } else {
-                digit.values[j] = int(v)
-            }
-        }
-        digit.decimalX = int(decimalX)
-        digit.decimalY = int(decimalY)
-        digits = append(digits, digit)
-        // Validate ranges.
-    }
-    return digits, nil
+func NewLcdDecoder() *LcdDecoder {
+   return &LcdDecoder{[]*Digit{}, map[string]*Lcd{}}
 }
 
-func Decode(digits []Digit, img image.Image) ([]string, []bool) {
-    return []string{}, []bool{}
+func (l *LcdDecoder) Config(conf *config.Config) error {
+    for _, c := range conf.Entries {
+        if strings.HasPrefix(c.Keyword, "lcd") {
+            if _, ok := l.lcdMap[c.Keyword]; ok {
+                return fmt.Errorf("Duplicate LCD entry: %s", c.Keyword)
+            }
+            v := readInts(c.Tokens)
+            if len(v) == 4 || len(v) == 6 {
+                lcd := &Lcd{name:c.Keyword, w:v[0], h:v[1], offset:v[2], line:v[3]}
+                if len(v) == 6 {
+                    lcd.decimalX = v[4]
+                    lcd.decimalY = v[5]
+                }
+                for i := 1; i < 3; i++ {
+                    fmt.Printf("off = %d %d\n", lcd.w/2, (lcd.h / 3) * i)
+                    lcd.off = append(lcd.off, point{lcd.w/2, (lcd.h / 3) * i})
+                }
+                l.lcdMap[c.Keyword] = lcd
+            } else {
+                return fmt.Errorf("Bad config for LCD '%s'", c.Keyword)
+            }
+        } else if strings.HasPrefix(c.Keyword, "digit") {
+            if len(c.Tokens) != 3 {
+                return fmt.Errorf("Bad digit config for %s", c.Keyword)
+            }
+            lcd, ok := l.lcdMap[c.Tokens[0]]
+            if !ok {
+                return fmt.Errorf("Missing LCD %s for digit %s", c.Tokens[0], c.Keyword)
+            }
+            v := readInts(c.Tokens[1:])
+            if len(v) != 2 {
+                return fmt.Errorf("Bad config for digit %s", c.Keyword)
+            }
+            l.digits = append(l.digits, &Digit{c.Keyword, lcd, point{v[0], v[1]}})
+        }
+    }
+    return nil
+}
+
+func (l *LcdDecoder) Decode(img *image.Gray) ([]string, []bool) {
+    strs := []string{}
+    ok := []bool{}
+    for i, d := range l.digits {
+        lcd := d.descriptor
+        var off int
+        // Find off point.
+        for _, o := range lcd.off {
+            g := int(img.GrayAt(d.pos.x + o.x, d.pos.y + o.y).Y)
+            off += g
+            fmt.Printf("digit %d: x = %d, y = %d, val=%d\n", i, d.pos.x + o.x, d.pos.y + o.y, g)
+        }
+        off = off / len(lcd.off)
+        fmt.Printf("off avg for digit %d = %d\n", i, off)
+    }
+    return strs, ok
+}
+
+func readInts(strs []string) []int {
+    vals := []int{}
+    for _, s := range strs {
+        if v, err := strconv.ParseInt(s, 10, 32); err != nil {
+            break
+        } else {
+            vals = append(vals, int(v))
+        }
+    }
+    return vals
 }
