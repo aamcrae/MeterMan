@@ -1,21 +1,24 @@
 package main
 
-import "flag"
-import "fmt"
-import "image/jpeg"
-import "log"
-import "os"
-import "time"
+import (
+    "flag"
+    "fmt"
+    "github.com/aamcrae/MeterMan"
+    "image/jpeg"
+    "log"
+    "os"
+    "time"
+)
 
 var device = flag.String("input", "/dev/video0", "Input video device")
 
 func main() {
-    cam, err := OpenCamera(*device)
+    cam, err := meterman.OpenCamera(*device)
     if err != nil {
         log.Fatalf("%s: %v", *device, err)
     }
 	defer cam.Close()
-    if err := cam.Init(YUYV, "800x600"); err != nil {
+    if err := cam.Init(meterman.YUYV, "800x600"); err != nil {
 		log.Fatalf("Init failed: %v", err)
     }
     for i := 0; i < 5; i++ {

@@ -1,7 +1,7 @@
-package main
+package meterman
 
 import (
-    "github.com/blackjack/webcam"
+    "github.com/aamcrae/webcam"
     "fmt"
     "image"
     "image/color"
@@ -50,11 +50,11 @@ func (c *Camera) Init(format Format, resolution string) error {
     // Translate the requested
     desc, ok := formatMap[format]
     if !ok {
-        return fmt.Errorf("Unknown format: %s", format)
+        return fmt.Errorf("Unknown format: %d", format)
     }
 	f, ok := descToFormat[desc]
     if !ok {
-        return fmt.Errorf("Camera does not support this format: %s", format)
+        return fmt.Errorf("Camera does not support this format: %d", format)
     }
 
     // Build a map of resolution names from the description.
