@@ -21,7 +21,8 @@ func main() {
     if err := cam.Init(meterman.YUYV, "800x600"); err != nil {
 		log.Fatalf("Init failed: %v", err)
     }
-    for i := 0; i < 5; i++ {
+    i := 0
+    for  {
         frame, err := cam.GetFrame()
         if err != nil {
             log.Fatalf("Getframe: %v", err)
@@ -39,5 +40,6 @@ func main() {
         }
         of.Close()
         time.Sleep(time.Second)
+        i++
 	}
 }
