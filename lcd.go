@@ -2,7 +2,6 @@ package meterman
 
 import (
     "github.com/aamcrae/config"
-    "flag"
     "fmt"
     "image"
     "image/color"
@@ -10,11 +9,8 @@ import (
     "strings"
 )
 
-var threshold = flag.Int("threshold", 20, "On/Off threshold percent")
-
-//func init() {
-//flag.Parse()
-//}
+// Default threshold
+const defaultThreshold = 20
 
 type point struct {
     x int
@@ -40,6 +36,7 @@ type Digit struct {
 type LcdDecoder struct {
     digits []*Digit
     lcdMap map[string]*Lcd
+    threshold int
 }
 
 // There are 128 possible values in a 7 segment display,
@@ -78,7 +75,7 @@ var resultTable = map[int]string {
 }
 
 func NewLcdDecoder() *LcdDecoder {
-   return &LcdDecoder{[]*Digit{}, map[string]*Lcd{}}
+   return &LcdDecoder{[]*Digit{}, map[string]*Lcd{}, defaultThreshold}
 }
 
 func (l *LcdDecoder) Config(conf *config.Config) error {
@@ -137,6 +134,11 @@ func (l *LcdDecoder) Config(conf *config.Config) error {
             l.digits = append(l.digits, &Digit{c.Keyword, lcd, point{v[0], v[1]}})
         }
     }
+    t, _ := conf.GetTokens("threshold")
+    v := readInts(t)
+    if len(v) == 1 {
+        l.threshold = v[0]
+    }
     return nil
 }
 
@@ -148,7 +150,7 @@ func (l *LcdDecoder) Decode(img *image.Gray) ([]string, []bool) {
         // Find off point.
         off := takeSample(img, d, lcd.off)
         // Considered on if darker by a set threshold.
-        on := off - ((off * *threshold) / 100)
+        on := off - ((off * l.threshold) / 100)
         var decimal bool = false
         if len(lcd.decimal) != 0 && on >= takeSample(img, d, lcd.decimal) {
             decimal = true
