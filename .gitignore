@@ -6,6 +6,7 @@
 MeterMan
 sample/sample
 sample/output.jpg
+grab/grab
 
 # Test binary, build with `go test -c`
 *.test
