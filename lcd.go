@@ -2,26 +2,38 @@ package meterman
 
 import (
     "github.com/aamcrae/config"
+    "flag"
     "fmt"
     "image"
+    "image/color"
     "strconv"
     "strings"
 )
+
+var threshold = flag.Int("threshold", 20, "On/Off threshold percent")
+
+//func init() {
+//flag.Parse()
+//}
 
 type point struct {
     x int
     y int
 }
 
+type sample []point
+
 type Lcd struct {
     name string
-    w, h, offset, line, decimalX, decimalY int
-    off []point
+    w, h, offset, line int 
+    off sample
+    decimal sample
+    segments []sample
 }
 
 type Digit struct {
     name string
-    descriptor *Lcd
+    lcd *Lcd
     pos point
 }
 
@@ -78,14 +90,34 @@ func (l *LcdDecoder) Config(conf *config.Config) error {
             v := readInts(c.Tokens)
             if len(v) == 4 || len(v) == 6 {
                 lcd := &Lcd{name:c.Keyword, w:v[0], h:v[1], offset:v[2], line:v[3]}
+                // Initialise the sample lists
+                cl := lcd.line/2
+                w := lcd.w
+                h := lcd.h
+                o := lcd.offset
                 if len(v) == 6 {
-                    lcd.decimalX = v[4]
-                    lcd.decimalY = v[5]
+                    lcd.decimal = makeSamples(w + v[4], h + v[5], w + v[4], h + v[5], 1)
                 }
-                for i := 1; i < 3; i++ {
-                    fmt.Printf("off = %d %d\n", lcd.w/2, (lcd.h / 3) * i)
-                    lcd.off = append(lcd.off, point{lcd.w/2, (lcd.h / 3) * i})
-                }
+                // Make 3 samples, and drop the middle one.
+                lcd.off = makeSamples(w/2, 0, w/2 + o, h, 3)
+                lcd.off = sample{lcd.off[0], lcd.off[2]}
+                lcd.segments = make([]sample, 7)
+                // The assignments must match the bit allocation in
+                // the lookup table.
+                // Top left
+                lcd.segments[0] = makeSamples(cl, 0, cl + o/2, h/2, 2)
+                // Top
+                lcd.segments[1] = makeSamples(0, cl, w, cl, 2)
+                // Top right
+                lcd.segments[2] = makeSamples(w - cl, 0, w + o/2 - cl, h/2, 2)
+                // Bottom right
+                lcd.segments[3] = makeSamples(w + o/2 - cl, h/2, w + o - cl, h, 2)
+                // Bottom
+                lcd.segments[4] = makeSamples(o, h - cl, w + o - cl, h - cl, 2)
+                // Bottom left
+                lcd.segments[5] = makeSamples(o/2 + cl, h/2, o + cl, h, 2)
+                // Middle
+                lcd.segments[6] = makeSamples(o/2, h/2, w + o/2, h/2, 2)
                 l.lcdMap[c.Keyword] = lcd
             } else {
                 return fmt.Errorf("Bad config for LCD '%s'", c.Keyword)
@@ -111,19 +143,52 @@ func (l *LcdDecoder) Config(conf *config.Config) error {
 func (l *LcdDecoder) Decode(img *image.Gray) ([]string, []bool) {
     strs := []string{}
     ok := []bool{}
-    for i, d := range l.digits {
-        lcd := d.descriptor
-        var off int
+    for _, d := range l.digits {
+        lcd := d.lcd
         // Find off point.
-        for _, o := range lcd.off {
-            g := int(img.GrayAt(d.pos.x + o.x, d.pos.y + o.y).Y)
-            off += g
-            fmt.Printf("digit %d: x = %d, y = %d, val=%d\n", i, d.pos.x + o.x, d.pos.y + o.y, g)
+        off := takeSample(img, d, lcd.off)
+        // Considered on if darker by a set threshold.
+        on := off - ((off * *threshold) / 100)
+        var decimal bool = false
+        if len(lcd.decimal) != 0 && on >= takeSample(img, d, lcd.decimal) {
+            decimal = true
         }
-        off = off / len(lcd.off)
-        fmt.Printf("off avg for digit %d = %d\n", i, off)
+        lookup := 0
+        for seg, s := range lcd.segments {
+            pixel := takeSample(img, d, s)
+            if on >= pixel {
+                lookup |= 1 << uint(seg)
+            }
+        }
+        result, found := resultTable[lookup]
+        if decimal {
+            result = result + "."
+        }
+        strs = append(strs, result)
+        ok = append(ok, found)
     }
     return strs, ok
+}
+
+// Make a slice of samples between the two points.
+func makeSamples(sx, sy, ex, ey, count int) []point {
+    lx := ex - sx
+    ly := ey - sy
+    div := count + 1
+    p := make([]point, count)
+    for i := 1; i <= count; i++ {
+        p[i-1] = point{sx + lx * i / div, sy + ly * i / div}
+    }
+    return p
+}
+
+// Return an average of the sampled points.
+func takeSample(img *image.Gray, d *Digit, slist sample) int {
+    var g int
+    for _, s := range slist {
+        g += int(img.GrayAt(d.pos.x + s.x, d.pos.y + s.y).Y)
+    }
+    return g / len(slist)
 }
 
 func readInts(strs []string) []int {
@@ -136,4 +201,40 @@ func readInts(strs []string) []int {
         }
     }
     return vals
+}
+
+// Mark the samples with a red cross.
+func (l *LcdDecoder) MarkSamples(img *image.RGBA) {
+    red := color.RGBA{255, 0, 0, 255}
+    green := color.RGBA{0, 255, 0, 255}
+    for _, d := range l.digits {
+        lcd := d.lcd
+        drawCross(img, d, lcd.off, green)
+        if len(lcd.decimal) != 0 {
+            drawCross(img, d, lcd.decimal, red)
+        }
+        for _, s := range lcd.segments {
+            drawCross(img, d, s, red)
+        }
+    }
+}
+
+func drawCross(img *image.RGBA, d *Digit, s sample, c color.Color) {
+    for _, p := range s {
+        x := d.pos.x + p.x
+        y := d.pos.y + p.y
+        img.Set(x, y, c)
+        for i := 1; i < 4; i++ {
+            img.Set(x - i, y, c)
+            img.Set(x + i, y, c)
+            img.Set(x, y - i, c)
+            img.Set(x, y + i, c)
+        }
+    }
+}
+
+func printSamples(s []point) {
+    for _, p := range s {
+        fmt.Printf("x = %d, y = %d\n", p.x, p.y)
+    }
 }

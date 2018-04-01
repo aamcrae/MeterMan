@@ -43,5 +43,14 @@ func runTest(t *testing.T, name string, result string) {
             gi.Set(x, y, img.At(x, y))
         }
     }
-    _, _ = lcd.Decode(gi)
+    exp := []string{"1", "2", "3", "4", "5", "6", "7", "8."}
+    str, found := lcd.Decode(gi)
+    for i, s := range str {
+        if !found[i] {
+            t.Fatalf("Digit %d, result not found", i)
+        }
+        if s != exp[i] {
+            t.Fatalf("Digit %d, exp '%s', got %s", i, exp[i], s)
+        }
+    }
 }
