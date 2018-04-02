@@ -12,7 +12,7 @@ import (
 
 var device = flag.String("input", "/dev/video0", "Input video device")
 var resolution = flag.String("resolution", "800x600", "Selected resolution of camera")
-var format = flag.String("format", "YUYV 4:2:2", "Pixel format of camera")
+var format = flag.String("format", "YUYV 4:2:2", "Selected pixel format of camera")
 var query = flag.Bool("query", false, "Display pixel formats and resolution")
 var delay = flag.Float64("delay", 1.0, "Delay in seconds between grabs")
 
