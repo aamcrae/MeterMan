@@ -43,7 +43,7 @@ func (c *Camera) Init(format string, resolution string) error {
         return fmt.Errorf("Camera does not support this format: %s", format)
     }
     var err error
-    if c.newFrame, err = Framer(format); err != nil {
+    if c.newFrame, err = GetFramer(format); err != nil {
         return err
     }
 

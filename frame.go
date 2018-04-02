@@ -24,13 +24,15 @@ var frameHandlers = map[string]func(int, int, []byte, func()) (Frame, error) {
     "YUYV 4:2:2": newFrameYUYV422,
 }
 
-func Framer(format string) (func(int, int, []byte, func()) (Frame, error), error) {
+// Return a function that wraps the frame for this format.
+func GetFramer(format string) (func(int, int, []byte, func()) (Frame, error), error) {
     if f, ok := frameHandlers[format]; ok {
         return f, nil
     }
     return nil, fmt.Errorf("No handler for format '%s'", format)
 }
 
+// Wrap a raw frame in a Frame so that it can be used as an image.
 func newFrameYUYV422(x int, y int, f []byte, rel func()) (Frame, error) {
     expLen := 2 * x * y
     if len(f) != expLen {
@@ -60,6 +62,7 @@ func (f *FrameYUYV422) At(x, y int) color.Color {
     }
 }
 
+// Done with frame, release back to camera (if required)
 func (f* FrameYUYV422) Release() {
     if f.release != nil {
         f.release()
@@ -67,7 +70,7 @@ func (f* FrameYUYV422) Release() {
 }
 
 
-// Convert frame buffer to RGBA image.
+// Convert frame to RGBA image.
 func (f *FrameYUYV422) ConvertToRGBA() *image.RGBA {
     img := image.NewRGBA(f.b)
     h := f.b.Max.Y
@@ -83,7 +86,7 @@ func (f *FrameYUYV422) ConvertToRGBA() *image.RGBA {
     return img
 }
 
-// Convert frame buffer to Grayscale image.
+// Convert frame to Grayscale image.
 func (f *FrameYUYV422) ConvertToGray() *image.Gray {
     img := image.NewGray(f.b)
     h := f.b.Max.Y
