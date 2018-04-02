@@ -3,8 +3,6 @@ package meterman
 import (
     "github.com/aamcrae/webcam"
     "fmt"
-    "image"
-    "image/color"
 )
 
 type Camera struct {
@@ -13,6 +11,7 @@ type Camera struct {
     Height int
     Format string
     Timeout uint32
+    newFrame func(int, int, []byte, func()) (Frame, error)
 }
 
 func OpenCamera(name string) (*Camera, error) {
@@ -43,6 +42,10 @@ func (c *Camera) Init(format string, resolution string) error {
     if !found {
         return fmt.Errorf("Camera does not support this format: %s", format)
     }
+    var err error
+    if c.newFrame, err = Framer(format); err != nil {
+        return err
+    }
 
     // Build a map of resolution names from the description.
     sizeMap := make(map[string]webcam.FrameSize)
@@ -70,7 +73,7 @@ func (c *Camera) Init(format string, resolution string) error {
 	return c.cam.StartStreaming()
 }
 
-func (c *Camera) GetFrame() ([]byte, error) {
+func (c *Camera) GetFrame() (Frame, error) {
     for {
 	    err := c.cam.WaitForFrame(c.Timeout)
 
@@ -86,12 +89,10 @@ func (c *Camera) GetFrame() ([]byte, error) {
         if err != nil {
             return nil, err
         }
-        defer c.cam.ReleaseFrame(index)
-        expLen := 2 * c.Width * c.Height
-	    if len(frame) != expLen {
-            return nil, fmt.Errorf("Wrong frame length (exp: %d, read %d)", expLen, len(frame))
+        rel := func() {
+            c.cam.ReleaseFrame(index)
         }
-        return frame, nil
+        return c.newFrame(c.Width, c.Height, frame, rel)
     }
 }
 
@@ -109,30 +110,4 @@ func (c *Camera) Query() map[string][]string {
         m[fs] = r
     }
     return m
-}
-
-// Convert frame buffer to RGBA image.
-func (c *Camera) ConvertRGBA(frame []byte) *image.RGBA {
-    img := image.NewRGBA(image.Rect(0, 0, c.Width, c.Height))
-    for y := 0; y < c.Height; y++ {
-        for x := 0; x < c.Width; x += 2 {
-            pix := frame[c.Width * y * 2 + x * 2:]
-            img.Set(x, y, color.YCbCr{pix[0], pix[1], pix[3]})
-            img.Set(x + 1, y, color.YCbCr{pix[2], pix[1], pix[3]})
-        }
-    }
-    return img
-}
-
-// Convert frame buffer to Grayscale image.
-func (c *Camera) ConvertGray(frame []byte) *image.Gray {
-    img := image.NewGray(image.Rect(0, 0, c.Width, c.Height))
-    for y := 0; y < c.Height; y++ {
-        for x := 0; x < c.Width; x += 2 {
-            pix := frame[c.Width * y * 2 + x * 2:]
-            img.Set(x, y, color.Gray16Model.Convert(color.YCbCr{pix[0], pix[1], pix[3]}))
-            img.Set(x + 1, y, color.Gray16Model.Convert(color.YCbCr{pix[2], pix[1], pix[3]}))
-        }
-    }
-    return img
 }

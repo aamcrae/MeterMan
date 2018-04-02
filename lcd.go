@@ -158,7 +158,7 @@ func (l *LcdDecoder) Config(conf *config.Config) error {
     return nil
 }
 
-func (l *LcdDecoder) Decode(img *image.Gray) ([]string, []bool) {
+func (l *LcdDecoder) Decode(img image.Image) ([]string, []bool) {
     strs := []string{}
     ok := []bool{}
     for _, d := range l.digits {
@@ -232,10 +232,11 @@ func shrink(bb []point, s int) ([]point) {
 }
 
 // Return an average of the sampled points.
-func takeSample(img *image.Gray, d *Digit, slist sample) int {
+func takeSample(img image.Image, d *Digit, slist sample) int {
     var g int
     for _, s := range slist {
-        g += int(img.GrayAt(d.pos.x + s.x, d.pos.y + s.y).Y)
+        pix := color.Gray16Model.Convert(img.At(d.pos.x + s.x, d.pos.y + s.y)).(color.Gray16)
+        g += int(pix.Y)
     }
     return g / len(slist)
 }

@@ -1,0 +1,99 @@
+package meterman
+
+import (
+    "fmt"
+    "image"
+    "image/color"
+)
+
+type Frame interface {
+    image.Image
+    ConvertToRGBA() *image.RGBA
+    ConvertToGray() *image.Gray
+}
+
+type FrameYUYV422 struct {
+    model color.Model
+    b image.Rectangle
+    frame []byte
+    release func()
+}
+
+var frameHandlers = map[string]func(int, int, []byte, func()) (Frame, error) {
+    "YUYV 4:2:2": newFrameYUYV422,
+}
+
+func Framer(format string) (func(int, int, []byte, func()) (Frame, error), error) {
+    if f, ok := frameHandlers[format]; ok {
+        return f, nil
+    }
+    return nil, fmt.Errorf("No handler for format '%s'", format)
+}
+
+func newFrameYUYV422(x int, y int, f []byte, rel func()) (Frame, error) {
+    expLen := 2 * x * y
+    if len(f) != expLen {
+        if rel != nil {
+            defer rel()
+        }
+        return nil, fmt.Errorf("Wrong frame length (exp: %d, read %d)", expLen, len(f))
+    }
+    fr := &FrameYUYV422{model: color.YCbCrModel, b:image.Rect(0, 0, x, y), frame:f, release:rel}
+    return fr, nil
+}
+
+func (f *FrameYUYV422) ColorModel() color.Model {
+    return f.model
+}
+
+func (f *FrameYUYV422) Bounds() image.Rectangle {
+    return f.b
+}
+
+func (f *FrameYUYV422) At(x, y int) color.Color {
+    index := f.b.Max.X * y * 2 + (x &^ 1) * 2
+    if x & 1 == 0 {
+        return color.YCbCr{f.frame[index], f.frame[index + 1], f.frame[index + 3]}
+    } else {
+        return color.YCbCr{f.frame[index + 2], f.frame[index + 1], f.frame[index + 3]}
+    }
+}
+
+func (f* FrameYUYV422) Release() {
+    if f.release != nil {
+        f.release()
+    }
+}
+
+
+// Convert frame buffer to RGBA image.
+func (f *FrameYUYV422) ConvertToRGBA() *image.RGBA {
+    img := image.NewRGBA(f.b)
+    h := f.b.Max.Y
+    w := f.b.Max.Y
+    for y := 0; y < h; y++ {
+        stride := w * y * 2
+        for x := 0; x < w; x += 2 {
+            pix := f.frame[stride + x * 2:]
+            img.Set(x, y, color.YCbCr{pix[0], pix[1], pix[3]})
+            img.Set(x + 1, y, color.YCbCr{pix[2], pix[1], pix[3]})
+        }
+    }
+    return img
+}
+
+// Convert frame buffer to Grayscale image.
+func (f *FrameYUYV422) ConvertToGray() *image.Gray {
+    img := image.NewGray(f.b)
+    h := f.b.Max.Y
+    w := f.b.Max.Y
+    for y := 0; y < h; y++ {
+        stride := w * y * 2
+        for x := 0; x < w; x += 2 {
+            pix := f.frame[stride + x * 2:]
+            img.Set(x, y, color.Gray16Model.Convert(color.YCbCr{pix[0], pix[1], pix[3]}))
+            img.Set(x + 1, y, color.Gray16Model.Convert(color.YCbCr{pix[2], pix[1], pix[3]}))
+        }
+    }
+    return img
+}

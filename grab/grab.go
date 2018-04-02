@@ -47,17 +47,17 @@ func main() {
         if err != nil {
             log.Fatalf("Getframe: %v", err)
         }
-        img := cam.ConvertRGBA(frame)
         fname := fmt.Sprintf("i%04d.jpg", i)
         of, err := os.Create(fname)
         if err != nil {
 		     log.Fatalf("Failed to create %s: %v", fname, err)
         }
-        if err := jpeg.Encode(of, img, nil); err != nil {
+        if err := jpeg.Encode(of, frame, nil); err != nil {
             fmt.Printf("Error writing %s: %v\n", fname, err)
         } else {
             fmt.Printf("Wrote %s successfully\n", fname)
         }
+        frame.Release()
         of.Close()
         time.Sleep(sleep)
         i++
