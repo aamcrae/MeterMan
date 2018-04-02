@@ -80,8 +80,11 @@ var resultTable = map[int]string {
     s_tl | s_t  |  X   | s_br | s_b  |  X   | s_m  : "5",
     s_tl | s_t  |  X   | s_br | s_b  | s_bl | s_m  : "6",
     s_tl | s_t  | s_tr | s_br |  X   |  X   |  X   : "7",
+     X   | s_t  | s_tr | s_br |  X   |  X   |  X   : "7",
     s_tl | s_t  | s_tr | s_br | s_b  | s_bl | s_m  : "8",
     s_tl | s_t  | s_tr | s_br | s_b  |  X   | s_m  : "9",
+    s_tl |  X   |  X   |  X   | s_b  | s_bl | s_m  : "t",
+     X   |  X   |  X   | s_br | s_b  | s_bl | s_m  : "o",
 }
 
 func NewLcdDecoder() *LcdDecoder {
@@ -172,13 +175,18 @@ func (l *LcdDecoder) Decode(img image.Image) ([]string, []bool) {
             decimal = true
         }
         lookup := 0
+        p := make([]int, len(lcd.segments))
         for seg, s := range lcd.segments {
             pixel := takeSample(img, d, s)
             if on >= pixel {
                 lookup |= 1 << uint(seg)
             }
+            p[seg] = pixel
         }
         result, found := resultTable[lookup]
+        if !found {
+            fmt.Printf("Element not found, on = %d, off = %d, pixels: %v\n", on, off, p)
+        }
         if decimal {
             result = result + "."
         }

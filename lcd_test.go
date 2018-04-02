@@ -19,6 +19,7 @@ func TestImg1(t *testing.T) {
     runTest(t, "test3", "12345678.")
     runTest(t, "test4", "12345678.")
     runTest(t, "lcd6", "123.456")
+    runTest(t, "meter", "tot008765.4")
 }
 
 func runTest(t *testing.T, name string, result string) {
