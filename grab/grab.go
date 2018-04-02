@@ -11,6 +11,7 @@ import (
 )
 
 var device = flag.String("input", "/dev/video0", "Input video device")
+var resolution = flag.String("resolution", "800x600", "Selected resolution of camera")
 
 func main() {
     cam, err := meterman.OpenCamera(*device)
@@ -18,7 +19,7 @@ func main() {
         log.Fatalf("%s: %v", *device, err)
     }
 	defer cam.Close()
-    if err := cam.Init(meterman.YUYV, "800x600"); err != nil {
+    if err := cam.Init(meterman.YUYV, *resolution); err != nil {
 		log.Fatalf("Init failed: %v", err)
     }
     i := 0
