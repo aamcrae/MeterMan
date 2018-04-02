@@ -3,19 +3,22 @@ package meterman_test
 import (
     "testing"
 
+    "fmt"
     "github.com/aamcrae/config"
     "github.com/aamcrae/MeterMan"
     "image"
     "image/jpeg"
     "os"
     "path/filepath"
+    "strings"
 )
 
 func TestImg1(t *testing.T) {
-    runTest(t, "test1", "12345678")
-    runTest(t, "test2", "12345678")
-    runTest(t, "test3", "12345678")
-    runTest(t, "test4", "12345678")
+    runTest(t, "test1", "12345678.")
+    runTest(t, "test2", "12345678.")
+    runTest(t, "test3", "12345678.")
+    runTest(t, "test4", "12345678.")
+    runTest(t, "lcd6", "123.456")
 }
 
 func runTest(t *testing.T, name string, result string) {
@@ -46,14 +49,14 @@ func runTest(t *testing.T, name string, result string) {
             gi.Set(x, y, img.At(x, y))
         }
     }
-    exp := []string{"1", "2", "3", "4", "5", "6", "7", "8."}
     str, found := lcd.Decode(gi)
-    for i, s := range str {
-        if !found[i] {
-            t.Fatalf("For %s Digit %d, result not found", name, i)
+    got := strings.Join(str, "")
+    if got != result {
+        for i, f := range found {
+            if !f {
+                fmt.Printf("Element %d not found\n", i)
+            }
         }
-        if s != exp[i] {
-            t.Fatalf("For %s Digit %d, exp '%s', got %s", name, i, exp[i], s)
-        }
+        t.Fatalf("For test %s, expected %s, found %s", name, result, got)
     }
 }
