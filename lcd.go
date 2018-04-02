@@ -209,8 +209,11 @@ func readInts(strs []string) []int {
 func (l *LcdDecoder) MarkSamples(img *image.RGBA) {
     red := color.RGBA{255, 0, 0, 255}
     green := color.RGBA{0, 255, 0, 255}
+    blue := color.RGBA{0, 0, 255, 255}
+    basepoint := []point{point{0, 0}}
     for _, d := range l.digits {
         lcd := d.lcd
+        drawCross(img, d, basepoint, blue)
         drawCross(img, d, lcd.off, green)
         if len(lcd.decimal) != 0 {
             drawCross(img, d, lcd.decimal, red)
