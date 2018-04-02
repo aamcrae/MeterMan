@@ -13,6 +13,9 @@ import (
 
 func TestImg1(t *testing.T) {
     runTest(t, "test1", "12345678")
+    runTest(t, "test2", "12345678")
+    runTest(t, "test3", "12345678")
+    runTest(t, "test4", "12345678")
 }
 
 func runTest(t *testing.T, name string, result string) {
@@ -25,7 +28,7 @@ func runTest(t *testing.T, name string, result string) {
     lcd := meterman.NewLcdDecoder()
     err = lcd.Config(conf)
     if err != nil {
-        t.Fatalf("LCD config failed %v", err)
+        t.Fatalf("LCD config for %s failed %v", cname, err)
     }
     ifile, err := os.Open(filepath.Join("testdata", imagename))
     if err != nil {
@@ -47,10 +50,10 @@ func runTest(t *testing.T, name string, result string) {
     str, found := lcd.Decode(gi)
     for i, s := range str {
         if !found[i] {
-            t.Fatalf("Digit %d, result not found", i)
+            t.Fatalf("For %s Digit %d, result not found", name, i)
         }
         if s != exp[i] {
-            t.Fatalf("Digit %d, exp '%s', got %s", i, exp[i], s)
+            t.Fatalf("For %s Digit %d, exp '%s', got %s", name, i, exp[i], s)
         }
     }
 }

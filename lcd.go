@@ -12,6 +12,14 @@ import (
 // Default threshold
 const defaultThreshold = 20
 
+// Corners.
+const (
+    TL = 0
+    TR = 1
+    BR = 2
+    BL = 3
+)
+
 type point struct {
     x int
     y int
@@ -21,7 +29,9 @@ type sample []point
 
 type Lcd struct {
     name string
-    w, h, offset, line int 
+    bb []point
+    scaled []point
+    line int
     off sample
     decimal sample
     segments []sample
@@ -85,36 +95,42 @@ func (l *LcdDecoder) Config(conf *config.Config) error {
                 return fmt.Errorf("Duplicate LCD entry: %s", c.Keyword)
             }
             v := readInts(c.Tokens)
-            if len(v) == 4 || len(v) == 6 {
-                lcd := &Lcd{name:c.Keyword, w:v[0], h:v[1], offset:v[2], line:v[3]}
+            if len(v) == 7 || len(v) == 9 {
+                lcd := &Lcd{name:c.Keyword, bb:[]point{point{0,0}, point{v[0],v[1]}, point{v[2],v[3]}, point{v[4],v[5]}}, line:v[6]}
                 // Initialise the sample lists
-                cl := lcd.line/2
-                w := lcd.w
-                h := lcd.h
-                o := lcd.offset
-                if len(v) == 6 {
-                    lcd.decimal = makeSamples(w + v[4], h + v[5], w + v[4], h + v[5], 1)
+                if len(v) == 9 {
+                    lcd.decimal = []point{{lcd.bb[BR].x + v[7], lcd.bb[BR].y + v[8]}}
                 }
-                // Make 3 samples, and drop the middle one.
-                lcd.off = makeSamples(w/2, 0, w/2 + o, h, 3)
+                // A line width is specified, so shrink the bounding box by 1/2 the line width
+                lcd.scaled = shrink(lcd.bb, lcd.line/2)
+                tl := lcd.scaled[TL]
+                tr := lcd.scaled[TR]
+                br := lcd.scaled[BR]
+                bl := lcd.scaled[BL]
+                // Middle points.
+                mr := split(tr, br, 2)[0]
+                ml := split(tl, bl, 2)[0]
+                // For sampling the 'off' value, sample the middle of each of the 2 halves by
+                // Taking 3 samples through the axis and dropping the middle one.
+                lcd.off = split(split(tl, tr, 2)[0], split(bl, br, 2)[0], 4)
                 lcd.off = sample{lcd.off[0], lcd.off[2]}
                 lcd.segments = make([]sample, 7)
                 // The assignments must match the bit allocation in
                 // the lookup table.
                 // Top left
-                lcd.segments[0] = makeSamples(cl, 0, cl + o/2, h/2, 2)
+                lcd.segments[0] = split(ml, tl, 3)
                 // Top
-                lcd.segments[1] = makeSamples(0, cl, w, cl, 2)
+                lcd.segments[1] = split(tl, tr, 3)
                 // Top right
-                lcd.segments[2] = makeSamples(w - cl, 0, w + o/2 - cl, h/2, 2)
+                lcd.segments[2] = split(tr, mr, 3)
                 // Bottom right
-                lcd.segments[3] = makeSamples(w + o/2 - cl, h/2, w + o - cl, h, 2)
+                lcd.segments[3] = split(mr, br, 3)
                 // Bottom
-                lcd.segments[4] = makeSamples(o, h - cl, w + o - cl, h - cl, 2)
+                lcd.segments[4] = split(br, bl, 3)
                 // Bottom left
-                lcd.segments[5] = makeSamples(o/2 + cl, h/2, o + cl, h, 2)
+                lcd.segments[5] = split(bl, ml, 3)
                 // Middle
-                lcd.segments[6] = makeSamples(o/2, h/2, w + o/2, h/2, 2)
+                lcd.segments[6] = split(ml, mr, 3)
                 l.lcdMap[c.Keyword] = lcd
             } else {
                 return fmt.Errorf("Bad config for LCD '%s'", c.Keyword)
@@ -172,16 +188,47 @@ func (l *LcdDecoder) Decode(img *image.Gray) ([]string, []bool) {
     return strs, ok
 }
 
-// Make a slice of samples between the two points.
-func makeSamples(sx, sy, ex, ey, count int) []point {
-    lx := ex - sx
-    ly := ey - sy
-    div := count + 1
-    p := make([]point, count)
-    for i := 1; i <= count; i++ {
-        p[i-1] = point{sx + lx * i / div, sy + ly * i / div}
+// Return a slice of points that splits the line into sections.
+func split(start, end point, sections int) []point {
+    lx := end.x - start.x
+    ly := end.y - start.y
+    p := make([]point, sections - 1)
+    for i := 1; i < sections; i++ {
+        p[i-1] = point{start.x + lx * i / sections, start.y + ly * i / sections}
     }
     return p
+}
+
+// Shrink the bounding box by the selected size.
+func shrink(bb []point, s int) ([]point) {
+    if s == 0 {
+        return bb
+    }
+    tl := bb[TL]
+    br := bb[BR]
+    nb := make([]point, 4)
+    if tl.x < br.x && tl.y < br.y {
+        nb[TL] = point{bb[TL].x + s, bb[TL].y + s}
+        nb[TR] = point{bb[TR].x - s, bb[TR].y + s}
+        nb[BR] = point{bb[BR].x - s, bb[BR].y - s}
+        nb[BL] = point{bb[BL].x + s, bb[BL].y - s}
+    } else if tl.x > br.x && tl.y < br.y {   // 90 degrees rotated clockwise
+        nb[TL] = point{bb[TL].x - s, bb[TL].y + s}
+        nb[TR] = point{bb[TR].x - s, bb[TR].y - s}
+        nb[BR] = point{bb[BR].x + s, bb[BR].y - s}
+        nb[BL] = point{bb[BL].x + s, bb[BL].y + s}
+    } else if tl.x > br.x && tl.y > br.y {   // 180 degress rotated
+        nb[TL] = point{bb[TL].x - s, bb[TL].y - s}
+        nb[TR] = point{bb[TR].x + s, bb[TR].y - s}
+        nb[BR] = point{bb[BR].x + s, bb[BR].y + s}
+        nb[BL] = point{bb[BL].x - s, bb[BL].y + s}
+    } else {        // 270 degress rotated
+        nb[TL] = point{bb[TL].x + s, bb[TL].y - s}
+        nb[TR] = point{bb[TR].x + s, bb[TR].y + s}
+        nb[BR] = point{bb[BR].x - s, bb[BR].y + s}
+        nb[BL] = point{bb[BL].x - s, bb[BL].y - s}
+    }
+    return nb
 }
 
 // Return an average of the sampled points.
@@ -210,10 +257,11 @@ func (l *LcdDecoder) MarkSamples(img *image.RGBA) {
     red := color.RGBA{255, 0, 0, 255}
     green := color.RGBA{0, 255, 0, 255}
     blue := color.RGBA{0, 0, 255, 255}
-    basepoint := []point{point{0, 0}}
+    white := color.RGBA{255, 255, 255, 255}
     for _, d := range l.digits {
         lcd := d.lcd
-        drawCross(img, d, basepoint, blue)
+        drawCross(img, d, lcd.bb, white)
+        drawCross(img, d, lcd.scaled, blue)
         drawCross(img, d, lcd.off, green)
         if len(lcd.decimal) != 0 {
             drawCross(img, d, lcd.decimal, red)
@@ -229,7 +277,7 @@ func drawCross(img *image.RGBA, d *Digit, s sample, c color.Color) {
         x := d.pos.x + p.x
         y := d.pos.y + p.y
         img.Set(x, y, c)
-        for i := 1; i < 4; i++ {
+        for i := 1; i < 3; i++ {
             img.Set(x - i, y, c)
             img.Set(x + i, y, c)
             img.Set(x, y - i, c)
