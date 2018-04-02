@@ -10,6 +10,7 @@ type Frame interface {
     image.Image
     ConvertToRGBA() *image.RGBA
     ConvertToGray() *image.Gray
+    Release()
 }
 
 type FrameYUYV422 struct {

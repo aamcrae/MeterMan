@@ -36,7 +36,7 @@ func main() {
     }
     defer inf.Close()
     in, err := jpeg.Decode(inf)
-    // Convert image to RGBA
+    // Convert image to RGBA since jpeg images have no Set interface.
     img := image.NewRGBA(in.Bounds())
     b := in.Bounds()
     for y := b.Min.Y; y < b.Max.Y; y++ {
