@@ -15,20 +15,8 @@ type Camera struct {
     Timeout uint32
 }
 
-type Format int
-const (
-    YUYV Format = iota
-    MJPEG
-    maxFormats
-)
-
-var formatMap = map[Format]string {
-    YUYV    : "YUYV 4:2:2",
-    MJPEG   : "Motion-JPEF",
-}
-
 func OpenCamera(name string) (*Camera, error) {
-	c, err := webcam.Open("/dev/video0")
+	c, err := webcam.Open(name)
 	if err != nil {
         return nil, err
 	}
@@ -40,26 +28,25 @@ func (c *Camera) Close() {
     c.cam.Close()
 }
 
-func (c *Camera) Init(format Format, resolution string) error {
+func (c *Camera) Init(format string, resolution string) error {
     // Get the supported formats and their descriptions.
 	format_desc := c.cam.GetSupportedFormats()
-    descToFormat := make(map[string]webcam.PixelFormat)
+    var pixelFormat webcam.PixelFormat
+    var found bool
     for k, v := range format_desc {
-        descToFormat[v] = k
+        if v == format {
+            found = true
+            pixelFormat = k
+            break
+        }
     }
-    // Translate the requested
-    desc, ok := formatMap[format]
-    if !ok {
-        return fmt.Errorf("Unknown format: %d", format)
-    }
-	f, ok := descToFormat[desc]
-    if !ok {
-        return fmt.Errorf("Camera does not support this format: %d", format)
+    if !found {
+        return fmt.Errorf("Camera does not support this format: %s", format)
     }
 
     // Build a map of resolution names from the description.
     sizeMap := make(map[string]webcam.FrameSize)
-    for _, value := range c.cam.GetSupportedFrameSizes(f) {
+    for _, value := range c.cam.GetSupportedFrameSizes(pixelFormat) {
         sizeMap[value.GetString()] = value
     }
 
@@ -68,7 +55,7 @@ func (c *Camera) Init(format Format, resolution string) error {
         return fmt.Errorf("Unsupported resoluton: %s", resolution)
     }
 
-	_, w, h, err := c.cam.SetImageFormat(f, uint32(sz.MaxWidth), uint32(sz.MaxHeight))
+	_, w, h, err := c.cam.SetImageFormat(pixelFormat, uint32(sz.MaxWidth), uint32(sz.MaxHeight))
 
 	if err != nil {
         return err
@@ -106,6 +93,22 @@ func (c *Camera) GetFrame() ([]byte, error) {
         }
         return frame, nil
     }
+}
+
+// Return map of supported formats and resolutions.
+func (c *Camera) Query() map[string][]string {
+    m := map[string][]string{}
+	formats := c.cam.GetSupportedFormats()
+    for f, fs := range formats {
+        r := []string{}
+        for _, value := range c.cam.GetSupportedFrameSizes(f) {
+            if value.StepWidth == 0 && value.StepHeight == 0 {
+                r = append(r, fmt.Sprintf("%dx%d", value.MaxWidth, value.MaxHeight))
+            }
+        }
+        m[fs] = r
+    }
+    return m
 }
 
 // Convert frame buffer to RGBA image.

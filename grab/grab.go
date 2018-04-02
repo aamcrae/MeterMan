@@ -12,6 +12,13 @@ import (
 
 var device = flag.String("input", "/dev/video0", "Input video device")
 var resolution = flag.String("resolution", "800x600", "Selected resolution of camera")
+var format = flag.String("format", "YUYV 4:2:2", "Pixel format of camera")
+var query = flag.Bool("query", false, "Display pixel formats and resolution")
+var delay = flag.Float64("delay", 1.0, "Delay in seconds between grabs")
+
+func init() {
+    flag.Parse()
+}
 
 func main() {
     cam, err := meterman.OpenCamera(*device)
@@ -19,10 +26,22 @@ func main() {
         log.Fatalf("%s: %v", *device, err)
     }
 	defer cam.Close()
-    if err := cam.Init(meterman.YUYV, *resolution); err != nil {
+    if *query {
+        m := cam.Query()
+        fmt.Printf("%s:\n", *device)
+        for k, v := range m {
+            fmt.Printf("    %s:\n", k)
+            for _, r := range v {
+                fmt.Printf("        %s:\n", r)
+            }
+        }
+        return
+    }
+    if err := cam.Init(*format, *resolution); err != nil {
 		log.Fatalf("Init failed: %v", err)
     }
     i := 0
+    sleep := time.Duration(int64(float64(time.Second) * *delay))
     for  {
         frame, err := cam.GetFrame()
         if err != nil {
@@ -37,10 +56,10 @@ func main() {
         if err := jpeg.Encode(of, img, nil); err != nil {
             fmt.Printf("Error writing %s: %v\n", fname, err)
         } else {
-            fmt.Printf("Wrote %s successfull\n", fname)
+            fmt.Printf("Wrote %s successfully\n", fname)
         }
         of.Close()
-        time.Sleep(time.Second)
+        time.Sleep(sleep)
         i++
 	}
 }
