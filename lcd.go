@@ -212,31 +212,25 @@ func shrink(bb []point, s int) ([]point) {
     if s == 0 {
         return bb
     }
-    tl := bb[TL]
-    br := bb[BR]
     nb := make([]point, 4)
-    if tl.x < br.x && tl.y < br.y {
-        nb[TL] = point{bb[TL].x + s, bb[TL].y + s}
-        nb[TR] = point{bb[TR].x - s, bb[TR].y + s}
-        nb[BR] = point{bb[BR].x - s, bb[BR].y - s}
-        nb[BL] = point{bb[BL].x + s, bb[BL].y - s}
-    } else if tl.x > br.x && tl.y < br.y {   // 90 degrees rotated clockwise
-        nb[TL] = point{bb[TL].x - s, bb[TL].y + s}
-        nb[TR] = point{bb[TR].x - s, bb[TR].y - s}
-        nb[BR] = point{bb[BR].x + s, bb[BR].y - s}
-        nb[BL] = point{bb[BL].x + s, bb[BL].y + s}
-    } else if tl.x > br.x && tl.y > br.y {   // 180 degress rotated
-        nb[TL] = point{bb[TL].x - s, bb[TL].y - s}
-        nb[TR] = point{bb[TR].x + s, bb[TR].y - s}
-        nb[BR] = point{bb[BR].x + s, bb[BR].y + s}
-        nb[BL] = point{bb[BL].x - s, bb[BL].y + s}
-    } else {        // 270 degress rotated
-        nb[TL] = point{bb[TL].x + s, bb[TL].y - s}
-        nb[TR] = point{bb[TR].x + s, bb[TR].y + s}
-        nb[BR] = point{bb[BR].x - s, bb[BR].y + s}
-        nb[BL] = point{bb[BL].x - s, bb[BL].y - s}
+    for _, c := range [][]int{{TL,BR}, {TR,BL}} {
+        moveCorner(nb, bb, c[0], c[1], s)
+        moveCorner(nb, bb, c[1], c[0], s)
     }
     return nb
+}
+
+func moveCorner(n []point, o []point, corner int, opps int, offset int) {
+    if o[corner].x > o[opps].x {
+        n[corner].x = o[corner].x - offset
+    } else {
+        n[corner].x = o[corner].x + offset
+    }
+    if o[corner].y > o[opps].y {
+        n[corner].y = o[corner].y - offset
+    } else {
+        n[corner].y = o[corner].y + offset
+    }
 }
 
 // Return an average of the sampled points.
