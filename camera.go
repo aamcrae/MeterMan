@@ -3,7 +3,13 @@ package meterman
 import (
     "github.com/aamcrae/webcam"
     "fmt"
+    "log"
 )
+
+type snapshot struct {
+    frame []byte
+    index uint32
+}
 
 type Camera struct {
     cam *webcam.Webcam
@@ -12,6 +18,9 @@ type Camera struct {
     Format string
     Timeout uint32
     newFrame func(int, int, []byte, func()) (Frame, error)
+    done chan struct{}
+    response chan snapshot
+    request chan struct{}
 }
 
 func OpenCamera(name string) (*Camera, error) {
@@ -19,10 +28,16 @@ func OpenCamera(name string) (*Camera, error) {
 	if err != nil {
         return nil, err
 	}
-    return &Camera{cam:c, Timeout:5}, nil
+    camera := &Camera{cam:c, Timeout:5}
+    camera.done = make(chan struct{}, 1)
+    camera.response = make(chan snapshot, 5)
+    camera.request = make(chan struct{}, 5)
+    return camera, nil
 }
 
 func (c *Camera) Close() {
+    close(c.request)
+    <-c.done
     c.cam.StopStreaming()
     c.cam.Close()
 }
@@ -66,14 +81,32 @@ func (c *Camera) Init(format string, resolution string) error {
     c.Width = int(w)
     c.Height = int(h)
 
-    if err := c.cam.SetBufferCount(2); err != nil {
+    if err := c.cam.SetBufferCount(128); err != nil {
 		return err
     }
     c.cam.SetAutoWhiteBalance(true)
-	return c.cam.StartStreaming()
+	if err := c.cam.StartStreaming(); err != nil {
+        return err
+    }
+    go c.capture()
+    return nil
 }
 
 func (c *Camera) GetFrame() (Frame, error) {
+    if cap(c.request) < 1 {
+        return nil, fmt.Errorf("No capacity to request frame")
+    }
+    c.request <- struct{}{}
+    snap, ok := <-c.response
+    if !ok {
+        return nil, fmt.Errorf("No frame received")
+    }
+    return c.newFrame(c.Width, c.Height, snap.frame, func() {
+        c.cam.ReleaseFrame(snap.index)
+    })
+}
+
+func (c *Camera) capture() {
     for {
 	    err := c.cam.WaitForFrame(c.Timeout)
 
@@ -82,17 +115,25 @@ func (c *Camera) GetFrame() (Frame, error) {
 	    case *webcam.Timeout:
 		    continue
 	    default:
-                return nil, err
+            log.Fatal(err)
 	    }
 
 	    frame, index, err := c.cam.GetFrame()
         if err != nil {
-            return nil, err
+            log.Fatal(err)
         }
-        rel := func() {
+        // See if a frame is wanted.
+        select {
+        case <-c.request:
+            c.response <- snapshot{frame, index}
+        case <-c.done:
+            // Finish up.
+            c.cam.ReleaseFrame(index)
+            close(c.response)
+            return
+        default:
             c.cam.ReleaseFrame(index)
         }
-        return c.newFrame(c.Width, c.Height, frame, rel)
     }
 }
 
