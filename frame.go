@@ -8,7 +8,6 @@ import (
 
 type Frame interface {
     image.Image
-    ConvertToRGBA() *image.RGBA
     Release()
 }
 
@@ -66,21 +65,4 @@ func (f* FrameYUYV422) Release() {
     if f.release != nil {
         f.release()
     }
-}
-
-
-// Convert frame to RGBA image.
-func (f *FrameYUYV422) ConvertToRGBA() *image.RGBA {
-    img := image.NewRGBA(f.b)
-    h := f.b.Max.Y
-    w := f.b.Max.Y
-    for y := 0; y < h; y++ {
-        stride := w * y * 2
-        for x := 0; x < w; x += 2 {
-            pix := f.frame[stride + x * 2:]
-            img.Set(x, y, color.YCbCr{pix[0], pix[1], pix[3]})
-            img.Set(x + 1, y, color.YCbCr{pix[2], pix[1], pix[3]})
-        }
-    }
-    return img
 }
