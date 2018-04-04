@@ -103,6 +103,8 @@ func (c *Camera) GetFrame() (Frame, error) {
     })
 }
 
+// capture continually reads frames and either discards them or
+// sends them to a channel that is ready to receive them.
 func (c *Camera) capture() {
     for {
 	    err := c.cam.WaitForFrame(c.Timeout)
