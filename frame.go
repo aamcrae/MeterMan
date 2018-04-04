@@ -9,7 +9,6 @@ import (
 type Frame interface {
     image.Image
     ConvertToRGBA() *image.RGBA
-    ConvertToGray() *image.Gray
     Release()
 }
 
@@ -81,22 +80,6 @@ func (f *FrameYUYV422) ConvertToRGBA() *image.RGBA {
             pix := f.frame[stride + x * 2:]
             img.Set(x, y, color.YCbCr{pix[0], pix[1], pix[3]})
             img.Set(x + 1, y, color.YCbCr{pix[2], pix[1], pix[3]})
-        }
-    }
-    return img
-}
-
-// Convert frame to Grayscale image.
-func (f *FrameYUYV422) ConvertToGray() *image.Gray {
-    img := image.NewGray(f.b)
-    h := f.b.Max.Y
-    w := f.b.Max.Y
-    for y := 0; y < h; y++ {
-        stride := w * y * 2
-        for x := 0; x < w; x += 2 {
-            pix := f.frame[stride + x * 2:]
-            img.Set(x, y, color.Gray16Model.Convert(color.YCbCr{pix[0], pix[1], pix[3]}))
-            img.Set(x + 1, y, color.Gray16Model.Convert(color.YCbCr{pix[2], pix[1], pix[3]}))
         }
     }
     return img
