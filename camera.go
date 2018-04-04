@@ -18,9 +18,8 @@ type Camera struct {
     Format string
     Timeout uint32
     newFrame func(int, int, []byte, func()) (Frame, error)
-    done chan struct{}
-    response chan snapshot
-    request chan struct{}
+    stop chan struct{}
+    stream chan snapshot
 }
 
 func OpenCamera(name string) (*Camera, error) {
@@ -29,15 +28,17 @@ func OpenCamera(name string) (*Camera, error) {
         return nil, err
 	}
     camera := &Camera{cam:c, Timeout:5}
-    camera.done = make(chan struct{}, 1)
-    camera.response = make(chan snapshot, 5)
-    camera.request = make(chan struct{}, 5)
+    camera.stop = make(chan struct{}, 1)
+    camera.stream = make(chan snapshot, 0)
     return camera, nil
 }
 
 func (c *Camera) Close() {
-    close(c.request)
-    <-c.done
+    c.stop <- struct{}{}
+    // Flush any remaining frames.
+    for f := range c.stream {
+        c.cam.ReleaseFrame(f.index)
+    }
     c.cam.StopStreaming()
     c.cam.Close()
 }
@@ -81,7 +82,7 @@ func (c *Camera) Init(format string, resolution string) error {
     c.Width = int(w)
     c.Height = int(h)
 
-    if err := c.cam.SetBufferCount(128); err != nil {
+    if err := c.cam.SetBufferCount(16); err != nil {
 		return err
     }
     c.cam.SetAutoWhiteBalance(true)
@@ -93,11 +94,7 @@ func (c *Camera) Init(format string, resolution string) error {
 }
 
 func (c *Camera) GetFrame() (Frame, error) {
-    if cap(c.request) < 1 {
-        return nil, fmt.Errorf("No capacity to request frame")
-    }
-    c.request <- struct{}{}
-    snap, ok := <-c.response
+    snap, ok := <-c.stream
     if !ok {
         return nil, fmt.Errorf("No frame received")
     }
@@ -122,14 +119,13 @@ func (c *Camera) capture() {
         if err != nil {
             log.Fatal(err)
         }
-        // See if a frame is wanted.
         select {
-        case <-c.request:
-            c.response <- snapshot{frame, index}
-        case <-c.done:
+        // Only executed if stream is ready to receive.
+        case c.stream <- snapshot{frame, index}:
+        case <-c.stop:
             // Finish up.
             c.cam.ReleaseFrame(index)
-            close(c.response)
+            close(c.stream)
             return
         default:
             c.cam.ReleaseFrame(index)
