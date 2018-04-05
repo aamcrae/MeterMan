@@ -90,6 +90,7 @@ var resultTable = map[int]string {
     s_tl |  X   |  X   |  X   | s_b  | s_bl |  X   : "L",
      X   |  X   |  X   | s_br | s_b  | s_bl | s_m  : "o",
     s_tl | s_t  | s_tr |  X   | s_b  | s_bl | s_m  : "P",
+     X   |  X   |  X   |  X   |  X   | s_bl | s_m  : "r",
     s_tl |  X   |  X   |  X   | s_b  | s_bl | s_m  : "t",
 }
 
