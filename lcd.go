@@ -1,11 +1,9 @@
 package meterman
 
 import (
-    "github.com/aamcrae/config"
     "fmt"
     "image"
     "image/color"
-    "strconv"
 )
 
 // Default threshold
@@ -99,74 +97,61 @@ func NewLcdDecoder() *LcdDecoder {
    return &LcdDecoder{[]*Digit{}, map[string]*Lcd{}, defaultThreshold}
 }
 
-func (l *LcdDecoder) Config(conf *config.Config) error {
-    for _, e := range conf.Get("lcd") {
-        if len(e.Tokens) != 8 && len(e.Tokens) != 10 {
-            return fmt.Errorf("Bad config for LCD at line %d", e.Lineno)
-        }
-        if _, ok := l.lcdMap[e.Tokens[0]]; ok {
-             return fmt.Errorf("Duplicate LCD entry: %s", e.Tokens[0])
-        }
-        v := readInts(e.Tokens[1:])
-        lcd := &Lcd{name:e.Tokens[0], bb:[]point{point{0,0}, point{v[0],v[1]}, point{v[2],v[3]}, point{v[4],v[5]}}, line:v[6]}
-        // Initialise the sample lists
-        if len(v) == 9 {
-            lcd.decimal = []point{{lcd.bb[BR].x + v[7], lcd.bb[BR].y + v[8]}}
-        }
-        // A line width is specified, so shrink the bounding box by 1/2 the line width
-        lcd.scaled = shrink(lcd.bb, lcd.line/2)
-        tl := lcd.scaled[TL]
-        tr := lcd.scaled[TR]
-        br := lcd.scaled[BR]
-        bl := lcd.scaled[BL]
-        // Middle points.
-        mr := split(tr, br, 2)[0]
-        ml := split(tl, bl, 2)[0]
-        // For sampling the 'off' value, sample the middle of each of the 2 halves by
-        // Taking 3 samples through the axis and dropping the middle one.
-        lcd.off = split(split(tl, tr, 2)[0], split(bl, br, 2)[0], 4)
-        lcd.off = sample{lcd.off[0], lcd.off[2]}
-        lcd.segments = make([]sample, 7)
-        // The assignments must match the bit allocation in
-        // the lookup table.
-        // Top left
-        lcd.segments[0] = split(ml, tl, 3)
-        // Top
-        lcd.segments[1] = split(tl, tr, 3)
-        // Top right
-        lcd.segments[2] = split(tr, mr, 3)
-        // Bottom right
-        lcd.segments[3] = split(mr, br, 3)
-        // Bottom
-        lcd.segments[4] = split(br, bl, 3)
-        // Bottom left
-        lcd.segments[5] = split(bl, ml, 3)
-        // Middle
-        lcd.segments[6] = split(ml, mr, 3)
-        l.lcdMap[e.Tokens[0]] = lcd
+func (l *LcdDecoder) AddLCD(name string, bb []int, width int, decimal []int) error {
+    if _, ok := l.lcdMap[name]; ok {
+        return fmt.Errorf("Duplicate LCD entry: %s", name)
     }
-    for index, e := range conf.Get("digit") {
-        if len(e.Tokens) != 3 {
-            return fmt.Errorf("Bad digit config line %d", e.Lineno)
-        }
-        lcd, ok := l.lcdMap[e.Tokens[0]]
-        if !ok {
-            return fmt.Errorf("Missing LCD %s for digit line %d", e.Tokens[0], e.Lineno)
-        }
-        v := readInts(e.Tokens[1:])
-        if len(v) != 2 {
-            return fmt.Errorf("Bad config for digit at line %d", e.Lineno)
-        }
-        l.digits = append(l.digits, &Digit{index, lcd, point{v[0], v[1]}})
+    lcd := &Lcd{name:name, bb:[]point{point{0,0}, point{bb[0],bb[1]}, point{bb[2],bb[3]}, point{bb[4],bb[5]}}, line:width}
+    // Initialise the sample lists
+    if len(decimal) == 2 {
+        lcd.decimal = []point{{lcd.bb[BR].x + decimal[0], lcd.bb[BR].y + decimal[1]}}
     }
-    t := conf.Get("threshold")
-    if len(t) > 0 {
-        v := readInts(t[0].Tokens)
-        if len(v) == 1 {
-            l.threshold = v[0]
-        }
-    }
+    // Shrink the bounding box by 1/2 the line width
+    lcd.scaled = shrink(lcd.bb, lcd.line/2)
+    tl := lcd.scaled[TL]
+    tr := lcd.scaled[TR]
+    br := lcd.scaled[BR]
+    bl := lcd.scaled[BL]
+    // Middle points.
+    mr := split(tr, br, 2)[0]
+    ml := split(tl, bl, 2)[0]
+    // For sampling the 'off' value, sample the middle of each of the 2 halves by
+    // Taking 3 samples through the axis and dropping the middle one.
+    lcd.off = split(split(tl, tr, 2)[0], split(bl, br, 2)[0], 4)
+    lcd.off = sample{lcd.off[0], lcd.off[2]}
+    lcd.segments = make([]sample, 7)
+    // The assignments must match the bit allocation in
+    // the lookup table.
+    // Top left
+    lcd.segments[0] = split(ml, tl, 3)
+    // Top
+    lcd.segments[1] = split(tl, tr, 3)
+    // Top right
+    lcd.segments[2] = split(tr, mr, 3)
+    // Bottom right
+    lcd.segments[3] = split(mr, br, 3)
+    // Bottom
+    lcd.segments[4] = split(br, bl, 3)
+    // Bottom left
+    lcd.segments[5] = split(bl, ml, 3)
+    // Middle
+    lcd.segments[6] = split(ml, mr, 3)
+    l.lcdMap[name] = lcd
     return nil
+}
+
+func (l *LcdDecoder) AddDigit(name string, x int, y int) (int, error) {
+    lcd, ok := l.lcdMap[name]
+    if !ok {
+        return 0, fmt.Errorf("Unknown LCD %s", name)
+    }
+    index := len(l.digits)
+    l.digits = append(l.digits, &Digit{index, lcd, point{x, y}})
+    return index, nil
+}
+
+func (l *LcdDecoder) SetThreshold(threshold int) {
+    l.threshold = threshold
 }
 
 func (l *LcdDecoder) Decode(img image.Image) ([]string, []bool) {
@@ -249,18 +234,6 @@ func takeSample(img image.Image, d *Digit, slist sample) int {
         g += int(pix.Y)
     }
     return g / len(slist)
-}
-
-func readInts(strs []string) []int {
-    vals := []int{}
-    for _, s := range strs {
-        if v, err := strconv.ParseInt(s, 10, 32); err != nil {
-            break
-        } else {
-            vals = append(vals, int(v))
-        }
-    }
-    return vals
 }
 
 // Mark the samples with a red cross.

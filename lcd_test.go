@@ -29,8 +29,7 @@ func runTest(t *testing.T, name string, result string) {
     if err != nil {
         t.Fatalf("Can't read config %s: %v", cname, err)
     }
-    lcd := meterman.NewLcdDecoder()
-    err = lcd.Config(conf)
+    lcd, err := meterman.CreateLcdDecoder(conf)
     if err != nil {
         t.Fatalf("LCD config for %s failed %v", cname, err)
     }
