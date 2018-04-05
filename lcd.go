@@ -49,7 +49,7 @@ type LcdDecoder struct {
 }
 
 // There are 128 possible values in a 7 segment display,
-// and this table maps each one to a unique string.
+// and this table maps known values to a string result.
 // The segments are used as a bit in 7 bit value, and mapped as:
 // top left     bit 0
 // top          bit 1
@@ -82,8 +82,17 @@ var resultTable = map[int]string {
      X   | s_t  | s_tr | s_br |  X   |  X   |  X   : "7",
     s_tl | s_t  | s_tr | s_br | s_b  | s_bl | s_m  : "8",
     s_tl | s_t  | s_tr | s_br | s_b  |  X   | s_m  : "9",
-    s_tl |  X   |  X   |  X   | s_b  | s_bl | s_m  : "t",
+    s_tl | s_t  | s_tr | s_br |  X   | s_bl | s_m  : "A",
+    s_tl |  X   |  X   | s_br | s_b  | s_bl | s_m  : "b",
+    s_tl | s_t  |  X   |  X   | s_b  | s_bl |  X   : "C",
+     X   |  X   | s_tr | s_br | s_b  | s_bl | s_m  : "d",
+    s_tl | s_t  |  X   |  X   | s_b  | s_bl | s_m  : "E",
+    s_tl | s_t  |  X   |  X   |  X   | s_bl | s_m  : "F",
+    s_tl |  X   |  X   | s_br |  X   | s_bl | s_m  : "h",
+    s_tl |  X   |  X   |  X   | s_b  | s_bl |  X   : "L",
      X   |  X   |  X   | s_br | s_b  | s_bl | s_m  : "o",
+    s_tl | s_t  | s_tr |  X   | s_b  | s_bl | s_m  : "P",
+    s_tl |  X   |  X   |  X   | s_b  | s_bl | s_m  : "t",
 }
 
 func NewLcdDecoder() *LcdDecoder {
