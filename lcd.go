@@ -6,7 +6,6 @@ import (
     "image"
     "image/color"
     "strconv"
-    "strings"
 )
 
 // Default threshold
@@ -38,7 +37,7 @@ type Lcd struct {
 }
 
 type Digit struct {
-    name string
+    index int
     lcd *Lcd
     pos point
 }
@@ -92,71 +91,71 @@ func NewLcdDecoder() *LcdDecoder {
 }
 
 func (l *LcdDecoder) Config(conf *config.Config) error {
-    for _, c := range conf.Entries {
-        if strings.HasPrefix(c.Keyword, "lcd") {
-            if _, ok := l.lcdMap[c.Keyword]; ok {
-                return fmt.Errorf("Duplicate LCD entry: %s", c.Keyword)
-            }
-            v := readInts(c.Tokens)
-            if len(v) == 7 || len(v) == 9 {
-                lcd := &Lcd{name:c.Keyword, bb:[]point{point{0,0}, point{v[0],v[1]}, point{v[2],v[3]}, point{v[4],v[5]}}, line:v[6]}
-                // Initialise the sample lists
-                if len(v) == 9 {
-                    lcd.decimal = []point{{lcd.bb[BR].x + v[7], lcd.bb[BR].y + v[8]}}
-                }
-                // A line width is specified, so shrink the bounding box by 1/2 the line width
-                lcd.scaled = shrink(lcd.bb, lcd.line/2)
-                tl := lcd.scaled[TL]
-                tr := lcd.scaled[TR]
-                br := lcd.scaled[BR]
-                bl := lcd.scaled[BL]
-                // Middle points.
-                mr := split(tr, br, 2)[0]
-                ml := split(tl, bl, 2)[0]
-                // For sampling the 'off' value, sample the middle of each of the 2 halves by
-                // Taking 3 samples through the axis and dropping the middle one.
-                lcd.off = split(split(tl, tr, 2)[0], split(bl, br, 2)[0], 4)
-                lcd.off = sample{lcd.off[0], lcd.off[2]}
-                lcd.segments = make([]sample, 7)
-                // The assignments must match the bit allocation in
-                // the lookup table.
-                // Top left
-                lcd.segments[0] = split(ml, tl, 3)
-                // Top
-                lcd.segments[1] = split(tl, tr, 3)
-                // Top right
-                lcd.segments[2] = split(tr, mr, 3)
-                // Bottom right
-                lcd.segments[3] = split(mr, br, 3)
-                // Bottom
-                lcd.segments[4] = split(br, bl, 3)
-                // Bottom left
-                lcd.segments[5] = split(bl, ml, 3)
-                // Middle
-                lcd.segments[6] = split(ml, mr, 3)
-                l.lcdMap[c.Keyword] = lcd
-            } else {
-                return fmt.Errorf("Bad config for LCD '%s'", c.Keyword)
-            }
-        } else if strings.HasPrefix(c.Keyword, "digit") {
-            if len(c.Tokens) != 3 {
-                return fmt.Errorf("Bad digit config for %s", c.Keyword)
-            }
-            lcd, ok := l.lcdMap[c.Tokens[0]]
-            if !ok {
-                return fmt.Errorf("Missing LCD %s for digit %s", c.Tokens[0], c.Keyword)
-            }
-            v := readInts(c.Tokens[1:])
-            if len(v) != 2 {
-                return fmt.Errorf("Bad config for digit %s", c.Keyword)
-            }
-            l.digits = append(l.digits, &Digit{c.Keyword, lcd, point{v[0], v[1]}})
+    for _, e := range conf.Get("lcd") {
+        if len(e.Tokens) != 8 && len(e.Tokens) != 10 {
+            return fmt.Errorf("Bad config for LCD at line %d", e.Lineno)
         }
+        if _, ok := l.lcdMap[e.Tokens[0]]; ok {
+             return fmt.Errorf("Duplicate LCD entry: %s", e.Tokens[0])
+        }
+        v := readInts(e.Tokens[1:])
+        lcd := &Lcd{name:e.Tokens[0], bb:[]point{point{0,0}, point{v[0],v[1]}, point{v[2],v[3]}, point{v[4],v[5]}}, line:v[6]}
+        // Initialise the sample lists
+        if len(v) == 9 {
+            lcd.decimal = []point{{lcd.bb[BR].x + v[7], lcd.bb[BR].y + v[8]}}
+        }
+        // A line width is specified, so shrink the bounding box by 1/2 the line width
+        lcd.scaled = shrink(lcd.bb, lcd.line/2)
+        tl := lcd.scaled[TL]
+        tr := lcd.scaled[TR]
+        br := lcd.scaled[BR]
+        bl := lcd.scaled[BL]
+        // Middle points.
+        mr := split(tr, br, 2)[0]
+        ml := split(tl, bl, 2)[0]
+        // For sampling the 'off' value, sample the middle of each of the 2 halves by
+        // Taking 3 samples through the axis and dropping the middle one.
+        lcd.off = split(split(tl, tr, 2)[0], split(bl, br, 2)[0], 4)
+        lcd.off = sample{lcd.off[0], lcd.off[2]}
+        lcd.segments = make([]sample, 7)
+        // The assignments must match the bit allocation in
+        // the lookup table.
+        // Top left
+        lcd.segments[0] = split(ml, tl, 3)
+        // Top
+        lcd.segments[1] = split(tl, tr, 3)
+        // Top right
+        lcd.segments[2] = split(tr, mr, 3)
+        // Bottom right
+        lcd.segments[3] = split(mr, br, 3)
+        // Bottom
+        lcd.segments[4] = split(br, bl, 3)
+        // Bottom left
+        lcd.segments[5] = split(bl, ml, 3)
+        // Middle
+        lcd.segments[6] = split(ml, mr, 3)
+        l.lcdMap[e.Tokens[0]] = lcd
     }
-    t, _ := conf.GetTokens("threshold")
-    v := readInts(t)
-    if len(v) == 1 {
-        l.threshold = v[0]
+    for index, e := range conf.Get("digit") {
+        if len(e.Tokens) != 3 {
+            return fmt.Errorf("Bad digit config line %d", e.Lineno)
+        }
+        lcd, ok := l.lcdMap[e.Tokens[0]]
+        if !ok {
+            return fmt.Errorf("Missing LCD %s for digit line %d", e.Tokens[0], e.Lineno)
+        }
+        v := readInts(e.Tokens[1:])
+        if len(v) != 2 {
+            return fmt.Errorf("Bad config for digit at line %d", e.Lineno)
+        }
+        l.digits = append(l.digits, &Digit{index, lcd, point{v[0], v[1]}})
+    }
+    t := conf.Get("threshold")
+    if len(t) > 0 {
+        v := readInts(t[0].Tokens)
+        if len(v) == 1 {
+            l.threshold = v[0]
+        }
     }
     return nil
 }

@@ -82,9 +82,7 @@ func (c *Camera) Init(format string, resolution string) error {
     c.Width = int(w)
     c.Height = int(h)
 
-    if err := c.cam.SetBufferCount(16); err != nil {
-		return err
-    }
+    c.cam.SetBufferCount(16)
     c.cam.SetAutoWhiteBalance(true)
 	if err := c.cam.StartStreaming(); err != nil {
         return err
