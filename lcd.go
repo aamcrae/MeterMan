@@ -8,6 +8,7 @@ import (
 
 // Default threshold
 const defaultThreshold = 20
+const shrinkBB = false
 
 // Corners.
 const (
@@ -108,7 +109,11 @@ func (l *LcdDecoder) AddLCD(name string, bb []int, width int, decimal []int) err
         lcd.decimal = []point{{lcd.bb[BR].x + decimal[0], lcd.bb[BR].y + decimal[1]}}
     }
     // Shrink the bounding box by 1/2 the line width
-    lcd.scaled = shrink(lcd.bb, lcd.line/2)
+    if shrinkBB {
+        lcd.scaled = shrink(lcd.bb, lcd.line/2)
+    } else {
+        lcd.scaled = lcd.bb
+    }
     tl := lcd.scaled[TL]
     tr := lcd.scaled[TR]
     br := lcd.scaled[BR]
@@ -246,7 +251,9 @@ func (l *LcdDecoder) MarkSamples(img *image.RGBA) {
     for _, d := range l.digits {
         lcd := d.lcd
         drawCross(img, d, lcd.bb, white)
-        drawCross(img, d, lcd.scaled, blue)
+        if shrinkBB {
+            drawCross(img, d, lcd.scaled, blue)
+        }
         drawCross(img, d, lcd.off, green)
         if len(lcd.decimal) != 0 {
             drawCross(img, d, lcd.decimal, red)

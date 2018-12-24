@@ -25,8 +25,7 @@ func main() {
     if err != nil {
         log.Fatalf("Failed to read config %s: %v", *configFile, err)
     }
-    lcd := meterman.NewLcdDecoder()
-    err = lcd.Config(c)
+    lcd, err := meterman.CreateLcdDecoder(c)
     if err != nil {
         log.Fatalf("LCD config failed %v", err)
     }
