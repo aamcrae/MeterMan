@@ -7,7 +7,6 @@ import (
     "image/jpeg"
     "image/png"
     "log"
-    "math"
     "os"
     "strings"
 
@@ -32,10 +31,7 @@ func main() {
     if err != nil {
         log.Fatalf("%s: %v", *input, err)
     }
-    dx := float64(img.Bounds().Dx())
-    dy := float64(img.Bounds().Dy())
-    maxsize := int(math.Sqrt(dx * dx + dy * dy) + 1.0)
-    result := meterman.ProcessImage(img, *angle, maxsize)
+    result := meterman.ProcessImage(img, *angle)
     of, err := os.Create(*output)
     if err != nil {
         log.Fatalf("%s: %v", *output, err)
