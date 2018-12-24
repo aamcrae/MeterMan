@@ -6,6 +6,7 @@ import (
     "strconv"
 
     "github.com/aamcrae/config"
+    "github.com/aamcrae/MeterMan/lcd"
 )
 
 
@@ -35,7 +36,7 @@ func main() {
         log.Fatalf("Bad source configuration at %s:%d", s[0].Filename, s[0].Lineno)
     }
     source := s[0].Tokens[0]
-    decoder, err := CreateLcdDecoder(conf)
+    decoder, err := lcd.CreateLcdDecoder(conf)
     if  err != nil {
         log.Printf("Failed to create decoder: %v", err);
     }
