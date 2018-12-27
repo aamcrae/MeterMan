@@ -1,9 +1,13 @@
-package meterman
+package main
 
 import (
     "flag"
+    "image"
+    "image/jpeg"
     "log"
+    "os"
     "strconv"
+    "strings"
 
     "github.com/aamcrae/config"
     "github.com/aamcrae/MeterMan/lcd"
@@ -11,6 +15,13 @@ import (
 
 
 var conf = flag.String("config", ".meterman", "Config file")
+var verbose = flag.Bool("verbose", false, "Verbose tracing")
+var saveBad = flag.Bool("savebad", false, "Save each bad image")
+var badFile = flag.String("bad", "/tmp/bad.jpg", "Bad images")
+
+func init() {
+    flag.Parse()
+}
 
 func main() {
     conf, err := config.ParseFile(*conf)
@@ -46,8 +57,41 @@ func main() {
             log.Printf("Failed to retrieve source image from %s: %v", source, err)
             continue
         }
+        if *verbose {
+            log.Printf("Read source img: %d x %d", img.Bounds().Max.X, img.Bounds().Max.Y)
+        }
         ni := ProcessImage(img, angle)
-        chars, ok := decoder.Decode(ni)
-        log.Printf("Len chars, ok = %d, %d", len(chars), len(ok))
+        vals, ok := decoder.Decode(ni)
+        for _, okDigit := range ok {
+            if !okDigit {
+                badRead(ni, vals, ok)
+            }
+        }
+        key := strings.Join(vals[0:4], "")
+        value := strings.Join(vals[4:], "")
+        log.Printf("Key = %s, value = %s", key, value)
+    }
+}
+
+func badRead(img image.Image, vals []string, ok []bool) {
+    log.Printf("Bad read:\n")
+    for i, v := range vals {
+       log.Printf("segment %d = '%s', ok = %v\n", i, v, ok[i])
+    }
+    if *saveBad {
+        saveImage(*badFile, img)
+    }
+}
+
+func saveImage(name string, img image.Image) {
+    of, err := os.Create(name)
+    if err != nil {
+        log.Printf("Failed to create image file %s: %v", name, err)
+        return
+    }
+    defer of.Close()
+    if err := jpeg.Encode(of, img, nil); err != nil {
+        log.Printf("Error writing display file %s: %v\n", name, err)
+        return
     }
 }
