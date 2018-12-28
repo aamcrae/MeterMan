@@ -13,21 +13,22 @@ import (
     "github.com/aamcrae/config"
 )
 
-const updateRate = 5
-
 var dryrun = flag.Bool("dryrun", false, "Do not upload data")
+var updateRate = flag.Int("update", 5, "Update rate (in minutes)")
 
 var apikey string
 var systemid string
 var serverUrl string
 var input chan Result = make(chan Result, 100)
 
+var interval time.Duration
 var tpLast time.Time
-var tpUpload time.Time
+var lastUpdate time.Time
 var tpAccum float64
 var tpCurrent float64
 
-var lastUpdate int
+var exportCurrent float64
+var importCurrent float64
 
 func init() {
     WritersInit = append(WritersInit, pvoutputInit)
@@ -49,6 +50,9 @@ func pvoutputInit(conf *config.Config) (chan<- Result, error) {
     } else {
         serverUrl = a
     }
+    interval = time.Minute * time.Duration(*updateRate)
+    lastUpdate = time.Now().Truncate(interval)
+    tpLast = lastUpdate
     go pvread(input, time.Tick(10 * time.Second))
     return input, nil
 }
@@ -59,63 +63,50 @@ func pvread(in chan Result, tick <-chan time.Time) {
         case r := <-in:
             process(r.tag, r.value)
         case t := <-tick:
-            // see if we have passed an update boundary.
-            if (t.Minute() / updateRate) == lastUpdate {
+            // See if an update interval has passed.
+            if t.Sub(lastUpdate) < interval {
                 break
             }
-            if *verbose {
-                log.Printf("Update processing")
-            }
-            lastUpdate = t.Minute() / updateRate
-            if tpLast.IsZero() {
-                tpLast = t
-                break
-            }
-            if !tpUpload.IsZero() {
-                tpAccum += t.Sub(tpLast).Seconds() * tpCurrent
-                avg := tpAccum / t.Sub(tpUpload).Seconds()
-                upload(tpUpload, avg)
+            // Round out the accumulated power value to the interval boundary.
+            tpAccum += t.Sub(tpLast).Seconds() * tpCurrent
+            err := pvupload(lastUpdate, tpAccum / t.Sub(lastUpdate).Seconds())
+            if err != nil {
+                log.Printf("Update failed: %v", err)
             }
             tpAccum = 0
+            lastUpdate = t.Truncate(interval)
             tpLast = t
-            tpUpload = t
         }
     }
 }
 
 func process(tag string, value float64) {
-    if *verbose {
-        log.Printf("pvoutput: Tag: %s, value %f\n", tag, value)
-    }
-    now := time.Now()
     switch tag {
     case "IN":
+        importCurrent = value
     case "OUT":
+        exportCurrent = value
     case "TP":
-        if tpLast.IsZero() {
-            tpCurrent = value
-            tpLast = time.Now()
-            break
-        }
+        now := time.Now()
         tpCurrent = value
         tpAccum += now.Sub(tpLast).Seconds() * tpCurrent
         if *verbose {
-            log.Printf("New accum = %f, current = %f, seconds = %d",
+            log.Printf("New power accum = %f, current = %f, seconds = %d",
                 tpAccum, tpCurrent, int(now.Sub(tpLast).Seconds()))
         }
         tpLast = now
     }
 }
 
-func upload(start time.Time, exportVal float64) error {
+func pvupload(start time.Time, exportVal float64) error {
     if *verbose {
-        log.Printf("Uploading %s: %f W", start.Format(time.RFC822), exportVal)
+        log.Printf("Uploading power %s: %f W", start.Format(time.RFC822), exportVal)
     }
     val := url.Values{}
     val.Add("d", start.Format("20060102"))
     val.Add("n", "1")
     val.Add("t", start.Format("15:04"))
-    val.Add("v2", fmt.Sprintf("%d", int(exportVal * 1000)))
+    val.Add("v4", fmt.Sprintf("%d", int(exportVal * 1000)))
     req, err := http.NewRequest("POST", serverUrl, strings.NewReader(val.Encode()))
     if err != nil {
         log.Printf("NewRequest failed: %v", err)
@@ -132,7 +123,6 @@ func upload(start time.Time, exportVal float64) error {
     }
     resp, err := http.DefaultClient.Do(req)
     if err != nil {
-        log.Printf("Req failed: %v", err)
         return err
     }
     defer resp.Body.Close()
@@ -142,7 +132,6 @@ func upload(start time.Time, exportVal float64) error {
     if resp.StatusCode != http.StatusOK {
         body, _ := ioutil.ReadAll(resp.Body)
         err := fmt.Errorf("Error: %s: %s", resp.Status, body)
-        log.Printf("%v", err)
         return err
     }
     return nil

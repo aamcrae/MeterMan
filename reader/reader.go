@@ -6,10 +6,13 @@ import (
     "log"
     "strconv"
     "strings"
+    "time"
 
     "github.com/aamcrae/config"
     "github.com/aamcrae/MeterMan/lcd"
 )
+
+const calibrateDelay = time.Minute * 10
 
 type Reader struct {
     conf *config.Config
@@ -18,6 +21,7 @@ type Reader struct {
     key string
     value string
     m measure
+    lastCalibration time.Time
 }
 
 type measure struct {
@@ -27,16 +31,16 @@ type measure struct {
 }
 
 var measures map [string]measure = map[string]measure {
-    "1nP1": measure{handlerIgnore, 100.0, ""},
-    "1nP2": measure{handlerIgnore, 100.0, ""},
-    "t1NE": measure{handlerIgnore, 1.0, ""},
+    "1nP1": measure{handlerNumber, 100.0, "IN-P1"},
+    "1nP2": measure{handlerNumber, 100.0, "IN-P2"},
+    "t1NE": measure{handlerIgnore, 1.0, "TIME"},
     "1NtL": measure{handlerNumber, 100.0, "OUT"},
     "tP  ": measure{handlerNumber, 10000.0, "TP"},
     "EHtL": measure{handlerNumber, 100.0, "IN"},
-    "EHL1": measure{handlerIgnore, 100.0, ""},
-    "EHL2": measure{handlerIgnore, 100.0, ""},
-    "1NL1": measure{handlerIgnore, 100.0, ""},
-    "1NL2": measure{handlerIgnore, 100.0, ""},
+    "EHL1": measure{handlerNumber, 100.0, "IN-1"},
+    "EHL2": measure{handlerNumber, 100.0, "IN-2"},
+    "1NL1": measure{handlerNumber, 100.0, "OUT-1"},
+    "1NL2": measure{handlerNumber, 100.0, "OUT-2"},
     "8888": measure{handlerCalibrate, 1.0, ""},
 }
 
@@ -49,8 +53,12 @@ func NewReader(c *config.Config) (*Reader, error) {
 }
 
 func (r *Reader) Calibrate(img image.Image) {
-    log.Printf("Recalibrating")
-    r.lcd.Calibrate(img)
+    now := time.Now()
+    if time.Now().Sub(r.lastCalibration) >= calibrateDelay {
+        r.lastCalibration = now
+        log.Printf("Recalibrating")
+        r.lcd.Calibrate(img)
+    }
 }
 
 func (r *Reader) Read(img image.Image) (string, float64, error) {

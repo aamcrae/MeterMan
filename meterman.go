@@ -4,6 +4,7 @@ import (
     "flag"
     "log"
     "strconv"
+    "time"
 
     "github.com/aamcrae/config"
     "github.com/aamcrae/MeterMan/reader"
@@ -14,6 +15,7 @@ var conf = flag.String("config", ".meterman", "Config file")
 var verbose = flag.Bool("verbose", false, "Verbose tracing")
 var saveBad = flag.Bool("savebad", false, "Save each bad image")
 var badFile = flag.String("bad", "/tmp/bad.jpg", "Bad images")
+var sampleTime = flag.Int("sample", 2, "Sample time (seconds)")
 
 type Result struct {
     tag string
@@ -32,15 +34,13 @@ func main() {
         log.Fatalf("Can't read config %s: %v", *conf, err)
     }
     var angle float64
-    a := conf.Get("rotate")
-    if len(a) == 1 {
-        if len(a[0].Tokens) != 1 {
-            log.Fatalf("Bad rotate configuration at %s:%d", a[0].Filename, a[0].Lineno)
-        }
-        angle, err = strconv.ParseFloat(a[0].Tokens[0], 64)
-        if err != nil {
-            log.Fatalf("Bad rotate parameter at %s:%d", a[0].Filename, a[0].Lineno)
-        }
+    a, err := conf.GetArg("rotate")
+    if err != nil {
+        log.Fatalf("%v", err)
+    }
+    angle, err = strconv.ParseFloat(a, 64)
+    if err != nil {
+        log.Fatalf("Bad rotate parameter: %v", err)
     }
     source, err := conf.GetArg("source")
     if err != nil {
@@ -66,6 +66,8 @@ func main() {
             wr = append(wr, c)
         }
     }
+    delay := time.Duration(*sampleTime) * time.Second
+    lastTime := time.Now()
     for {
         img, err := reader.GetSource(source)
         if err != nil {
@@ -88,5 +90,7 @@ func main() {
                 c<- res
             }
         }
+        time.Sleep(delay - time.Now().Sub(lastTime))
+        lastTime = time.Now()
     }
 }
