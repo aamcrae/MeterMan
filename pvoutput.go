@@ -13,6 +13,8 @@ import (
     "github.com/aamcrae/config"
 )
 
+const updateRate = 5
+
 var dryrun = flag.Bool("dryrun", false, "Do not upload data")
 
 var apikey string
@@ -25,7 +27,7 @@ var tpUpload time.Time
 var tpAccum float64
 var tpCurrent float64
 
-var fiveMinute int
+var lastUpdate int
 
 func init() {
     WritersInit = append(WritersInit, pvoutputInit)
@@ -57,12 +59,16 @@ func pvread(in chan Result, tick <-chan time.Time) {
         case r := <-in:
             process(r.tag, r.value)
         case t := <-tick:
-            // see if we have passed a 5 minute boundary.
-            if (t.Minute() / 5) == fiveMinute {
+            // see if we have passed an update boundary.
+            if (t.Minute() / updateRate) == lastUpdate {
                 break
             }
-            fiveMinute = t.Minute() / 5
+            if *verbose {
+                log.Printf("Update processing")
+            }
+            lastUpdate = t.Minute() / updateRate
             if tpLast.IsZero() {
+                tpLast = t
                 break
             }
             if !tpUpload.IsZero() {
@@ -103,7 +109,7 @@ func process(tag string, value float64) {
 
 func upload(start time.Time, exportVal float64) error {
     if *verbose {
-        log.Printf("Uploading %v: %f Wh", start, exportVal)
+        log.Printf("Uploading %s: %f W", start.Format(time.RFC822), exportVal)
     }
     val := url.Values{}
     val.Add("d", start.Format("20060102"))

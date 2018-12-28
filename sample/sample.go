@@ -5,6 +5,7 @@ import (
     "fmt"
     "github.com/aamcrae/config"
     "github.com/aamcrae/MeterMan/lcd"
+    "github.com/aamcrae/MeterMan/reader"
     "image"
     "image/color"
     "image/gif"
@@ -29,6 +30,14 @@ func main() {
         log.Fatalf("Failed to read config %s: %v", *configFile, err)
     }
     lcd, err := lcd.CreateLcdDecoder(c)
+    s := c.Get("calibrate")
+    if len(s) == 1 && len(s[0].Tokens) == 1 {
+        img, err := reader.ReadImage(s[0].Tokens[0])
+        if  err != nil {
+            log.Fatalf("%v", err);
+        }
+        lcd.Calibrate(img)
+    }
     if err != nil {
         log.Fatalf("LCD config failed %v", err)
     }
