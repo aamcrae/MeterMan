@@ -20,7 +20,7 @@ type Result struct {
     value float64
 }
 
-var Writers[]chan<-Result
+var WritersInit []func (*config.Config) (chan <- Result, error)
 
 func init() {
     flag.Parse()
@@ -42,25 +42,29 @@ func main() {
             log.Fatalf("Bad rotate parameter at %s:%d", a[0].Filename, a[0].Lineno)
         }
     }
-    s := conf.Get("source")
-    if len(s) != 1 {
-        log.Fatalf("Missing or bad 'source' configuration")
+    source, err := conf.GetArg("source")
+    if err != nil {
+        log.Fatalf("%v", err)
     }
-    if len(s[0].Tokens) != 1 {
-        log.Fatalf("Bad source configuration at %s:%d", s[0].Filename, s[0].Lineno)
-    }
-    source := s[0].Tokens[0]
     r, err := reader.NewReader(conf)
     if  err != nil {
         log.Printf("Failed to create reader: %v", err);
     }
-    s = conf.Get("calibrate")
+    s := conf.Get("calibrate")
     if len(s) == 1 && len(s[0].Tokens) == 1 {
         img, err := reader.ReadImage(s[0].Tokens[0])
         if  err != nil {
             log.Fatalf("%v", err);
         }
         r.Calibrate(img)
+    }
+    var wr []chan<-Result
+    for _, wi := range WritersInit {
+        if c, err := wi(conf); err != nil {
+            log.Fatalf("Writer init failed: %v", err)
+        } else {
+            wr = append(wr, c)
+        }
     }
     for {
         img, err := reader.GetSource(source)
@@ -80,7 +84,7 @@ func main() {
                 log.Printf("Tag: %s value %f\n", tag, val)
             }
             res := Result{tag, val}
-            for _, c := range Writers {
+            for _, c := range wr {
                 c<- res
             }
         }
