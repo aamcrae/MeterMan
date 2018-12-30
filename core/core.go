@@ -109,8 +109,18 @@ func checkInterval() {
     }
     log.Printf("Updating now\n")
     lastUpdate = now.Truncate(interval)
-    for _, el := range elements {
+    for n, el := range elements {
         el.PreWrite(lastUpdate)
+        if *Verbose {
+            var v float64
+            switch e := el.(type) {
+            case *Gauge:
+                v = e.Get()
+            case *Accum:
+                v = e.Current()
+            }
+            log.Printf("Output: Tag: %5s, value %f\n", n, v)
+        }
     }
     out := &Output{lastUpdate, elements}
     for _, wr := range outputs {
