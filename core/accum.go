@@ -10,26 +10,24 @@ type Accum struct {
     value float64
     current float64
     last float64
-    initial float64
     midnight float64
 }
 
 func NewAccum(cp string) * Accum {
     a := new(Accum)
-    n, err := fmt.Sscanf(cp, "%f %f %f", &a.initial, &a.midnight, &a.last)
+    n, err := fmt.Sscanf(cp, "%f %f", &a.midnight, &a.last)
     if err != nil {
         fmt.Printf("%d parsed, accum err: %v\n", n, err)
     }
     a.value = a.last
     if *Verbose {
-        fmt.Printf("New accum (%s), initial = %f, midnight = %f, last = %f\n", cp, a.initial, a.midnight, a.last)
+        fmt.Printf("New accum, midnight = %f, last = %f\n", a.midnight, a.last)
     }
     return a
 }
 
 func (a *Accum) Update(v float64) {
-    if a.initial == 0 {
-        a.initial = v
+    if a.last == 0 {
         a.midnight = v
         a.last = v
     }
@@ -59,7 +57,7 @@ func (a *Accum) Reset() {
 
 // Create a checkpoint string.
 func (a *Accum) Checkpoint() string {
-    return fmt.Sprintf("%f %f %f", a.initial, a.midnight, a.last)
+    return fmt.Sprintf("%f %f %f", a.midnight, a.last)
 }
 
 func (a *Accum) Current() float64 {
@@ -67,7 +65,7 @@ func (a *Accum) Current() float64 {
 }
 
 func (a *Accum) Total() float64 {
-    return a.value - a.initial
+    return a.value
 }
 
 func (a *Accum) Daily() float64 {
