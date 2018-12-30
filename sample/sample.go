@@ -5,7 +5,6 @@ import (
     "fmt"
     "github.com/aamcrae/config"
     "github.com/aamcrae/MeterMan/lcd"
-    "github.com/aamcrae/MeterMan/reader"
     "image"
     "image/color"
     "image/gif"
@@ -32,7 +31,7 @@ func main() {
     lcd, err := lcd.CreateLcdDecoder(c)
     s := c.Get("calibrate")
     if len(s) == 1 && len(s[0].Tokens) == 1 {
-        img, err := reader.ReadImage(s[0].Tokens[0])
+        img, err := lcd.ReadImage(s[0].Tokens[0])
         if  err != nil {
             log.Fatalf("%v", err);
         }

@@ -6,28 +6,19 @@ import (
 
     "github.com/aamcrae/config"
     "github.com/aamcrae/MeterMan/core"
-    _ "github.com/aamcrae/MeterMan/reader"
+    _ "github.com/aamcrae/MeterMan/lcd"
+    _ "github.com/aamcrae/MeterMan/pv"
 )
 
 
 var conf = flag.String("config", ".meterman", "Config file")
 
-func init() {
-    flag.Parse()
-}
-
 func main() {
+    flag.Parse()
     conf, err := config.ParseFile(*conf)
     if err != nil {
         log.Fatalf("Can't read config %s: %v", *conf, err)
     }
-    if err := core.SetUp(conf); err != nil {
-        log.Fatalf("Initialisation error: %v", err)
-    }
-    var empty chan int = nil
-    for {
-        select {
-        case <-empty:
-        }
-    }
+    err = core.SetUpAndRun(conf)
+    log.Fatalf("Initialisation error: %v", err)
 }

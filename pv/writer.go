@@ -15,108 +15,48 @@ import (
 )
 
 var dryrun = flag.Bool("dryrun", false, "Do not upload data")
-var updateRate = flag.Int("update", 5, "Update rate (in minutes)")
-
-type Gauge struct {
-    acc float64
-    current float64
-    last time.Time
-    updated bool
-}
-
-type Accum struct {
-    value float64
-    initial float64
-    midnight float64
-}
 
 var apikey string
 var systemid string
 var serverUrl string
-var input chan core.Result = make(chan core.Result, 100)
-
-var interval time.Duration
-var lastUpdate time.Time
-
-var tp *Gauge
-var exportEnergy *Accum
-var importEnergy *Accum
 
 func init() {
     core.RegisterWriter(pvoutputInit)
 }
 
-func pvoutputInit(conf *config.Config) (chan<- core.Result, error) {
+func pvoutputInit(conf *config.Config, data <-chan *core.Output) error {
+    log.Printf("Registered pvoutput uploader as writer\n")
     if a, err := conf.GetArg("apikey"); err != nil {
-        return nil, err
+        return err
     } else {
         apikey = a
     }
     if a, err := conf.GetArg("systemid"); err != nil {
-        return nil, err
+        return err
     } else {
         systemid = a
     }
     if a, err := conf.GetArg("pvurl"); err != nil {
-        return nil, err
+        return err
     } else {
         serverUrl = a
     }
-    interval = time.Minute * time.Duration(*updateRate)
-    lastUpdate = time.Now().Truncate(interval)
-    tp = &Gauge{0, 0, lastUpdate, false}
-    importEnergy = new(Accum)
-    exportEnergy = new(Accum)
-    go pvread(input, time.Tick(10 * time.Second))
-    return input, nil
+    go writer(data)
+    return nil
 }
 
-func pvread(in chan core.Result, tick <-chan time.Time) {
+func writer(data <-chan *core.Output) {
     for {
-        select {
-        case r := <-in:
-            checkInterval()
-            process(r.Tag, r.Value)
-        case <-tick:
-            checkInterval()
+        d := <-data
+        el, ok := d.Values["TP"]
+        if !ok {
+            return
         }
-    }
-}
-
-func checkInterval() {
-    // See if an update interval has passed.
-    now := time.Now()
-    if now.Sub(lastUpdate) < interval {
-        return
-    }
-    lastUpdate = now.Truncate(interval)
-    avg := tp.get(lastUpdate)
-    err := pvupload(lastUpdate, avg)
-    if err != nil {
-        log.Printf("Update failed: %v", err)
-    }
-    // Check for midnight processing.
-    h, m, s := lastUpdate.Clock()
-    if h + m + s == 0 {
-        exportEnergy.reset()
-        importEnergy.reset()
-    }
-}
-
-func process(tag string, value float64) {
-    switch tag {
-    case "IN":
-        importEnergy.update(value)
-        if *core.Verbose {
-            log.Printf("Import daily: %f, total %f\n", importEnergy.daily(), importEnergy.total())
+        tp := el.(*core.Gauge)
+        err := pvupload(d.Time, tp.Get())
+        if err != nil {
+            log.Printf("Update failed: %v", err)
         }
-    case "OUT":
-        exportEnergy.update(value)
-        if *core.Verbose {
-            log.Printf("Export daily: %f, total %f\n", exportEnergy.daily(), exportEnergy.total())
-        }
-    case "TP":
-        tp.update(value)
     }
 }
 
@@ -161,42 +101,4 @@ func pvupload(t time.Time, exportVal float64) error {
         return err
     }
     return nil
-}
-
-func (g *Gauge) update(value float64) {
-    now := time.Now()
-    g.current = value
-    g.acc += now.Sub(g.last).Seconds() * g.current
-    g.last = now
-    g.updated = true
-}
-
-func (g *Gauge) get(t time.Time) float64 {
-    g.acc += t.Sub(g.last).Seconds() * g.current
-    avg := g.acc / interval.Seconds()
-    g.acc = 0
-    g.last = t
-    g.current = 0
-    g.updated = false
-    return avg
-}
-
-func (a *Accum) update(v float64) {
-    if a.value == 0 {
-        a.initial = v
-        a.midnight = v
-    }
-    a.value = v
-}
-
-func (a *Accum) reset() {
-    a.midnight = a.value
-}
-
-func (a *Accum) total() float64 {
-    return a.value - a.initial
-}
-
-func (a *Accum) daily() float64 {
-    return a.value - a.midnight
 }

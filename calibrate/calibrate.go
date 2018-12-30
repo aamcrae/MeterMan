@@ -6,7 +6,7 @@ import (
     "log"
     "os"
 
-    "github.com/aamcrae/MeterMan/reader"
+    "github.com/aamcrae/MeterMan/lcd"
 )
 
 var angle = flag.Float64("angle", 215.5, "Rotation angle (degrees clockwise)")
@@ -27,8 +27,8 @@ func main() {
     if err != nil {
         log.Fatalf("%s: %v", *input, err)
     }
-    result := reader.RotateImage(img, *angle)
-    err = reader.SaveImage(*output, result)
+    result := lcd.RotateImage(img, *angle)
+    err = lcd.SaveImage(*output, result)
     if err != nil {
         log.Fatalf("%s: %v", *output, err)
     }

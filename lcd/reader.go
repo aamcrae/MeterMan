@@ -1,4 +1,4 @@
-package reader
+package lcd
 
 import (
     "fmt"
@@ -9,14 +9,13 @@ import (
     "time"
 
     "github.com/aamcrae/config"
-    "github.com/aamcrae/MeterMan/lcd"
 )
 
 const calibrateDelay = time.Minute * 10
 
 type Reader struct {
     conf *config.Config
-    lcd *lcd.LcdDecoder
+    decoder *LcdDecoder
     current image.Image
     key string
     value string
@@ -45,11 +44,11 @@ var measures map [string]measure = map[string]measure {
 }
 
 func NewReader(c *config.Config) (*Reader, error) {
-    d, err := lcd.CreateLcdDecoder(c)
+    d, err := CreateLcdDecoder(c)
     if  err != nil {
         return nil, err
     }
-    return &Reader{conf:c, lcd:d}, nil
+    return &Reader{conf:c, decoder:d}, nil
 }
 
 func (r *Reader) Calibrate(img image.Image) {
@@ -57,13 +56,13 @@ func (r *Reader) Calibrate(img image.Image) {
     if time.Now().Sub(r.lastCalibration) >= calibrateDelay {
         r.lastCalibration = now
         log.Printf("Recalibrating")
-        r.lcd.Calibrate(img)
+        r.decoder.Calibrate(img)
     }
 }
 
 func (r *Reader) Read(img image.Image) (string, float64, error) {
     r.current = img
-    vals, vok := r.lcd.Decode(img)
+    vals, vok := r.decoder.Decode(img)
     bad := false
     var seg int
     for s, okDigit := range vok {

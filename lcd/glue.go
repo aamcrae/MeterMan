@@ -1,4 +1,4 @@
-package reader
+package lcd
 
 import (
     "flag"
@@ -20,7 +20,8 @@ func init() {
     core.RegisterReader(lcdReader)
 }
 
-func lcdReader(conf *config.Config, wr []chan<- core.Result) error {
+func lcdReader(conf *config.Config, wr chan<- core.Input) error {
+    log.Printf("Registered LCD decoder as reader\n")
     var angle float64
     a, err := conf.GetArg("rotate")
     if err != nil {
@@ -50,7 +51,7 @@ func lcdReader(conf *config.Config, wr []chan<- core.Result) error {
     return nil
 }
 
-func runReader(r *Reader, source string, angle float64, wr []chan<- core.Result) {
+func runReader(r *Reader, source string, angle float64, wr chan<- core.Input) {
     delay := time.Duration(*sampleTime) * time.Second
     lastTime := time.Now()
     for {
@@ -67,13 +68,7 @@ func runReader(r *Reader, source string, angle float64, wr []chan<- core.Result)
                 SaveImage(*badFile, img)
             }
         } else if len(tag) > 0 {
-            if *core.Verbose {
-                log.Printf("Tag: %s value %f\n", tag, val)
-            }
-            res := core.Result{tag, val}
-            for _, c := range wr {
-                c<- res
-            }
+            wr <- core.Input{tag, val}
         }
         time.Sleep(delay - time.Now().Sub(lastTime))
         lastTime = time.Now()
