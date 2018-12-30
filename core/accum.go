@@ -27,7 +27,8 @@ func NewAccum(cp string) * Accum {
 }
 
 func (a *Accum) Update(v float64) {
-    if a.last == 0 {
+    // Check whether the accumulator has been reset.
+    if v < a.last {
         a.midnight = v
         a.last = v
     }
