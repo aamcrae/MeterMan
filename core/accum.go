@@ -57,7 +57,7 @@ func (a *Accum) Reset() {
 
 // Create a checkpoint string.
 func (a *Accum) Checkpoint() string {
-    return fmt.Sprintf("%f %f %f", a.midnight, a.last)
+    return fmt.Sprintf("%f %f", a.midnight, a.last)
 }
 
 func (a *Accum) Current() float64 {

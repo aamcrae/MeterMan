@@ -40,6 +40,7 @@ type Element interface {
 }
 
 var elements map[string]Element = map[string]Element{}
+var checkpointMap map[string]string = make(map[string]string)
 
 var interval time.Duration
 var lastUpdate time.Time
@@ -59,6 +60,12 @@ func RegisterReader(f func (*config.Config, chan<- Input) error) {
 }
 
 func SetUpAndRun(conf *config.Config) error {
+    // Read checkpoint file
+    if len(*checkpoint) != 0 {
+        readCheckpoint(*checkpoint, checkpointMap)
+    }
+    interval = time.Minute * time.Duration(*updateRate)
+    lastUpdate = time.Now().Truncate(interval)
     input := make(chan Input, 200)
     for _, wi := range writersInit {
         o := make(chan *Output, 100)
@@ -72,16 +79,6 @@ func SetUpAndRun(conf *config.Config) error {
             return err
         }
     }
-    cp := make(map[string]string)
-    // Read checkpoint file
-    if len(*checkpoint) != 0 {
-        readCheckpoint(*checkpoint, cp)
-    }
-    interval = time.Minute * time.Duration(*updateRate)
-    lastUpdate = time.Now().Truncate(interval)
-    elements["TP"] = NewGauge(cp["TP"])
-    elements["IN"] = NewAccum(cp["IN"])
-    elements["OUT"] = NewAccum(cp["OUT"])
     tick := time.Tick(10 * time.Second)
     for {
         select {
@@ -99,6 +96,54 @@ func SetUpAndRun(conf *config.Config) error {
         }
     }
     return nil
+}
+
+func AddSubGauge(base string) string {
+    el, ok := elements[base]
+    if !ok {
+        el = NewMultiGauge(base)
+        elements[base] = el
+    }
+    m := el.(*MultiGauge)
+    tag := m.NextTag()
+    g := NewGauge(checkpointMap[tag])
+    m.Add(g)
+    elements[tag] = g
+    if *Verbose {
+        log.Printf("Adding subgauge %s to %s\n",tag, base)
+    }
+    return tag
+}
+
+func AddSubAccum(base string) string {
+    el, ok := elements[base]
+    if !ok {
+        el = NewMultiAccum(base)
+        elements[base] = el
+    }
+    m := el.(*MultiAccum)
+    tag := m.NextTag()
+    a := NewAccum(checkpointMap[tag])
+    m.Add(a)
+    elements[tag] = a
+    if *Verbose {
+        log.Printf("Adding subaccumulator %s to %s\n",tag, base)
+    }
+    return tag
+}
+
+func AddGauge(name string) {
+    elements[name] = NewGauge(checkpointMap[name])
+    if *Verbose {
+        log.Printf("Adding gauge %s\n", name)
+    }
+}
+
+func AddAccum(name string) {
+    elements[name] = NewAccum(checkpointMap[name])
+    if *Verbose {
+        log.Printf("Adding accumulator %s\n", name)
+    }
 }
 
 func checkInterval() {
