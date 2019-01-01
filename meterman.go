@@ -12,7 +12,7 @@ import (
 )
 
 
-var conf = flag.String("config", ".meterman", "Config file")
+var conf = flag.String("config", "/etc/meterman.conf", "Config file")
 
 func main() {
     flag.Parse()

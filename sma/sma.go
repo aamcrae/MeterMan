@@ -131,11 +131,11 @@ func NewSMA(inverter string, password string) (* SMA, error) {
 func (s *SMA) run(wr chan<- core.Input) {
     defer s.conn.Close()
     for {
-        h := time.Now().Hour()
-        if h >= *core.StartHour && h < *core.EndHour {
+        hour := time.Now().Hour()
+        if hour >= *core.StartHour && hour < *core.EndHour {
             err := s.poll(wr)
             if err != nil {
-                log.Printf("Poll failed for %s: %v", s.name, err)
+                log.Printf("Inverter poll error:%s - $v", s.name, err)
             }
         }
         time.Sleep(time.Duration(*smapoll) * time.Second)
@@ -165,19 +165,23 @@ func (s *SMA) poll(wr chan<- core.Input) error {
     if err != nil {
         return err
     }
-    if *core.Verbose {
-        log.Printf("Current volts = %f", v)
+    if v != 0 {
+        if *core.Verbose {
+            log.Printf("Current volts = %f", v)
+        }
+        wr <- core.Input{core.G_VOLTS, v}
     }
-    wr <- core.Input{core.G_VOLTS, v}
     p, err := s.Power()
     if err != nil {
         return err
     }
-    pf := float64(p) / 1000
-    if *core.Verbose {
-        log.Printf("Current power = %f", pf)
+    if p != 0 {
+        pf := float64(p) / 1000
+        if *core.Verbose {
+            log.Printf("Current power = %f", pf)
+        }
+        wr <- core.Input{core.G_GEN_P, pf}
     }
-    wr <- core.Input{core.G_GEN_P, pf}
     return nil
 }
 

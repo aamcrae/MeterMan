@@ -8,6 +8,8 @@ import (
 type Accum struct {
     value float64
     midnight float64
+    lastUpdated bool
+    updated bool
 }
 
 func NewAccum(cp string) * Accum {
@@ -28,6 +30,7 @@ func (a *Accum) Update(v float64) {
         a.midnight = v
     }
     a.value = v
+    a.updated = true
 }
 
 func (a *Accum) Get() float64 {
@@ -35,10 +38,12 @@ func (a *Accum) Get() float64 {
 }
 
 func (a *Accum) PreWrite(t time.Time) {
+    a.lastUpdated = a.updated
+    a.updated = false
 }
 
 func (a *Accum) Updated() bool {
-    return true
+    return a.lastUpdated
 }
 
 func (a *Accum) Reset() {

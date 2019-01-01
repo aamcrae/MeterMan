@@ -33,12 +33,6 @@ func (m *MultiGauge) PreWrite(t time.Time) {
     }
 }
 
-func (m *MultiGauge) PostWrite() {
-    for _, g := range m.gauges {
-        g.PostWrite()
-    }
-}
-
 func (m *MultiGauge) Get() float64 {
     var v float64
     for _, g := range m.gauges {
