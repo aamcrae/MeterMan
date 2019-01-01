@@ -11,7 +11,6 @@ type Gauge struct {
     acc float64
     current float64
     last time.Time
-    updated bool
 }
 
 func NewGauge(cp string) * Gauge {
@@ -26,7 +25,6 @@ func (g *Gauge) Update(value float64) {
     g.current = value
     g.acc += now.Sub(g.last).Seconds() * g.current
     g.last = now
-    g.updated = true
 }
 
 func (g *Gauge) PreWrite(t time.Time) {
@@ -38,7 +36,6 @@ func (g *Gauge) PreWrite(t time.Time) {
 }
 
 func (g *Gauge) PostWrite() {
-    g.updated = false
 }
 
 func (g *Gauge) Get() float64 {
@@ -46,7 +43,7 @@ func (g *Gauge) Get() float64 {
 }
 
 func (g *Gauge) Updated() bool {
-    return g.updated
+    return true
 }
 
 func (g *Gauge) Reset() {

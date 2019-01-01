@@ -174,7 +174,7 @@ func (s *SMA) poll(wr chan<- core.Input) error {
     if err != nil {
         return err
     }
-    pf := float64(p)
+    pf := float64(p) / 1000
     if *core.Verbose {
         log.Printf("Current power = %f", pf)
     }

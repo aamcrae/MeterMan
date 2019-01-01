@@ -39,12 +39,6 @@ func (m *MultiAccum) PreWrite(t time.Time) {
     }
 }
 
-func (m *MultiAccum) PostWrite() {
-    for _, a := range m.accums {
-        a.PostWrite()
-    }
-}
-
 func (m *MultiAccum) Updated() bool {
     for _, a := range m.accums {
         if !a.Updated() {
@@ -62,14 +56,6 @@ func (m *MultiAccum) Reset() {
 
 func (m *MultiAccum) Checkpoint() string {
     return ""
-}
-
-func (m *MultiAccum) Current() float64 {
-    var v float64
-    for _, a := range m.accums {
-        v += a.Current()
-    }
-    return v
 }
 
 func (m *MultiAccum) Total() float64 {

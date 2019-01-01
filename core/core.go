@@ -44,7 +44,6 @@ type Output struct {
 type Element interface {
     Update(v float64)           // Update element with new value.
     PreWrite(t time.Time)       // Called to process the value before uploading.
-    PostWrite()                 // Called after uploading.
     Updated() bool              // Return true if value has been updated in this interval.
     Get() float64               // Get the element's value
     Reset()                     // Daily reset.
@@ -169,22 +168,12 @@ func checkInterval() {
     for n, el := range elements {
         el.PreWrite(lastUpdate)
         if *Verbose {
-            var v float64
-            switch e := el.(type) {
-            case *Gauge:
-                v = e.Get()
-            case *Accum:
-                v = e.Current()
-            }
-            log.Printf("Output: Tag: %5s, value %f\n", n, v)
+            log.Printf("Output: Tag: %5s, value %f\n", n, el.Get())
         }
     }
     out := &Output{lastUpdate, elements}
     for _, wr := range outputs {
         wr <- out
-    }
-    for _, el := range elements {
-        el.PostWrite()
     }
     if len(*checkpoint) != 0 {
         writeCheckpoint(*checkpoint)
