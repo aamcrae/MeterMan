@@ -1,0 +1,16 @@
+[Unit]
+Description=MeterMan server
+After=network.target
+
+[Service]
+User=root
+Type=simple
+TimeoutStopSec=10
+ExecStart=/usr/local/bin/MeterMan --savebad
+
+Restart=on-failure
+RestartSec=15s
+SuccessExitStatus=SIGKILL
+
+[Install]
+WantedBy=default.target
