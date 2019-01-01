@@ -1,23 +1,30 @@
-package reader
+package lcd
 
 import (
+    "flag"
     "fmt"
     "image"
     "log"
     "strconv"
     "strings"
+    "time"
 
     "github.com/aamcrae/config"
-    "github.com/aamcrae/MeterMan/lcd"
+    "github.com/aamcrae/MeterMan/core"
 )
+
+var recalibrate = flag.Bool("recalibrate", false, "Recalibrate with new image")
+
+const calibrateDelay = time.Minute * 10
 
 type Reader struct {
     conf *config.Config
-    lcd *lcd.LcdDecoder
+    decoder *LcdDecoder
     current image.Image
     key string
     value string
     m measure
+    lastCalibration time.Time
 }
 
 type measure struct {
@@ -27,35 +34,39 @@ type measure struct {
 }
 
 var measures map [string]measure = map[string]measure {
-    "1nP1": measure{handlerIgnore, 100.0, ""},
-    "1nP2": measure{handlerIgnore, 100.0, ""},
-    "t1NE": measure{handlerIgnore, 1.0, ""},
-    "1NtL": measure{handlerNumber, 100.0, "OUT"},
-    "tP  ": measure{handlerNumber, 10000.0, "TP"},
-    "EHtL": measure{handlerNumber, 100.0, "IN"},
-    "EHL1": measure{handlerIgnore, 100.0, ""},
-    "EHL2": measure{handlerIgnore, 100.0, ""},
-    "1NL1": measure{handlerIgnore, 100.0, ""},
-    "1NL2": measure{handlerIgnore, 100.0, ""},
+    "1nP1": measure{handlerNumber, 100.0, "IN-P1"},
+    "1nP2": measure{handlerNumber, 100.0, "IN-P2"},
+    "t1NE": measure{handlerIgnore, 1.0, "TIME"},
+    "1NtL": measure{handlerNumber, 100.0, core.A_OUT_TOTAL},
+    "tP  ": measure{handlerNumber, 10000.0, core.G_TP},
+    "EHtL": measure{handlerNumber, 100.0, core.A_IN_TOTAL},
+    "EHL1": measure{handlerNumber, 100.0, core.A_IMPORT + "-0"},
+    "EHL2": measure{handlerNumber, 100.0, core.A_IMPORT + "-1"},
+    "1NL1": measure{handlerNumber, 100.0, core.A_EXPORT + "-0"},
+    "1NL2": measure{handlerNumber, 100.0, core.A_EXPORT + "-1"},
     "8888": measure{handlerCalibrate, 1.0, ""},
 }
 
 func NewReader(c *config.Config) (*Reader, error) {
-    d, err := lcd.CreateLcdDecoder(c)
+    d, err := CreateLcdDecoder(c)
     if  err != nil {
         return nil, err
     }
-    return &Reader{conf:c, lcd:d}, nil
+    return &Reader{conf:c, decoder:d}, nil
 }
 
 func (r *Reader) Calibrate(img image.Image) {
-    log.Printf("Recalibrating")
-    r.lcd.Calibrate(img)
+    now := time.Now()
+    if time.Now().Sub(r.lastCalibration) >= calibrateDelay {
+        r.lastCalibration = now
+        log.Printf("Recalibrating")
+        r.decoder.Calibrate(img)
+    }
 }
 
 func (r *Reader) Read(img image.Image) (string, float64, error) {
     r.current = img
-    vals, vok := r.lcd.Decode(img)
+    vals, vok := r.decoder.Decode(img)
     bad := false
     var seg int
     for s, okDigit := range vok {
@@ -101,7 +112,9 @@ func handlerNumber(r *Reader) (string, float64, error) {
 func handlerCalibrate(r *Reader) (string, float64, error) {
     if r.value == "88888888" {
         SaveImage("/tmp/cal.jpg", r.current)
-        r.Calibrate(r.current)
+        if *recalibrate {
+            r.Calibrate(r.current)
+        }
     }
     return "", 0.0, nil
 }

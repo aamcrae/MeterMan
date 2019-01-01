@@ -3,17 +3,13 @@ package main
 import (
     "flag"
     "image"
-    "image/gif"
-    "image/jpeg"
-    "image/png"
     "log"
     "os"
-    "strings"
 
-    "github.com/aamcrae/MeterMan"
+    "github.com/aamcrae/MeterMan/lcd"
 )
 
-var angle = flag.Float64("angle", 216.2, "Rotation angle (degrees clockwise)")
+var angle = flag.Float64("angle", 215.5, "Rotation angle (degrees clockwise)")
 var input = flag.String("input", "input.png", "Input image (png, jpg, gif")
 var output = flag.String("output", "output.png", "Output image (png, jpg, gif")
 
@@ -31,22 +27,9 @@ func main() {
     if err != nil {
         log.Fatalf("%s: %v", *input, err)
     }
-    result := meterman.ProcessImage(img, *angle)
-    of, err := os.Create(*output)
+    result := lcd.RotateImage(img, *angle)
+    err = lcd.SaveImage(*output, result)
     if err != nil {
         log.Fatalf("%s: %v", *output, err)
-    }
-    defer of.Close()
-    if strings.HasSuffix(*output, "png") {
-        err = png.Encode(of, result)
-    } else if strings.HasSuffix(*output, "jpg") {
-        err = jpeg.Encode(of, result, nil)
-    } else if strings.HasSuffix(*output, "gif") {
-        err = gif.Encode(of, result, nil)
-    } else {
-        log.Fatalf("%s: unknown image format", *output)
-    }
-    if err != nil {
-        log.Fatalf("%s encode error: %v", *output, err)
     }
 }
