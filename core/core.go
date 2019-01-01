@@ -17,6 +17,8 @@ import (
 var Verbose = flag.Bool("verbose", false, "Verbose tracing")
 var updateRate = flag.Int("update", 5, "Update rate (in minutes)")
 var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
+var StartHour = flag.Int("starthour", 6, "Start hour for PV (e.g 6)")
+var EndHour = flag.Int("endhour", 19, "End hour for PV (e.g 19)")
 
 const (
     A_IN_TOTAL = "IN"

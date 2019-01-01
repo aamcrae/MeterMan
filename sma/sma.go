@@ -108,10 +108,6 @@ func NewSMA(inverter string, password string) (* SMA, error) {
     if err != nil {
         return nil, err
     }
-    //laddr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf(":%d", *smaport))
-    //if err != nil {
-        //return nil, err
-    //}
     conn, err := net.DialUDP("udp4", nil, raddr)
     if err != nil {
         return nil, err
@@ -135,9 +131,12 @@ func NewSMA(inverter string, password string) (* SMA, error) {
 func (s *SMA) run(wr chan<- core.Input) {
     defer s.conn.Close()
     for {
-        err := s.poll(wr)
-        if err != nil {
-            log.Printf("Poll failed for %s: %v", s.name, err)
+        h := time.Now().Hour()
+        if h >= *core.StartHour && h < *core.EndHour {
+            err := s.poll(wr)
+            if err != nil {
+                log.Printf("Poll failed for %s: %v", s.name, err)
+            }
         }
         time.Sleep(time.Duration(*smapoll) * time.Second)
     }
