@@ -18,6 +18,18 @@ var Verbose = flag.Bool("verbose", false, "Verbose tracing")
 var updateRate = flag.Int("update", 5, "Update rate (in minutes)")
 var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
 
+const (
+    A_IN_TOTAL = "IN"
+    A_OUT_TOTAL = "OUT"
+    A_GEN_TOTAL = "GEN-T"
+    A_GEN_DAILY = "GEN-D"
+    A_IMPORT = "IMP"
+    A_EXPORT = "EXP"
+    G_GEN_P = "GEN-P"
+    G_TP = "TP"
+    G_VOLTS = "VOLTS"
+)
+
 type Input struct {
     Tag string
     Value float64

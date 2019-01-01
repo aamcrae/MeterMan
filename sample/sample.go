@@ -7,12 +7,8 @@ import (
     "github.com/aamcrae/MeterMan/lcd"
     "image"
     "image/color"
-    "image/gif"
-    "image/jpeg"
-    "image/png"
     "log"
     "os"
-    "strings"
 )
 
 var output = flag.String("output", "output.jpg", "output jpeg file")
@@ -28,14 +24,14 @@ func main() {
     if err != nil {
         log.Fatalf("Failed to read config %s: %v", *configFile, err)
     }
-    lcd, err := lcd.CreateLcdDecoder(c)
+    l, err := lcd.CreateLcdDecoder(c)
     s := c.Get("calibrate")
     if len(s) == 1 && len(s[0].Tokens) == 1 {
         img, err := lcd.ReadImage(s[0].Tokens[0])
         if  err != nil {
             log.Fatalf("%v", err);
         }
-        lcd.Calibrate(img)
+        l.Calibrate(img)
     }
     if err != nil {
         log.Fatalf("LCD config failed %v", err)
@@ -57,25 +53,12 @@ func main() {
     if err != nil {
         log.Fatalf("Failed to read %s: %v", *input, err)
     }
-    vals, ok := lcd.Decode(img)
+    vals, ok := l.Decode(img)
     for i, v := range vals {
         fmt.Printf("segment %d = '%s', ok = %v\n", i, v, ok[i])
     }
-    lcd.MarkSamples(img)
-    of, err := os.Create(*output)
-    if err != nil {
-        log.Fatalf("Failed to create %s: %v", *output, err)
-    }
-    defer of.Close()
-    if strings.HasSuffix(*output, "png") {
-        err = png.Encode(of, img)
-    } else if strings.HasSuffix(*output, "jpg") {
-        err = jpeg.Encode(of, img, nil)
-    } else if strings.HasSuffix(*output, "gif") {
-        err = gif.Encode(of, img, nil)
-    } else {
-        log.Fatalf("%s: unknown image format", *output)
-    }
+    l.MarkSamples(img)
+    err = lcd.SaveImage(*output, img)
     if err != nil {
         log.Fatalf("%s encode error: %v", *output, err)
     }
