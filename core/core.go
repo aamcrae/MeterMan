@@ -179,15 +179,15 @@ func checkInterval() {
     for _, wr := range outputs {
         wr <- out
     }
-    if len(*checkpoint) != 0 {
-        writeCheckpoint(*checkpoint)
-    }
     // Check for daily reset processing.
     h, m, s := lastUpdate.Clock()
     if h + m + s == 0 {
         for _, el := range elements {
             el.Reset()
         }
+    }
+    if len(*checkpoint) != 0 {
+        writeCheckpoint(*checkpoint)
     }
 }
 
