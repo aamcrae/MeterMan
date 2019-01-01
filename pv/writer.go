@@ -53,42 +53,43 @@ func writer(data <-chan *core.Output) {
         daily := getAccum(d, core.A_GEN_DAILY)
         imp := getAccum(d, core.A_IN_TOTAL)
         exp := getAccum(d, core.A_OUT_TOTAL)
-        hour := d.Time.Hour()
 
         val := url.Values{}
         val.Add("d", d.Time.Format("20060102"))
         val.Add("t", d.Time.Format("15:04"))
-        if hour >= *core.StartHour && hour < *core.EndHour {
-            if daily != nil {
-                val.Add("v1", fmt.Sprintf("%d", int(daily.Get() * 1000)))
-                if *core.Verbose {
-                    log.Printf("v1 = %f", daily.Get())
-                }
+        if daily != nil && daily.Updated() {
+            val.Add("v1", fmt.Sprintf("%d", int(daily.Get() * 1000)))
+            if *core.Verbose {
+                log.Printf("v1 = %f", daily.Get())
             }
-            if genp != nil {
-                val.Add("v2", fmt.Sprintf("%d", int(genp.Get() * 1000)))
-                if *core.Verbose {
-                    log.Printf("v2 = %f", genp.Get())
-                }
+        }
+        if genp != nil {
+            val.Add("v2", fmt.Sprintf("%d", int(genp.Get() * 1000)))
+            if *core.Verbose {
+                log.Printf("v2 = %f", genp.Get())
+            }
+        }
+        if volts != nil && volts.Get() != 0 {
+            val.Add("v6", fmt.Sprintf("%.2f", volts.Get()))
+            if *core.Verbose {
+                log.Printf("v6 = %.2f", volts.Get())
             }
         }
         if imp != nil && exp != nil && daily != nil {
             consumption := imp.Daily() + daily.Get() - exp.Daily()
             val.Add("v3", fmt.Sprintf("%d", int(consumption * 1000)))
             if *core.Verbose {
-                log.Printf("v3 = %f", consumption)
+                log.Printf("v3 = %f, imp = %f, exp = %f", consumption, imp.Daily(), exp.Daily())
             }
         }
-        if tp != nil && genp != nil {
-            val.Add("v4", fmt.Sprintf("%d", int((genp.Get() + tp.Get()) * 1000)))
-            if *core.Verbose {
-                log.Printf("v4 = %f", genp.Get() + tp.Get())
+        if tp != nil {
+            var g float64
+            if genp != nil {
+                g = genp.Get()
             }
-        }
-        if volts != nil {
-            val.Add("v6", fmt.Sprintf("%.2f", volts.Get()))
+            val.Add("v4", fmt.Sprintf("%d", int((g + tp.Get()) * 1000)))
             if *core.Verbose {
-                log.Printf("v6 = %.2f", volts.Get())
+                log.Printf("v4 = %f", g + tp.Get())
             }
         }
         req, err := http.NewRequest("POST", serverUrl, strings.NewReader(val.Encode()))
@@ -123,7 +124,7 @@ func writer(data <-chan *core.Output) {
 
 func getGauge(d *core.Output, name string) (*core.Gauge) {
     el, ok := d.Values[name]
-    if !ok {
+    if !ok || !el.Updated() {
         return nil
     }
     return el.(*core.Gauge)
