@@ -8,36 +8,24 @@ import (
 
 type Gauge struct {
     value float64
-    acc float64
-    current float64
     last time.Time
-    lastUpdated bool
-    updated bool
+    updated time.Time
 }
 
 func NewGauge(cp string) * Gauge {
     g := new(Gauge)
-    fmt.Sscanf(cp, "%f", &g.current)
+    fmt.Sscanf(cp, "%f", &g.value)
     g.last = time.Now()
     return g
 }
 
-func (g *Gauge) Update(value float64) {
-    now := time.Now()
-    g.current = value
-    g.acc += now.Sub(g.last).Seconds() * g.current
-    g.last = now
-    g.updated = true
+func (g *Gauge) Update(t time.Time, value float64) {
+    g.value = value
+    g.updated = t
 }
 
-func (g *Gauge) PreWrite(t time.Time) {
-    g.acc += t.Sub(g.last).Seconds() * g.current
-    g.value = g.acc / interval.Seconds()
-    g.acc = 0
-    g.last = t
-    g.current = 0
-    g.lastUpdated = g.updated
-    g.updated = false
+func (g *Gauge) Interval(last time.Time, midnight bool) {
+    g.last = last
 }
 
 func (g *Gauge) Get() float64 {
@@ -45,10 +33,7 @@ func (g *Gauge) Get() float64 {
 }
 
 func (g *Gauge) Updated() bool {
-    return g.lastUpdated
-}
-
-func (g *Gauge) Reset() {
+    return g.updated.After(g.last)
 }
 
 func (g *Gauge) Checkpoint() string {

@@ -8,8 +8,8 @@ import (
 type Accum struct {
     value float64
     midnight float64
-    lastUpdated bool
-    updated bool
+    last time.Time
+    updated time.Time
 }
 
 func NewAccum(cp string) * Accum {
@@ -18,36 +18,38 @@ func NewAccum(cp string) * Accum {
     if err != nil {
         fmt.Printf("%d parsed, accum err: %v\n", n, err)
     }
+    a.last = time.Now()
+    if a.midnight > a.value {
+        a.midnight = a.value
+    }
     if *Verbose {
         fmt.Printf("New accum, midnight = %f, value = %f\n", a.midnight, a.value)
     }
     return a
 }
 
-func (a *Accum) Update(v float64) {
+func (a *Accum) Update(now time.Time, v float64) {
     // Check whether the accumulator has been reset.
     if v < a.value {
         a.midnight = v
     }
     a.value = v
-    a.updated = true
+    a.updated = now
 }
 
 func (a *Accum) Get() float64 {
     return a.value
 }
 
-func (a *Accum) PreWrite(t time.Time) {
-    a.lastUpdated = a.updated
-    a.updated = false
+func (a *Accum) Interval(last time.Time, midnight bool) {
+    a.last = last
+    if midnight {
+        a.midnight = a.value
+    }
 }
 
 func (a *Accum) Updated() bool {
-    return a.lastUpdated
-}
-
-func (a *Accum) Reset() {
-    a.midnight = a.value
+    return a.updated.After(a.last)
 }
 
 // Create a checkpoint string.

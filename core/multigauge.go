@@ -23,13 +23,13 @@ func (m *MultiGauge) Add(g *Gauge) {
     m.gauges = append(m.gauges, g)
 }
 
-func (m *MultiGauge) Update(value float64) {
+func (m *MultiGauge) Update(t time.Time, value float64) {
     // Should never happen.
 }
 
-func (m *MultiGauge) PreWrite(t time.Time) {
+func (m *MultiGauge) Interval(t time.Time, midnight bool) {
     for _, g := range m.gauges {
-        g.PreWrite(t)
+        g.Interval(t, midnight)
     }
 }
 
@@ -48,9 +48,6 @@ func (m *MultiGauge) Updated() bool {
         }
     }
     return true
-}
-
-func (m *MultiGauge) Reset() {
 }
 
 func (m *MultiGauge) Checkpoint() string {

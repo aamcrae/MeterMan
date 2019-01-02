@@ -161,6 +161,7 @@ func (s *SMA) poll(wr chan<- core.Input) error {
         log.Printf("Daily yield = %f, total yield = %f", dk, tk)
     }
     wr <- core.Input{core.A_GEN_DAILY, dk}
+    wr <- core.Input{core.A_GEN_TOTAL, tk}
     v, err := s.Voltage()
     if err != nil {
         return err

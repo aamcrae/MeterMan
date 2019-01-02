@@ -22,7 +22,7 @@ func (m *MultiAccum) Add(a *Accum) {
     m.accums = append(m.accums, a)
 }
 
-func (m *MultiAccum) Update(v float64) {
+func (m *MultiAccum) Update(t time.Time, v float64) {
 }
 
 func (m *MultiAccum) Get() float64 {
@@ -33,9 +33,9 @@ func (m *MultiAccum) Get() float64 {
     return v
 }
 
-func (m *MultiAccum) PreWrite(t time.Time) {
+func (m *MultiAccum) Interval(t time.Time, midnight bool) {
     for _, a := range m.accums {
-        a.PreWrite(t)
+        a.Interval(t, midnight)
     }
 }
 
@@ -46,12 +46,6 @@ func (m *MultiAccum) Updated() bool {
         }
     }
     return true
-}
-
-func (m *MultiAccum) Reset() {
-    for _, a := range m.accums {
-        a.Reset()
-    }
 }
 
 func (m *MultiAccum) Checkpoint() string {

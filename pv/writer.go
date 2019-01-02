@@ -50,7 +50,7 @@ func writer(data <-chan *core.Output) {
         tp := getGauge(d, core.G_TP)
         genp := getGauge(d, core.G_GEN_P)
         volts := getGauge(d, core.G_VOLTS)
-        daily := getAccum(d, core.A_GEN_DAILY)
+        daily := getAccum(d, core.A_GEN_TOTAL)
         imp := getAccum(d, core.A_IN_TOTAL)
         exp := getAccum(d, core.A_OUT_TOTAL)
 
@@ -58,29 +58,47 @@ func writer(data <-chan *core.Output) {
         val.Add("d", d.Time.Format("20060102"))
         val.Add("t", d.Time.Format("15:04"))
         if daily != nil && daily.Updated() {
-            val.Add("v1", fmt.Sprintf("%d", int(daily.Get() * 1000)))
+            val.Add("v1", fmt.Sprintf("%d", int(daily.Daily() * 1000)))
             if *core.Verbose {
-                log.Printf("v1 = %f", daily.Get())
+                log.Printf("v1 = %f", daily.Daily())
             }
+        } else if *core.Verbose {
+            log.Printf("No PV energy total, v1 not updated\n")
         }
         if genp != nil {
             val.Add("v2", fmt.Sprintf("%d", int(genp.Get() * 1000)))
             if *core.Verbose {
                 log.Printf("v2 = %f", genp.Get())
             }
+        } else if *core.Verbose {
+            log.Printf("No PV power, v2 not updated\n")
         }
         if volts != nil && volts.Get() != 0 {
             val.Add("v6", fmt.Sprintf("%.2f", volts.Get()))
             if *core.Verbose {
                 log.Printf("v6 = %.2f", volts.Get())
             }
+        } else if *core.Verbose {
+            log.Printf("No Voltage, v6 not updated\n")
         }
         if imp != nil && exp != nil && daily != nil {
-            consumption := imp.Daily() + daily.Get() - exp.Daily()
+            consumption := imp.Daily() + daily.Daily() - exp.Daily()
             val.Add("v3", fmt.Sprintf("%d", int(consumption * 1000)))
             if *core.Verbose {
-                log.Printf("v3 = %f, imp = %f, exp = %f", consumption, imp.Daily(), exp.Daily())
+                log.Printf("v3 = %f, imp = %f, exp = %f, daily = %f", consumption, imp.Daily(), exp.Daily(), daily.Daily())
             }
+        } else if *core.Verbose {
+            log.Printf("No consumption data, v3 not updated\n")
+            if exp == nil {
+                log.Printf("No expport data\n")
+            }
+            if imp == nil {
+                log.Printf("No import data\n")
+            }
+            if daily == nil {
+                log.Printf("No PV energy data\n")
+            }
+            log.Printf("No consumption data, v3 not updated\n")
         }
         if tp != nil {
             var g float64
@@ -91,6 +109,8 @@ func writer(data <-chan *core.Output) {
             if *core.Verbose {
                 log.Printf("v4 = %f", g + tp.Get())
             }
+        } else if *core.Verbose {
+            log.Printf("No total power  data, v4 not updated\n")
         }
         req, err := http.NewRequest("POST", serverUrl, strings.NewReader(val.Encode()))
         if err != nil {
@@ -132,7 +152,7 @@ func getGauge(d *core.Output, name string) (*core.Gauge) {
 
 func getAccum(d *core.Output, name string) (*core.Accum) {
     el, ok := d.Values[name]
-    if !ok {
+    if !ok || !el.Updated() {
         return nil
     }
     return el.(*core.Accum)
