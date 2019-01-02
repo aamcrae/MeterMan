@@ -155,13 +155,11 @@ func (s *SMA) poll(wr chan<- core.Input) error {
     if err != nil {
         return err
     }
-    dk := float64(d)/1000
-    tk := float64(t)/1000
     if *core.Verbose {
-        log.Printf("Daily yield = %f, total yield = %f", dk, tk)
+        log.Printf("Daily yield = %f, total yield = %f", d, t)
     }
-    wr <- core.Input{core.A_GEN_DAILY, dk}
-    wr <- core.Input{core.A_GEN_TOTAL, tk}
+    wr <- core.Input{core.A_GEN_DAILY, d}
+    wr <- core.Input{core.A_GEN_TOTAL, t}
     v, err := s.Voltage()
     if err != nil {
         return err
@@ -284,7 +282,8 @@ func (s *SMA) Voltage() (float64, error) {
     return float64(r.value)/100, nil
 }
 
-func (s *SMA) Energy() (int64, int64, error) {
+// Return daily yield and total yield in KwH
+func (s *SMA) Energy() (float64, float64, error) {
     recs, err := s.getRecords(0x54000200, 0x00260100, 0x002622FF)
     if err != nil {
         return 0, 0, err
@@ -297,7 +296,7 @@ func (s *SMA) Energy() (int64, int64, error) {
     if !ok {
         return 0, 0, fmt.Errorf("Bad records")
     }
-    return daily.value, total.value, nil
+    return float64(daily.value)/1000, float64(total.value)/1000, nil
 }
 
 func (s *SMA) Power() (int64, error) {
