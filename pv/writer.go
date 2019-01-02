@@ -81,11 +81,17 @@ func writer(data <-chan *core.Output) {
         } else if *core.Verbose {
             log.Printf("No Voltage, v6 not updated\n")
         }
-        if imp != nil && exp != nil && daily != nil {
-            consumption := imp.Daily() + daily.Daily() - exp.Daily()
+        if imp != nil && exp != nil {
+            consumption := imp.Daily() - exp.Daily()
+            if daily != nil {
+                consumption += daily.Daily()
+            }
             val.Add("v3", fmt.Sprintf("%d", int(consumption * 1000)))
             if *core.Verbose {
-                log.Printf("v3 = %f, imp = %f, exp = %f, daily = %f", consumption, imp.Daily(), exp.Daily(), daily.Daily())
+                log.Printf("v3 = %f, imp = %f, exp = %f", consumption, imp.Daily(), exp.Daily())
+                if daily != nil {
+                    log.Printf("daily = %f", daily.Daily())
+                }
             }
         } else if *core.Verbose {
             log.Printf("No consumption data, v3 not updated\n")
