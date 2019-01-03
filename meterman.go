@@ -9,6 +9,7 @@ import (
     _ "github.com/aamcrae/MeterMan/lcd"
     _ "github.com/aamcrae/MeterMan/pv"
     _ "github.com/aamcrae/MeterMan/sma"
+    _ "github.com/aamcrae/MeterMan/csv"
 )
 
 

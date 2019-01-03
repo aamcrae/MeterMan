@@ -5,6 +5,12 @@ import (
     "time"
 )
 
+type Acc interface {
+    Element
+    Total() float64
+    Daily() float64
+}
+
 type Accum struct {
     value float64
     midnight float64

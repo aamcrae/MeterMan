@@ -16,7 +16,7 @@ func NewMultiGauge(base string) (* MultiGauge) {
 }
 
 func (m *MultiGauge) NextTag() string {
-    return fmt.Sprintf("%s-%d", m.name, len(m.gauges))
+    return fmt.Sprintf("%s/%d", m.name, len(m.gauges))
 }
 
 func (m *MultiGauge) Add(g *Gauge) {

@@ -15,7 +15,7 @@ func NewMultiAccum(base string) * MultiAccum {
 }
 
 func (m *MultiAccum) NextTag() string {
-    return fmt.Sprintf("%s-%d", m.name, len(m.accums))
+    return fmt.Sprintf("%s/%d", m.name, len(m.accums))
 }
 
 func (m *MultiAccum) Add(a *Accum) {

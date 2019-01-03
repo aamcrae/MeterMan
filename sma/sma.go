@@ -135,7 +135,7 @@ func (s *SMA) run(wr chan<- core.Input) {
         if hour >= *core.StartHour && hour < *core.EndHour {
             err := s.poll(wr)
             if err != nil {
-                log.Printf("Inverter poll error:%s - $v", s.name, err)
+                log.Printf("Inverter poll error:%s - %v", s.name, err)
             }
         }
         time.Sleep(time.Duration(*smapoll) * time.Second)
