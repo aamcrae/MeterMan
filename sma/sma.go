@@ -140,7 +140,7 @@ func (s *SMA) run(wr chan<- core.Input) {
     }
 }
 
-func (s *SMA) poll(wr chan<- core.Input, night bool) error {
+func (s *SMA) poll(wr chan<- core.Input, daytime bool) error {
     if *core.Verbose {
         log.Printf("Polling inverter %s", s.name)
     }
@@ -158,7 +158,7 @@ func (s *SMA) poll(wr chan<- core.Input, night bool) error {
     }
     wr <- core.Input{core.A_GEN_DAILY, d}
     wr <- core.Input{core.A_GEN_TOTAL, t}
-    if !night {
+    if daytime {
         v, err := s.Voltage()
         if err != nil {
             return err
