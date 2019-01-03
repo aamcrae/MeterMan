@@ -36,7 +36,7 @@ func main() {
     if err != nil {
         log.Fatalf("Energy: %v", err)
     }
-    log.Printf("day = %d, total = %d\n", day, total)
+    log.Printf("day = %f KwH, total = %f KwH\n", day, total)
     p, err := sma.Power()
     if err != nil {
         log.Fatalf("Power: %v", err)

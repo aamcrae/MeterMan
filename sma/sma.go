@@ -132,17 +132,15 @@ func (s *SMA) run(wr chan<- core.Input) {
     defer s.conn.Close()
     for {
         hour := time.Now().Hour()
-        if hour >= *core.StartHour && hour < *core.EndHour {
-            err := s.poll(wr)
-            if err != nil {
-                log.Printf("Inverter poll error:%s - %v", s.name, err)
-            }
+        err := s.poll(wr, hour >= *core.StartHour && hour < *core.EndHour)
+        if err != nil {
+            log.Printf("Inverter poll error:%s - %v", s.name, err)
         }
         time.Sleep(time.Duration(*smapoll) * time.Second)
     }
 }
 
-func (s *SMA) poll(wr chan<- core.Input) error {
+func (s *SMA) poll(wr chan<- core.Input, night bool) error {
     if *core.Verbose {
         log.Printf("Polling inverter %s", s.name)
     }
@@ -160,26 +158,28 @@ func (s *SMA) poll(wr chan<- core.Input) error {
     }
     wr <- core.Input{core.A_GEN_DAILY, d}
     wr <- core.Input{core.A_GEN_TOTAL, t}
-    v, err := s.Voltage()
-    if err != nil {
-        return err
-    }
-    if v != 0 {
-        if *core.Verbose {
-            log.Printf("Current volts = %f", v)
+    if !night {
+        v, err := s.Voltage()
+        if err != nil {
+            return err
         }
-        wr <- core.Input{core.G_VOLTS, v}
-    }
-    p, err := s.Power()
-    if err != nil {
-        return err
-    }
-    if p != 0 {
-        pf := float64(p) / 1000
-        if *core.Verbose {
-            log.Printf("Current power = %f", pf)
+        if v != 0 {
+            if *core.Verbose {
+                log.Printf("Current volts = %f", v)
+            }
+            wr <- core.Input{core.G_VOLTS, v}
         }
-        wr <- core.Input{core.G_GEN_P, pf}
+        p, err := s.Power()
+        if err != nil {
+            return err
+        }
+        if p != 0 {
+            pf := float64(p) / 1000
+            if *core.Verbose {
+                log.Printf("Current power = %f", pf)
+            }
+            wr <- core.Input{core.G_GEN_P, pf}
+        }
     }
     return nil
 }
