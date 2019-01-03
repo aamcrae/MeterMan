@@ -53,11 +53,13 @@ func writer(data <-chan *core.Output) {
         pv_daily := getAccum(d, core.A_GEN_TOTAL)
         imp := getAccum(d, core.A_IN_TOTAL)
         exp := getAccum(d, core.A_OUT_TOTAL)
+        hour := d.Time.Hour()
+        daytime := hour >= *core.StartHour && hour < *core.EndHour
 
         val := url.Values{}
         val.Add("d", d.Time.Format("20060102"))
         val.Add("t", d.Time.Format("15:04"))
-        if pv_daily != nil && pv_daily.Updated() {
+        if pv_daily != nil && pv_daily.Updated() && daytime {
             val.Add("v1", fmt.Sprintf("%d", int(pv_daily.Daily() * 1000)))
             if *core.Verbose {
                 log.Printf("v1 = %f", pv_daily.Daily())
