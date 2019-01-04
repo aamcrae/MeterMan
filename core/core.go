@@ -23,11 +23,6 @@ type Input struct {
     Value float64
 }
 
-type Output struct {
-    Time time.Time
-    Values map[string]Element
-}
-
 // Element is the interface to each value that is being updated.
 type Element interface {
     Update(t time.Time, v float64)           // Update element with new value.
@@ -42,13 +37,14 @@ var checkpointMap map[string]string = make(map[string]string)
 
 var interval time.Duration
 var lastInterval time.Time
-var outputs []chan *Output
+// Callbacks for processing outputs.
+var outputs []func (time.Time, map[string]Element)
 
-var writersInit []func (*config.Config, <-chan *Output) error
+var writersInit []func (*config.Config) (func (time.Time, map[string]Element), error)
 var readersInit []func (*config.Config, chan<- Input) error
 
 // Register a sender of telemetry data.
-func RegisterWriter(f func (*config.Config, <-chan *Output) error) {
+func RegisterWriter(f func (*config.Config) (func (time.Time, map[string]Element), error)) {
     writersInit = append(writersInit, f)
 }
 
@@ -66,10 +62,10 @@ func SetUpAndRun(conf *config.Config) error {
     lastInterval = time.Now().Truncate(interval)
     input := make(chan Input, 200)
     for _, wi := range writersInit {
-        o := make(chan *Output, 100)
-        outputs = append(outputs, o)
-        if err := wi(conf, o); err != nil {
+        if of, err := wi(conf); err != nil {
             return err
+        } else {
+            outputs = append(outputs, of)
         }
     }
     for _, ri := range readersInit {
@@ -170,9 +166,8 @@ func checkInterval() time.Time {
             log.Printf("Output: Tag: %5s, value %f\n", n, el.Get())
         }
     }
-    out := &Output{nowInterval, elements}
-    for _, wr := range outputs {
-        wr <- out
+    for _, wf := range outputs {
+        wf(nowInterval, elements)
     }
     if len(*checkpoint) != 0 {
         writeCheckpoint(*checkpoint)

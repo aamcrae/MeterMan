@@ -3,7 +3,7 @@ Description=MeterMan server
 After=network.target
 
 [Service]
-User=root
+User=meter
 Type=simple
 TimeoutStopSec=10
 ExecStart=/usr/local/bin/MeterMan --savebad
