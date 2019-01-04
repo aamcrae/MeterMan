@@ -11,7 +11,7 @@ type Average struct {
     acc float64
     current float64
     last time.Time
-    updated time.Time
+    updated bool
 }
 
 func NewAverage(cp string) * Average {
@@ -22,10 +22,10 @@ func NewAverage(cp string) * Average {
     return g
 }
 
-func (g *Average) Update(t time.Time, value float64) {
+func (g *Average) Update(value float64) {
     g.current = value
-    g.acc += t.Sub(g.last).Seconds() * g.current
-    g.updated = t
+    g.acc += time.Now().Sub(g.last).Seconds() * g.current
+    g.updated = true
 }
 
 func (g *Average) Interval(t time.Time, midnight bool) {
@@ -40,7 +40,11 @@ func (g *Average) Get() float64 {
 }
 
 func (g *Average) Updated() bool {
-    return g.updated.After(g.last)
+    return g.updated
+}
+
+func (g *Average) ClearUpdate() {
+    g.updated = false
 }
 
 func (g *Average) Checkpoint() string {

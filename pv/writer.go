@@ -24,7 +24,7 @@ func init() {
     core.RegisterWriter(pvoutputInit)
 }
 
-func pvoutputInit(conf *config.Config) (func (time.Time, map[string]core.Element), error) {
+func pvoutputInit(conf *config.Config) (func (time.Time), error) {
     log.Printf("Registered pvoutput uploader as writer\n")
     if a, err := conf.GetArg("apikey"); err != nil {
         return nil, err
@@ -44,13 +44,13 @@ func pvoutputInit(conf *config.Config) (func (time.Time, map[string]core.Element
     return writer, nil
 }
 
-func writer(t time.Time, me map[string]core.Element) {
-    tp := getGauge(me, core.G_TP)
-    pv_power := getGauge(me, core.G_GEN_P)
-    volts := getGauge(me, core.G_VOLTS)
-    pv_daily := getAccum(me, core.A_GEN_TOTAL)
-    imp := getAccum(me, core.A_IN_TOTAL)
-    exp := getAccum(me, core.A_OUT_TOTAL)
+func writer(t time.Time) {
+    tp := core.GetElement(core.G_TP)
+    pv_power := core.GetElement(core.G_GEN_P)
+    volts := core.GetElement(core.G_VOLTS)
+    pv_daily := core.GetAccum(core.A_GEN_TOTAL)
+    imp := core.GetAccum(core.A_IN_TOTAL)
+    exp := core.GetAccum(core.A_OUT_TOTAL)
     hour := t.Hour()
     daytime := hour >= *core.StartHour && hour < *core.EndHour
 
@@ -69,7 +69,7 @@ func writer(t time.Time, me map[string]core.Element) {
             log.Printf("PV Energy not fresh, v1 not updated\n")
         }
     }
-    if pv_power != nil {
+    if pv_power != nil && pv_power.Updated() {
         val.Add("v2", fmt.Sprintf("%d", int(pv_power.Get() * 1000)))
         if *core.Verbose {
             log.Printf("v2 = %f", pv_power.Get())
@@ -77,7 +77,7 @@ func writer(t time.Time, me map[string]core.Element) {
     } else if *core.Verbose {
         log.Printf("No PV power, v2 not updated\n")
     }
-    if volts != nil && volts.Get() != 0 {
+    if volts != nil && volts.Updated() && volts.Get() != 0 {
         val.Add("v6", fmt.Sprintf("%.2f", volts.Get()))
         if *core.Verbose {
             log.Printf("v6 = %.2f", volts.Get())
@@ -114,9 +114,9 @@ func writer(t time.Time, me map[string]core.Element) {
         }
         log.Printf("No consumption data, v3 not updated\n")
     }
-    if tp != nil {
+    if tp != nil && tp.Updated() {
         var g float64
-        if pv_power != nil {
+        if pv_power != nil && pv_power.Updated() {
             g = pv_power.Get()
         }
         val.Add("v4", fmt.Sprintf("%d", int((g + tp.Get()) * 1000)))
@@ -153,20 +153,4 @@ func writer(t time.Time, me map[string]core.Element) {
         log.Printf("Error: %s: %s", resp.Status, body)
         return
     }
-}
-
-func getGauge(me map[string]core.Element, name string) (*core.Gauge) {
-    el, ok := me[name]
-    if !ok || !el.Updated() {
-        return nil
-    }
-    return el.(*core.Gauge)
-}
-
-func getAccum(me map[string]core.Element, name string) (*core.Accum) {
-    el, ok := me[name]
-    if !ok {
-        return nil
-    }
-    return el.(*core.Accum)
 }

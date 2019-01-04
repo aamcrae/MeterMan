@@ -7,7 +7,7 @@ import (
 
 type MultiAccum struct {
     name string
-    accums []*Accum
+    accums []Acc
 }
 
 func NewMultiAccum(base string) * MultiAccum {
@@ -18,11 +18,12 @@ func (m *MultiAccum) NextTag() string {
     return fmt.Sprintf("%s/%d", m.name, len(m.accums))
 }
 
-func (m *MultiAccum) Add(a *Accum) {
+func (m *MultiAccum) Add(a Acc) {
     m.accums = append(m.accums, a)
 }
 
-func (m *MultiAccum) Update(t time.Time, v float64) {
+func (m *MultiAccum) Update(v float64) {
+    panic(fmt.Errorf("Updated called on MultiAccum"))
 }
 
 func (m *MultiAccum) Get() float64 {
@@ -39,6 +40,7 @@ func (m *MultiAccum) Interval(t time.Time, midnight bool) {
     }
 }
 
+// Return true only if all sub elements have been updated.
 func (m *MultiAccum) Updated() bool {
     for _, a := range m.accums {
         if !a.Updated() {
@@ -46,6 +48,12 @@ func (m *MultiAccum) Updated() bool {
         }
     }
     return true
+}
+
+func (m *MultiAccum) ClearUpdate() {
+    for _, a := range m.accums {
+        a.ClearUpdate()
+    }
 }
 
 func (m *MultiAccum) Checkpoint() string {

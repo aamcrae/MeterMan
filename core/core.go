@@ -25,10 +25,11 @@ type Input struct {
 
 // Element is the interface to each value that is being updated.
 type Element interface {
-    Update(t time.Time, v float64)           // Update element with new value.
+    Update(v float64)           // Update element with new value.
     Interval(last time.Time, midnight bool)  // Called before uploading.
-    Updated() bool              // Return true if value has been updated in this interval.
     Get() float64               // Get the element's value
+    Updated() bool              // Return true if value has been updated in this interval.
+    ClearUpdate()               // Reset the update flag.
     Checkpoint() string         // Return a checkpoint string.
 }
 
@@ -38,13 +39,13 @@ var checkpointMap map[string]string = make(map[string]string)
 var interval time.Duration
 var lastInterval time.Time
 // Callbacks for processing outputs.
-var outputs []func (time.Time, map[string]Element)
+var outputs []func (time.Time)
 
-var writersInit []func (*config.Config) (func (time.Time, map[string]Element), error)
+var writersInit []func (*config.Config) (func (time.Time), error)
 var readersInit []func (*config.Config, chan<- Input) error
 
 // Register a sender of telemetry data.
-func RegisterWriter(f func (*config.Config) (func (time.Time, map[string]Element), error)) {
+func RegisterWriter(f func (*config.Config) (func (time.Time), error)) {
     writersInit = append(writersInit, f)
 }
 
@@ -77,13 +78,13 @@ func SetUpAndRun(conf *config.Config) error {
     for {
         select {
         case r := <-input:
-            now := checkInterval()
+            checkInterval()
             if *Verbose {
                 log.Printf("Tag: %5s value %f\n", r.Tag, r.Value)
             }
             h, ok := elements[r.Tag]
             if ok {
-                h.Update(now, r.Value)
+                h.Update(r.Value)
             }
         case <-tick:
             checkInterval()
@@ -147,11 +148,11 @@ func AddAccum(name string) {
     }
 }
 
-func checkInterval() time.Time {
+func checkInterval() {
     // See if an update interval has passed.
     now := time.Now()
     if now.Sub(lastInterval) < interval {
-        return now
+        return
     }
     nowInterval := now.Truncate(interval)
     if *Verbose {
@@ -160,20 +161,22 @@ func checkInterval() time.Time {
     // Check for daily reset processing.
     h, m, s := nowInterval.Clock()
     midnight := ((h + m + s) == 0)
-    for n, el := range elements {
+    for tag, el := range elements {
         el.Interval(lastInterval, midnight)
         if *Verbose {
-            log.Printf("Output: Tag: %5s, value %f\n", n, el.Get())
+            log.Printf("Output: Tag: %5s, value %f\n", tag, el.Get())
         }
     }
     for _, wf := range outputs {
-        wf(nowInterval, elements)
+        wf(nowInterval)
     }
     if len(*checkpoint) != 0 {
         writeCheckpoint(*checkpoint)
     }
+    for _, el := range elements {
+        el.ClearUpdate()
+    }
     lastInterval = nowInterval
-    return now
 }
 
 func writeCheckpoint(file string) {
@@ -220,4 +223,12 @@ func readCheckpoint(file string, cp map[string]string) {
             log.Printf("Checkpoint %s = %s\n", s[:i], s[i+1:])
         }
     }
+}
+
+func GetElement(name string) (Element) {
+    el, ok := elements[name]
+    if !ok {
+        return nil
+    }
+    return el
 }

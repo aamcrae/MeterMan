@@ -30,7 +30,7 @@ func init() {
 }
 
 // Writes daily CSV files in the form path/year/month/day
-func csvInit(conf *config.Config) (func (time.Time, map[string]core.Element), error) {
+func csvInit(conf *config.Config) (func (time.Time), error) {
     log.Printf("Registered CSV as writer\n")
     var err error
     filePath, err = conf.GetArg("csv")
@@ -40,7 +40,7 @@ func csvInit(conf *config.Config) (func (time.Time, map[string]core.Element), er
     return writer, nil
 }
 
-func writer(t time.Time, me map[string]core.Element) {
+func writer(t time.Time) {
     if t.YearDay() != currentDay {
         if fileWriter != nil {
             fileWriter.Close()
@@ -71,16 +71,16 @@ func writer(t time.Time, me map[string]core.Element) {
     }
     fmt.Fprint(fileWriter, t.Format("2006-01-02,15:04"))
     for _, s := range gauges {
-        g := getGauge(me, s)
+        g := core.GetElement(s)
         fmt.Fprint(fileWriter, ",")
-        if g != nil {
+        if g != nil && g.Updated() {
             fmt.Fprintf(fileWriter, "%f", g.Get())
         }
     }
     for _, s := range accums {
-        a := getAcc(me, s)
+        a := core.GetAccum(s)
         fmt.Fprint(fileWriter, ",")
-        if a != nil {
+        if a != nil && a.Updated() {
             fmt.Fprintf(fileWriter, "%f,%f", a.Get(), a.Daily())
         } else {
             fmt.Fprint(fileWriter, ",")
@@ -122,28 +122,4 @@ func (wr* Writer) Flush() (error) {
 func (wr* Writer) Close() (error) {
     wr.buf.Flush()
     return wr.file.Close()
-}
-
-
-func getGauge(me map[string]core.Element, name string) (*core.Gauge) {
-    el, ok := me[name]
-    if !ok || !el.Updated() {
-        return nil
-    }
-    return el.(*core.Gauge)
-}
-
-func getAcc(me map[string]core.Element, name string) (core.Acc) {
-    el, ok := me[name]
-    if !ok || !el.Updated() {
-        return nil
-    }
-    switch a := el.(type) {
-    case *core.Accum:
-        return a
-    case  *core.MultiAccum:
-        return a
-    default:
-        return nil
-    }
 }

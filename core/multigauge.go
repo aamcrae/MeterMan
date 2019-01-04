@@ -5,7 +5,6 @@ import (
     "time"
 )
 
-
 type MultiGauge struct {
     name string
     gauges []*Gauge
@@ -23,8 +22,9 @@ func (m *MultiGauge) Add(g *Gauge) {
     m.gauges = append(m.gauges, g)
 }
 
-func (m *MultiGauge) Update(t time.Time, value float64) {
+func (m *MultiGauge) Update(value float64) {
     // Should never happen.
+    panic(fmt.Errorf("Updated called on MultiGauge"))
 }
 
 func (m *MultiGauge) Interval(t time.Time, midnight bool) {
@@ -41,6 +41,7 @@ func (m *MultiGauge) Get() float64 {
     return v
 }
 
+// Return true only if all sub elements have been updated.
 func (m *MultiGauge) Updated() bool {
     for _, g := range m.gauges {
         if !g.Updated() {
@@ -48,6 +49,12 @@ func (m *MultiGauge) Updated() bool {
         }
     }
     return true
+}
+
+func (m *MultiGauge) ClearUpdate() {
+    for _, a := range m.gauges {
+        a.ClearUpdate()
+    }
 }
 
 func (m *MultiGauge) Checkpoint() string {

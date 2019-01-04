@@ -14,8 +14,7 @@ type Acc interface {
 type Accum struct {
     value float64
     midnight float64
-    last time.Time
-    updated time.Time
+    updated bool
 }
 
 func NewAccum(cp string) * Accum {
@@ -24,7 +23,6 @@ func NewAccum(cp string) * Accum {
     if err != nil {
         fmt.Printf("%d parsed, accum err: %v\n", n, err)
     }
-    a.last = time.Now()
     if a.midnight > a.value {
         a.midnight = a.value
     }
@@ -34,13 +32,13 @@ func NewAccum(cp string) * Accum {
     return a
 }
 
-func (a *Accum) Update(now time.Time, v float64) {
+func (a *Accum) Update(v float64) {
     // Check whether the accumulator has been reset.
     if v < a.value {
         a.midnight = v
     }
     a.value = v
-    a.updated = now
+    a.updated = true
 }
 
 func (a *Accum) Get() float64 {
@@ -48,14 +46,17 @@ func (a *Accum) Get() float64 {
 }
 
 func (a *Accum) Interval(last time.Time, midnight bool) {
-    a.last = last
     if midnight {
         a.midnight = a.value
     }
 }
 
 func (a *Accum) Updated() bool {
-    return a.updated.After(a.last)
+    return a.updated
+}
+
+func (a *Accum) ClearUpdate() {
+    a.updated = false
 }
 
 // Create a checkpoint string.
@@ -69,4 +70,19 @@ func (a *Accum) Total() float64 {
 
 func (a *Accum) Daily() float64 {
     return a.value - a.midnight
+}
+
+func GetAccum(name string) (Acc) {
+    el, ok := elements[name]
+    if !ok {
+        return nil
+    }
+    switch a := el.(type) {
+    case *Accum:
+        return a
+    case  *MultiAccum:
+        return a
+    default:
+        return nil
+    }
 }
