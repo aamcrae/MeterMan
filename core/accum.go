@@ -2,6 +2,7 @@ package core
 
 import (
     "fmt"
+    "log"
     "time"
 )
 
@@ -15,6 +16,7 @@ type Accum struct {
     value float64
     midnight float64
     updated bool
+    resettable bool
 }
 
 func NewAccum(cp string) * Accum {
@@ -35,6 +37,10 @@ func NewAccum(cp string) * Accum {
 func (a *Accum) Update(v float64) {
     // Check whether the accumulator has been reset.
     if v < a.value {
+        if !a.resettable {
+            log.Printf("Non-resettableccumulator going backwards, value = %f, current = %f\n", v, a.value)
+            return
+        }
         a.midnight = v
     }
     a.value = v

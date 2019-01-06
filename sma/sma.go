@@ -97,7 +97,7 @@ func smaReader(conf *config.Config, wr chan<- core.Input) error {
     }
     core.AddGauge(core.G_GEN_P)
     core.AddGauge(core.G_VOLTS)
-    core.AddAccum(core.A_GEN_DAILY)
+    core.AddResettableAccum(core.A_GEN_DAILY)
     core.AddAccum(core.A_GEN_TOTAL)
     go sma.run(wr)
     return nil

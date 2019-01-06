@@ -79,12 +79,11 @@ func SetUpAndRun(conf *config.Config) error {
         select {
         case r := <-input:
             checkInterval()
-            if *Verbose {
-                log.Printf("Tag: %5s value %f\n", r.Tag, r.Value)
-            }
             h, ok := elements[r.Tag]
             if ok {
                 h.Update(r.Value)
+            } else {
+               log.Printf("Unknown tag: %s\n", r.Tag)
             }
         case <-tick:
             checkInterval()
@@ -148,6 +147,15 @@ func AddAccum(name string) {
     }
 }
 
+func AddResettableAccum(name string) {
+    a := NewAccum(checkpointMap[name])
+    a.resettable = true
+    elements[name] = a
+    if *Verbose {
+        log.Printf("Adding accumulator %s\n", name)
+    }
+}
+
 func checkInterval() {
     // See if an update interval has passed.
     now := time.Now()
@@ -164,7 +172,7 @@ func checkInterval() {
     for tag, el := range elements {
         el.Interval(lastInterval, midnight)
         if *Verbose {
-            log.Printf("Output: Tag: %5s, value %f\n", tag, el.Get())
+            log.Printf("Output: Tag: %5s, value: %f, updated: %v\n", tag, el.Get(), el.Updated())
         }
     }
     for _, wf := range outputs {

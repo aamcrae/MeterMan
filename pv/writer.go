@@ -87,7 +87,7 @@ func writer(t time.Time) {
     }
     if imp != nil && imp.Updated() && exp != nil && exp.Updated() {
         consumption := imp.Daily() - exp.Daily()
-        // Daily generation may be out of date.
+        // Daily PV generation may be out of date.
         if pv_daily != nil {
             consumption += pv_daily.Daily()
         }
@@ -96,21 +96,23 @@ func writer(t time.Time) {
             log.Printf("v3 = %f, imp = %f, exp = %f", consumption, imp.Daily(), exp.Daily())
             if pv_daily != nil {
                 log.Printf("daily = %f", pv_daily.Daily())
-            }
-            if !pv_daily.Updated() {
-                log.Printf("Using old generation data")
+                if !pv_daily.Updated() {
+                    log.Printf("Using old generation data")
+                }
+            } else {
+                log.Printf("No PV energy data\n")
             }
         }
     } else if *core.Verbose {
-        log.Printf("No consumption data, v3 not updated\n")
         if exp == nil {
-            log.Printf("No expport data\n")
+            log.Printf("No export data\n")
+        } else if !exp.Updated() {
+            log.Printf("Export data not fresh\n")
         }
         if imp == nil {
             log.Printf("No import data\n")
-        }
-        if pv_daily == nil {
-            log.Printf("No PV energy data\n")
+        } else if !imp.Updated() {
+            log.Printf("Import data not fresh\n")
         }
         log.Printf("No consumption data, v3 not updated\n")
     }
@@ -124,7 +126,11 @@ func writer(t time.Time) {
             log.Printf("v4 = %f", g + tp.Get())
         }
     } else if *core.Verbose {
-        log.Printf("No total power  data, v4 not updated\n")
+        if tp == nil {
+            log.Printf("No total power, v4 not updated\n")
+        } else if !tp.Updated() {
+            log.Printf("Total not fresh, v4 not updated\n")
+        }
     }
     req, err := http.NewRequest("POST", serverUrl, strings.NewReader(val.Encode()))
     if err != nil {
