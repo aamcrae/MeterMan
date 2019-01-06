@@ -4,6 +4,8 @@ After=network.target
 
 [Service]
 User=meter
+Group=meter
+UMask=0002
 Type=simple
 TimeoutStopSec=10
 ExecStart=/usr/local/bin/MeterMan --savebad
