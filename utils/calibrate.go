@@ -1,12 +1,12 @@
 package main
 
 import (
-    "flag"
-    "image"
-    "log"
-    "os"
+	"flag"
+	"image"
+	"log"
+	"os"
 
-    "github.com/aamcrae/MeterMan/lcd"
+	"github.com/aamcrae/MeterMan/lcd"
 )
 
 var angle = flag.Float64("angle", 215.5, "Rotation angle (degrees clockwise)")
@@ -14,22 +14,22 @@ var input = flag.String("input", "input.png", "Input image (png, jpg, gif")
 var output = flag.String("output", "output.png", "Output image (png, jpg, gif")
 
 func init() {
-    flag.Parse()
+	flag.Parse()
 }
 
 func main() {
-    ifile, err := os.Open(*input)
-    if err != nil {
-        log.Fatalf("%s: %v", *input, err)
-    }
-    defer ifile.Close()
-    img, _, err := image.Decode(ifile)
-    if err != nil {
-        log.Fatalf("%s: %v", *input, err)
-    }
-    result := lcd.RotateImage(img, *angle)
-    err = lcd.SaveImage(*output, result)
-    if err != nil {
-        log.Fatalf("%s: %v", *output, err)
-    }
+	ifile, err := os.Open(*input)
+	if err != nil {
+		log.Fatalf("%s: %v", *input, err)
+	}
+	defer ifile.Close()
+	img, _, err := image.Decode(ifile)
+	if err != nil {
+		log.Fatalf("%s: %v", *input, err)
+	}
+	result := lcd.RotateImage(img, *angle)
+	err = lcd.SaveImage(*output, result)
+	if err != nil {
+		log.Fatalf("%s: %v", *output, err)
+	}
 }
