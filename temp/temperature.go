@@ -14,6 +14,7 @@ import (
 )
 
 const kelvinBase = 275.15
+const weatherUrl = "http://api.openweathermap.org/data/2.5/weather?id=%s?appid=%s"
 
 var weatherpoll = flag.Int("weather-poll", 120, "Weather poll time (seconds)")
 
@@ -33,12 +34,16 @@ func init() {
 
 func weatherReader(conf *config.Config, wr chan<- core.Input) error {
 	log.Printf("Registered temperature reader\n")
-	url, err := conf.GetArg("weather")
+	id, err := conf.GetArg("tempid")
+	if err != nil {
+		return err
+	}
+	key, err := conf.GetArg("tempkey")
 	if err != nil {
 		return err
 	}
 	core.AddGauge(core.G_TEMP)
-	go reader(url, wr)
+	go reader(fmt.Sprintf(weatherUrl, id, key), wr)
 	return nil
 }
 
