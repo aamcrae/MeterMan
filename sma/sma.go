@@ -33,12 +33,6 @@ const password_length = 12
 const password_enc = 0x88
 
 const (
-	GET_ENERGY = iota
-	SW_VERSION
-	GET_STATUS
-)
-
-const (
 	DT_ULONG  = 0
 	DT_STATUS = 8
 	DT_STRING = 16
