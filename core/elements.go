@@ -19,4 +19,6 @@ const (
 	A_GEN_DAILY = "GEN-D" // Daily energy generated from PV (KWH)
 	G_GEN_P     = "GEN-P" // Current PV power (Kw)
 	G_VOLTS     = "VOLTS" // Current AC voltage (V)
+    // Values read from openweathermap.org
+    G_TEMP      = "TEMP"    // Current temperature
 )
