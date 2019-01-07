@@ -47,6 +47,7 @@ func pvoutputInit(conf *config.Config) (func(time.Time), error) {
 func writer(t time.Time) {
 	tp := core.GetElement(core.G_TP)
 	pv_power := core.GetElement(core.G_GEN_P)
+	temp := core.GetElement(core.G_TEMP)
 	volts := core.GetElement(core.G_VOLTS)
 	pv_daily := core.GetAccum(core.A_GEN_TOTAL)
 	imp := core.GetAccum(core.A_IN_TOTAL)
@@ -76,6 +77,14 @@ func writer(t time.Time) {
 		}
 	} else if *core.Verbose {
 		log.Printf("No PV power, v2 not updated\n")
+	}
+	if temp != nil && temp.Updated() && temp.Get() != 0 {
+		val.Add("v5", fmt.Sprintf("%.2f", temp.Get()))
+		if *core.Verbose {
+			log.Printf("v5 = %.2f", temp.Get())
+		}
+	} else if *core.Verbose {
+		log.Printf("No temperature, v5 not updated\n")
 	}
 	if volts != nil && volts.Updated() && volts.Get() != 0 {
 		val.Add("v6", fmt.Sprintf("%.2f", volts.Get()))
