@@ -1,3 +1,8 @@
+// package core stores data sent over a channel from data providers ('readers') and
+// at the selected update interval, sends the stored data to 'writers'.
+// Data can be stored as gauges or accumulators.
+// The stored data is checkpointed each update interval.
+
 package core
 
 import (
@@ -17,12 +22,13 @@ var Verbose = flag.Bool("verbose", false, "Verbose tracing")
 var updateRate = flag.Int("update", 5, "Update rate (in minutes)")
 var checkpoint = flag.String("checkpoint", "/var/cache/MeterMan/checkpoint", "Checkpoint file")
 
+// Input represents the data sent by each reader.
 type Input struct {
-	Tag   string
-	Value float64
+	Tag   string  // The name of the tag.
+	Value float64 // The current value.
 }
 
-// Element is the interface to each value that is being updated.
+// Element represents each data item that is being updated by the readers.
 type Element interface {
 	Update(v float64)                       // Update element with new value.
 	Interval(last time.Time, midnight bool) // Called before uploading.
@@ -44,16 +50,21 @@ var outputs []func(time.Time)
 var writersInit []func(*config.Config) (func(time.Time), error)
 var readersInit []func(*config.Config, chan<- Input) error
 
-// Register a sender of telemetry data.
+// Register a 'writer' i.e a function that takes the collated data and
+// processes it (e.g writes it to a file).
 func RegisterWriter(f func(*config.Config) (func(time.Time), error)) {
 	writersInit = append(writersInit, f)
 }
 
-// Register a receiver of telemetry data.
+// Register a 'reader', a module that reads data and sends it via the
+// provided channel.
 func RegisterReader(f func(*config.Config, chan<- Input) error) {
 	readersInit = append(readersInit, f)
 }
 
+// SetUpAndRun restores the database from the checkpoint, calls the init
+// functions for the readers and writers, and then goes into a
+// service loop processing the inputs from the readers.
 func SetUpAndRun(conf *config.Config) error {
 	// Read checkpoint file
 	if len(*checkpoint) != 0 {
@@ -92,6 +103,7 @@ func SetUpAndRun(conf *config.Config) error {
 	return nil
 }
 
+// AddSubGauge adds a gauge that is part of a master gauge.
 func AddSubGauge(base string) string {
 	el, ok := elements[base]
 	if !ok {
@@ -109,6 +121,7 @@ func AddSubGauge(base string) string {
 	return tag
 }
 
+// AddSubAccum adds an accumulator that is part of a master accumulator.
 func AddSubAccum(base string) string {
 	el, ok := elements[base]
 	if !ok {
@@ -126,6 +139,7 @@ func AddSubAccum(base string) string {
 	return tag
 }
 
+// AddAverage adds an averaging element.
 func AddAverage(name string) {
 	elements[name] = NewAverage(checkpointMap[name])
 	if *Verbose {
@@ -133,6 +147,7 @@ func AddAverage(name string) {
 	}
 }
 
+// AddGauge adds a new gauge to the database.
 func AddGauge(name string) {
 	elements[name] = NewGauge(checkpointMap[name])
 	if *Verbose {
@@ -140,6 +155,7 @@ func AddGauge(name string) {
 	}
 }
 
+// AddAccum adds a new accumulator to the database.
 func AddAccum(name string) {
 	elements[name] = NewAccum(checkpointMap[name])
 	if *Verbose {
@@ -147,6 +163,8 @@ func AddAccum(name string) {
 	}
 }
 
+// AddResettableAccum adds a new accumulator to the database that is flagged
+// as an accumulator that can be reset (e.g a daily total).
 func AddResettableAccum(name string) {
 	a := NewAccum(checkpointMap[name])
 	a.resettable = true
@@ -156,6 +174,11 @@ func AddResettableAccum(name string) {
 	}
 }
 
+// checkInterval performs the interval update processing, calling the writers
+// with the updated database. Some pre-write processing is done e.g if it is
+// midnight, a flag is set.
+// After write processing, the data is checkpointed, and the 'update' flag is
+// cleared on all the elements.
 func checkInterval() {
 	// See if an update interval has passed.
 	now := time.Now()
@@ -187,6 +210,8 @@ func checkInterval() {
 	lastInterval = nowInterval
 }
 
+// writerCheckpoint will save the current values of all the elements in the
+// database to a file.
 func writeCheckpoint(file string) {
 	f, err := os.Create(file)
 	if err != nil {
@@ -204,6 +229,7 @@ func writeCheckpoint(file string) {
 	}
 }
 
+// readCheckpoint restores the database elements from the last checkpoint.
 func readCheckpoint(file string, cp map[string]string) {
 	f, err := os.Open(file)
 	if err != nil {
@@ -233,6 +259,7 @@ func readCheckpoint(file string, cp map[string]string) {
 	}
 }
 
+// GetElement returns the database element named.
 func GetElement(name string) Element {
 	el, ok := elements[name]
 	if !ok {

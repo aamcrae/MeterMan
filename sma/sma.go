@@ -1,3 +1,5 @@
+// package sma implements reading telemetry data from an SMA solar inverter.
+
 package sma
 
 import (
@@ -42,6 +44,8 @@ const (
 	DT_ULONGLONG = 128
 )
 
+// record represents a single telemetry record that contains
+// an identifying code, a data type, and optional status attributes.
 type record struct {
 	code      uint16
 	dataType  byte
@@ -54,6 +58,7 @@ type record struct {
 	attrVal   []byte
 }
 
+// SMA represents a single SMA inverter.
 type SMA struct {
 	name      string
 	password  []byte

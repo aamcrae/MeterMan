@@ -1,3 +1,5 @@
+// package csv writes the telemetered data to a daily CSV file.
+
 package csv
 
 import (
@@ -12,7 +14,7 @@ import (
 	"github.com/aamcrae/config"
 )
 
-type Writer struct {
+type writer struct {
 	name string
 	file *os.File
 	buf  *bufio.Writer
@@ -24,7 +26,7 @@ var gauges []string = []string{"TP", "GEN-P", "VOLTS", "TEMP"}
 var accums []string = []string{"IMP", "EXP", "GEN-T", "GEN-D", "IN", "OUT"}
 var filePath string
 var currentDay int
-var fileWriter *Writer
+var fileWriter *writer
 
 func init() {
 	core.RegisterWriter(csvInit)
@@ -38,10 +40,10 @@ func csvInit(conf *config.Config) (func(time.Time), error) {
 	if err != nil {
 		return nil, err
 	}
-	return writer, nil
+	return csvWriter, nil
 }
 
-func writer(t time.Time) {
+func csvWriter(t time.Time) {
 	if t.YearDay() != currentDay {
 		if fileWriter != nil {
 			fileWriter.Close()
@@ -91,7 +93,8 @@ func writer(t time.Time) {
 	fileWriter.Flush()
 }
 
-func NewWriter(p string, t time.Time) (*Writer, bool, error) {
+// NewWriter creates a new writer.
+func NewWriter(p string, t time.Time) (*writer, bool, error) {
 	// Create the path.
 	dir := path.Join(p, t.Format("2006"), t.Format("01"))
 	fn := path.Join(dir, t.Format("2006-01-02"))
@@ -109,18 +112,18 @@ func NewWriter(p string, t time.Time) (*Writer, bool, error) {
 		}
 		created = true
 	}
-	return &Writer{fn, f, bufio.NewWriter(f)}, created, nil
+	return &writer{fn, f, bufio.NewWriter(f)}, created, nil
 }
 
-func (wr *Writer) Write(p []byte) (n int, err error) {
+func (wr *writer) Write(p []byte) (n int, err error) {
 	return wr.buf.Write(p)
 }
 
-func (wr *Writer) Flush() error {
+func (wr *writer) Flush() error {
 	return wr.buf.Flush()
 }
 
-func (wr *Writer) Close() error {
+func (wr *writer) Close() error {
 	wr.buf.Flush()
 	return wr.file.Close()
 }

@@ -6,17 +6,18 @@ import (
 	"time"
 )
 
+// Acc is a common interface for accumulators.
 type Acc interface {
 	Element
-	Total() float64
-	Daily() float64
+	Daily() float64 // Return the daily total.
 }
 
+// Accum represents an accumulating value i.e a value that continually increases.
 type Accum struct {
 	value      float64
-	midnight   float64
+	midnight   float64 // Value at the start of the day.
 	updated    bool
-	resettable bool
+	resettable bool // If set, the value can be reset to a lower value.
 }
 
 func NewAccum(cp string) *Accum {
@@ -70,14 +71,11 @@ func (a *Accum) Checkpoint() string {
 	return fmt.Sprintf("%f %f", a.midnight, a.value)
 }
 
-func (a *Accum) Total() float64 {
-	return a.value
-}
-
 func (a *Accum) Daily() float64 {
 	return a.value - a.midnight
 }
 
+// GetAccum returns the named accumulator.
 func GetAccum(name string) Acc {
 	el, ok := elements[name]
 	if !ok {

@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// Gauge is a value representing a instantaneuous measurement.
 type Gauge struct {
 	value   float64
 	updated bool

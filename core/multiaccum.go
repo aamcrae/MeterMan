@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// MultiAccum allows multiple accumulators to be treated as a single accumulator.
 type MultiAccum struct {
 	name   string
 	accums []Acc
@@ -23,6 +24,7 @@ func (m *MultiAccum) Add(a Acc) {
 }
 
 func (m *MultiAccum) Update(v float64) {
+	// No one should be updating a multi-accumulator.
 	panic(fmt.Errorf("Updated called on MultiAccum"))
 }
 
@@ -58,14 +60,6 @@ func (m *MultiAccum) ClearUpdate() {
 
 func (m *MultiAccum) Checkpoint() string {
 	return ""
-}
-
-func (m *MultiAccum) Total() float64 {
-	var v float64
-	for _, a := range m.accums {
-		v += a.Total()
-	}
-	return v
 }
 
 func (m *MultiAccum) Daily() float64 {

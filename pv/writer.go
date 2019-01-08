@@ -1,3 +1,5 @@
+// package pv implements a writer that uploads the current data to pvoutput.org.
+
 package pv
 
 import (
@@ -44,6 +46,7 @@ func pvoutputInit(conf *config.Config) (func(time.Time), error) {
 	return writer, nil
 }
 
+// writer creates a post request to pvoutput.org to upload the current data.
 func writer(t time.Time) {
 	tp := core.GetElement(core.G_TP)
 	pv_power := core.GetElement(core.G_GEN_P)
@@ -96,7 +99,7 @@ func writer(t time.Time) {
 	}
 	if imp != nil && imp.Updated() && exp != nil && exp.Updated() {
 		consumption := imp.Daily() - exp.Daily()
-		// Daily PV generation may be out of date.
+		// Daily PV generation may be out of date, but it is used regardless.
 		if pv_daily != nil {
 			consumption += pv_daily.Daily()
 		}

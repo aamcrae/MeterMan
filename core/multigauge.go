@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+// MultiGauge allows multiple gauges to be treated as a single gauge.
+// The values are summed.
 type MultiGauge struct {
 	name   string
 	gauges []*Gauge
