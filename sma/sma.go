@@ -64,6 +64,10 @@ type SMA struct {
 	password  []byte
 	conn      *net.UDPConn
 	timeout   time.Duration
+    genP      string
+    volts     string
+    genDaily  string
+    genT     string
 	appSusyid uint16
 	appSerial uint32
 	susyid    uint16
@@ -96,10 +100,6 @@ func smaReader(conf *config.Config, wr chan<- core.Input) error {
 	if err != nil {
 		return err
 	}
-	core.AddGauge(core.G_GEN_P)
-	core.AddGauge(core.G_VOLTS)
-	core.AddResettableAccum(core.A_GEN_DAILY)
-	core.AddAccum(core.A_GEN_TOTAL)
 	go sma.run(wr)
 	return nil
 }
@@ -126,6 +126,10 @@ func NewSMA(inverter string, password string) (*SMA, error) {
 	s := &SMA{name: inverter, password: enc, conn: conn}
 	s.appSusyid = 125
 	s.appSerial = 900000000 + uint32(rand.Intn(100000000))
+	s.genP = core.AddSubGauge(core.G_GEN_P, false)
+	s.volts = core.AddSubGauge(core.G_VOLTS, true)
+	s.genDaily = core.AddSubAccum(core.A_GEN_DAILY, true)
+	s.genT = core.AddSubAccum(core.A_GEN_TOTAL, false)
 	return s, nil
 }
 
@@ -155,10 +159,10 @@ func (s *SMA) poll(wr chan<- core.Input, daytime bool) error {
 		return err
 	}
 	if *core.Verbose {
-		log.Printf("Daily yield = %f, total yield = %f", d, t)
+		log.Printf("Tag %s Daily yield = %f, tag %s total yield = %f", s.genDaily, d, s.genT, t)
 	}
-	wr <- core.Input{core.A_GEN_DAILY, d}
-	wr <- core.Input{core.A_GEN_TOTAL, t}
+	wr <- core.Input{s.genDaily,d}
+	wr <- core.Input{s.genT, t}
 	if daytime {
 		v, err := s.Voltage()
 		if err != nil {
@@ -166,9 +170,9 @@ func (s *SMA) poll(wr chan<- core.Input, daytime bool) error {
 		}
 		if v != 0 {
 			if *core.Verbose {
-				log.Printf("Current volts = %f", v)
+				log.Printf("Tag %s volts = %f", s.volts, v)
 			}
-			wr <- core.Input{core.G_VOLTS, v}
+			wr <- core.Input{s.volts, v}
 		}
 		p, err := s.Power()
 		if err != nil {
@@ -177,9 +181,9 @@ func (s *SMA) poll(wr chan<- core.Input, daytime bool) error {
 		if p != 0 {
 			pf := float64(p) / 1000
 			if *core.Verbose {
-				log.Printf("Current power = %f", pf)
+				log.Printf("Tag %s power = %f", s.genP, pf)
 			}
-			wr <- core.Input{core.G_GEN_P, pf}
+			wr <- core.Input{s.genP, pf}
 		}
 	}
 	return nil

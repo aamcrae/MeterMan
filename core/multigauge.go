@@ -8,12 +8,13 @@ import (
 // MultiGauge allows multiple gauges to be treated as a single gauge.
 // The values are summed.
 type MultiGauge struct {
-	name   string
-	gauges []*Gauge
+	name    string
+    average bool
+	gauges  []*Gauge
 }
 
-func NewMultiGauge(base string) *MultiGauge {
-	return &MultiGauge{name: base}
+func NewMultiGauge(base string, average bool) *MultiGauge {
+	return &MultiGauge{name: base, average:average}
 }
 
 func (m *MultiGauge) NextTag() string {
@@ -40,6 +41,9 @@ func (m *MultiGauge) Get() float64 {
 	for _, g := range m.gauges {
 		v += g.Get()
 	}
+    if m.average {
+        v = v / float64(len(m.gauges))
+    }
 	return v
 }
 

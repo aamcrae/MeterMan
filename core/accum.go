@@ -20,7 +20,7 @@ type Accum struct {
 	resettable bool // If set, the value can be reset to a lower value.
 }
 
-func NewAccum(cp string) *Accum {
+func NewAccum(cp string, resettable bool) *Accum {
 	a := new(Accum)
 	n, err := fmt.Sscanf(cp, "%f %f", &a.midnight, &a.value)
 	if err != nil {
@@ -29,6 +29,7 @@ func NewAccum(cp string) *Accum {
 	if a.midnight > a.value {
 		a.midnight = a.value
 	}
+    a.resettable = resettable
 	if *Verbose {
 		fmt.Printf("New accum, midnight = %f, value = %f\n", a.midnight, a.value)
 	}

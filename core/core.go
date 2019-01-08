@@ -103,11 +103,12 @@ func SetUpAndRun(conf *config.Config) error {
 	return nil
 }
 
-// AddSubGauge adds a gauge that is part of a master gauge.
-func AddSubGauge(base string) string {
+// AddSumGauge adds a gauge that is part of a master gauge.
+// If average is true, values are averaged, otherwise they are summed.
+func AddSubGauge(base string, average bool) string {
 	el, ok := elements[base]
 	if !ok {
-		el = NewMultiGauge(base)
+		el = NewMultiGauge(base, average)
 		elements[base] = el
 	}
 	m := el.(*MultiGauge)
@@ -122,7 +123,7 @@ func AddSubGauge(base string) string {
 }
 
 // AddSubAccum adds an accumulator that is part of a master accumulator.
-func AddSubAccum(base string) string {
+func AddSubAccum(base string, resettable bool) string {
 	el, ok := elements[base]
 	if !ok {
 		el = NewMultiAccum(base)
@@ -130,7 +131,7 @@ func AddSubAccum(base string) string {
 	}
 	m := el.(*MultiAccum)
 	tag := m.NextTag()
-	a := NewAccum(checkpointMap[tag])
+	a := NewAccum(checkpointMap[tag], resettable)
 	m.Add(a)
 	elements[tag] = a
 	if *Verbose {
@@ -156,19 +157,8 @@ func AddGauge(name string) {
 }
 
 // AddAccum adds a new accumulator to the database.
-func AddAccum(name string) {
-	elements[name] = NewAccum(checkpointMap[name])
-	if *Verbose {
-		log.Printf("Adding accumulator %s\n", name)
-	}
-}
-
-// AddResettableAccum adds a new accumulator to the database that is flagged
-// as an accumulator that can be reset (e.g a daily total).
-func AddResettableAccum(name string) {
-	a := NewAccum(checkpointMap[name])
-	a.resettable = true
-	elements[name] = a
+func AddAccum(name string, resettable bool) {
+	elements[name] = NewAccum(checkpointMap[name], resettable)
 	if *Verbose {
 		log.Printf("Adding accumulator %s\n", name)
 	}
