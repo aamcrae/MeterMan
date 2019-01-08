@@ -20,7 +20,7 @@ type Writer struct {
 
 const header = "#date,time"
 
-var gauges []string = []string{"TP", "GEN-P", "VOLTS"}
+var gauges []string = []string{"TP", "GEN-P", "VOLTS", "TEMP"}
 var accums []string = []string{"IMP", "EXP", "GEN-T", "GEN-D", "IN", "OUT"}
 var filePath string
 var currentDay int

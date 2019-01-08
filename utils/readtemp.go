@@ -15,7 +15,7 @@ func init() {
 
 func main() {
 
-	t, err := temp.GetTemp(*url)
+	t, err := temp.BOM(*url)
 	if err != nil {
 		log.Fatalf("%s: %v", *url, err)
 	}
