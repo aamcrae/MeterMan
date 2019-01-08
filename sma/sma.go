@@ -218,14 +218,15 @@ func (s *SMA) Logon() (uint16, uint32, error) {
 	if err != nil {
 		return 0, 0, err
 	}
-	retCode := binary.LittleEndian.Uint16(b.Bytes()[36:])
+    pkt := b.Bytes()
+	retCode := binary.LittleEndian.Uint16(pkt[36:])
 	if retCode == 0x0100 {
 		return 0, 0, fmt.Errorf("Invalid password")
 	} else if retCode != 0 {
 		return 0, 0, fmt.Errorf("Logon faied, retCode = %04x", retCode)
 	}
-	s.susyid = binary.LittleEndian.Uint16(b.Bytes()[28:])
-	s.serial = binary.LittleEndian.Uint32(b.Bytes()[30:])
+	s.susyid = binary.LittleEndian.Uint16(pkt[28:])
+	s.serial = binary.LittleEndian.Uint32(pkt[30:])
 	if *core.Verbose {
 		log.Printf("Successful logon to inverter, susyid = %d, serial = %d",
 			s.susyid, s.serial)
@@ -357,15 +358,17 @@ func (s *SMA) cmdpacket(cmd, first, last uint32) (*request, error) {
 
 // Read the packet from the inverter and verify it.
 func (s *SMA) response(req *request) (*bytes.Buffer, error) {
+    tout := time.Now().Add(time.Duration(*smatimeout) * time.Second)
 	for {
-		b, err := s.read(time.Duration(*smatimeout) * time.Second)
+		b, err := s.read(tout.Sub(time.Now()))
 		if err != nil {
 			return nil, err
 		}
 		// Verify the packet and id.
 		pkt := b.Bytes()
 		if binary.LittleEndian.Uint32(pkt[14:]) != signature {
-			return nil, fmt.Errorf("Bad signature in packet")
+            log.Printf("Unknown signature, skipping packet\n")
+			continue
 		}
 		rx_id := binary.LittleEndian.Uint16(pkt[40:])
 		if rx_id != req.packet_id {
@@ -419,16 +422,6 @@ func (s *SMA) send(r *request) error {
 		return fmt.Errorf("Write %d bytes of buffer size %d", n, r.buf.Len())
 	}
 	return nil
-}
-
-// Flush any old packets out of the socket.
-func (s *SMA) flush() {
-	for {
-		_, err := s.read(time.Millisecond * 50)
-		if err != nil {
-			return
-		}
-	}
 }
 
 func (s *SMA) read(timeout time.Duration) (*bytes.Buffer, error) {
