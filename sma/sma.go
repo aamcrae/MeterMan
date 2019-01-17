@@ -1,4 +1,4 @@
-// package sma implements reading telemetry data from an SMA solar inverter.
+// package sma implements reading telemetry data from a SMA solar inverter.
 
 package sma
 
@@ -17,7 +17,7 @@ import (
 )
 
 var smatimeout = flag.Int("inverter_timeout", 10, "Inverter timeout in seconds")
-var smapoll = flag.Int("inverter-poll", 60, "Inverter poll time (seconds)")
+var smapoll = flag.Int("inverter-poll", 120, "Inverter poll time (seconds)")
 var trace = flag.Bool("trace", false, "Enable trace packet dumps")
 
 const maxPacketSize = 8 * 1024
