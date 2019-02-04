@@ -13,8 +13,7 @@ import (
 	"github.com/aamcrae/config"
 )
 
-const kelvinBase = 275.15
-const weatherUrl = "http://api.openweathermap.org/data/2.5/weather?id=%s&appid=%s"
+const weatherUrl = "http://api.openweathermap.org/data/2.5/weather?id=%s&units=metric&appid=%s"
 
 var weatherpoll = flag.Int("weather-poll", 120, "Weather poll time (seconds)")
 
@@ -94,7 +93,7 @@ func OpenWeather(url string) (float64, error) {
 	if m.Cod != 200 {
 		return 0, fmt.Errorf("Response %d: %s", m.Cod, m.Message)
 	}
-	return m.Main.Temp - kelvinBase, nil
+	return m.Main.Temp, nil
 }
 
 func BOM(url string) (float64, error) {
