@@ -14,6 +14,7 @@ import (
 )
 
 const weatherUrl = "http://api.openweathermap.org/data/2.5/weather?id=%s&units=metric&appid=%s"
+const darkskyUrl = "https://api.darksky.net/forecast/%s/%s,%s?exclude=minutely,hourly,daily,alerts,flags&units=si"
 
 var weatherpoll = flag.Int("weather-poll", 120, "Weather poll time (seconds)")
 
@@ -51,6 +52,23 @@ func weatherReader(conf *config.Config, wr chan<- core.Input) error {
 		url := fmt.Sprintf(weatherUrl, id, key)
 		get = func() (float64, error) {
 			return OpenWeather(url)
+		}
+	case "darksky":
+		key, err := conf.GetArg("darkskykey")
+		if err != nil {
+			return err
+		}
+		lat, err := conf.GetArg("darkskylat")
+		if err != nil {
+			return err
+		}
+		lng, err := conf.GetArg("darkskylong")
+		if err != nil {
+			return err
+		}
+		url := fmt.Sprintf(darkskyUrl, key, lat, lng)
+		get = func() (float64, error) {
+			return Darksky(url)
 		}
 	}
 	core.AddGauge(core.G_TEMP)
@@ -94,6 +112,25 @@ func OpenWeather(url string) (float64, error) {
 		return 0, fmt.Errorf("Response %d: %s", m.Cod, m.Message)
 	}
 	return m.Main.Temp, nil
+}
+
+func Darksky(url string) (float64, error) {
+	body, err := fetch(url)
+	if err != nil {
+		return 0, err
+	}
+	type Currently struct {
+		Temp float64 `json:"temperature"`
+		Aparent float64 `json:"apparentTemperature"`
+	}
+	type resp struct {
+		Currently    Currently
+	}
+	var m resp
+	if err := json.Unmarshal(body, &m); err != nil {
+		return 0, err
+	}
+	return m.Currently.Temp, nil
 }
 
 func BOM(url string) (float64, error) {
