@@ -14,7 +14,7 @@ import (
 )
 
 const kelvinBase = 275.15
-const weatherUrl = "http://api.openweathermap.org/data/2.5/weather?id=%s?appid=%s"
+const weatherUrl = "http://api.openweathermap.org/data/2.5/weather?id=%s&appid=%s"
 
 var weatherpoll = flag.Int("weather-poll", 120, "Weather poll time (seconds)")
 
