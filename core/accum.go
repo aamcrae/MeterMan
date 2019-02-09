@@ -29,7 +29,7 @@ func NewAccum(cp string, resettable bool) *Accum {
 	if a.midnight > a.value {
 		a.midnight = a.value
 	}
-    a.resettable = resettable
+	a.resettable = resettable
 	if *Verbose {
 		fmt.Printf("New accum, midnight = %f, value = %f\n", a.midnight, a.value)
 	}

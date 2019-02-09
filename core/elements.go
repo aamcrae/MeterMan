@@ -21,4 +21,6 @@ const (
 	G_VOLTS     = "VOLTS" // Current AC voltage (V)
 	// Values read from weather service.
 	G_TEMP = "TEMP" // Current temperature
+	// Special values.
+	C_TIME = "time" // Time checkpoint.
 )

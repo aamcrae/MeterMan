@@ -71,7 +71,17 @@ func SetUpAndRun(conf *config.Config) error {
 		readCheckpoint(*checkpoint, checkpointMap)
 	}
 	interval = time.Minute * time.Duration(*updateRate)
-	lastInterval = time.Now().Truncate(interval)
+	lt, ok := checkpointMap[C_TIME]
+	if !ok {
+		lastInterval = time.Now().Truncate(interval)
+	} else {
+		var sec int64
+		fmt.Sscanf(lt, "%d", &sec)
+		lastInterval = time.Unix(sec, 0)
+		if *Verbose {
+			log.Printf("Last interval was %s\n", lastInterval.Format(time.UnixDate))
+		}
+	}
 	input := make(chan Input, 200)
 	for _, wi := range writersInit {
 		if of, err := wi(conf); err != nil {
@@ -176,14 +186,16 @@ func checkInterval() {
 		return
 	}
 	nowInterval := now.Truncate(interval)
+	// Check for daily reset processing.
+	newDay := nowInterval.YearDay() != lastInterval.YearDay()
 	if *Verbose {
 		log.Printf("Updating for interval %s\n", nowInterval.Format("15:04"))
+		if newDay {
+			log.Printf("New day reset")
+		}
 	}
-	// Check for daily reset processing.
-	h, m, s := nowInterval.Clock()
-	midnight := ((h + m + s) == 0)
 	for tag, el := range elements {
-		el.Interval(lastInterval, midnight)
+		el.Interval(lastInterval, newDay)
 		if *Verbose {
 			log.Printf("Output: Tag: %5s, value: %f, updated: %v\n", tag, el.Get(), el.Updated())
 		}
@@ -192,7 +204,7 @@ func checkInterval() {
 		wf(nowInterval)
 	}
 	if len(*checkpoint) != 0 {
-		writeCheckpoint(*checkpoint)
+		writeCheckpoint(*checkpoint, nowInterval)
 	}
 	for _, el := range elements {
 		el.ClearUpdate()
@@ -202,7 +214,7 @@ func checkInterval() {
 
 // writerCheckpoint will save the current values of all the elements in the
 // database to a file.
-func writeCheckpoint(file string) {
+func writeCheckpoint(file string, now time.Time) {
 	f, err := os.Create(file)
 	if err != nil {
 		log.Printf("Checkpoint file create: %s %v\n", file, err)
@@ -217,6 +229,7 @@ func writeCheckpoint(file string) {
 			fmt.Fprintf(wr, "%s:%s\n", n, s)
 		}
 	}
+	fmt.Fprintf(wr, "%s:%d\n", C_TIME, now.Unix())
 }
 
 // readCheckpoint restores the database elements from the last checkpoint.
