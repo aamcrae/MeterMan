@@ -1,3 +1,4 @@
+// package temp extracts current temperature data from selected providers.
 package temp
 
 import (
@@ -92,10 +93,6 @@ func reader(get func() (float64, error), wr chan<- core.Input) {
 }
 
 func OpenWeather(url string) (float64, error) {
-	body, err := fetch(url)
-	if err != nil {
-		return 0, err
-	}
 	type Main struct {
 		Temp float64
 	}
@@ -105,7 +102,8 @@ func OpenWeather(url string) (float64, error) {
 		Message string
 	}
 	var m resp
-	if err := json.Unmarshal(body, &m); err != nil {
+	err := fetch(url, &m)
+	if err != nil {
 		return 0, err
 	}
 	if m.Cod != 200 {
@@ -115,10 +113,6 @@ func OpenWeather(url string) (float64, error) {
 }
 
 func Darksky(url string) (float64, error) {
-	body, err := fetch(url)
-	if err != nil {
-		return 0, err
-	}
 	type Currently struct {
 		Temp float64 `json:"temperature"`
 		Aparent float64 `json:"apparentTemperature"`
@@ -127,17 +121,14 @@ func Darksky(url string) (float64, error) {
 		Currently    Currently
 	}
 	var m resp
-	if err := json.Unmarshal(body, &m); err != nil {
+	err := fetch(url, &m)
+	if err != nil {
 		return 0, err
 	}
 	return m.Currently.Temp, nil
 }
 
 func BOM(url string) (float64, error) {
-	body, err := fetch(url)
-	if err != nil {
-		return 0, err
-	}
 	type Data struct {
 		Apparant float64 `json:"apparent_t"`
 		Air      float64 `json:"air_temp"`
@@ -149,7 +140,8 @@ func BOM(url string) (float64, error) {
 		Observations *Ob
 	}
 	var m resp
-	if err := json.Unmarshal(body, &m); err != nil {
+	err := fetch(url, &m)
+	if err != nil {
 		return 0, err
 	}
 	if m.Observations == nil || len(m.Observations.Data) == 0 {
@@ -158,11 +150,15 @@ func BOM(url string) (float64, error) {
 	return m.Observations.Data[0].Air, nil
 }
 
-func fetch(url string) ([]byte, error) {
+func fetch(url string, m interface{}) (error) {
 	resp, err := http.Get(url)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
-	return ioutil.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(body, m)
 }
