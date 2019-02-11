@@ -16,13 +16,13 @@ import (
 	"github.com/aamcrae/config"
 )
 
-var conf = flag.String("config", "/etc/meterman.conf", "Config file")
+var configFile = flag.String("config", "/etc/meterman.conf", "Config file")
 var profile = flag.Bool("profile", false, "Enable profiling")
 var port = flag.Int("port", 6060, "Port for http server")
 
 func main() {
 	flag.Parse()
-	conf, err := config.ParseFile(*conf)
+	conf, err := config.ParseFile(*configFile)
 	if err != nil {
 		log.Fatalf("Can't read config %s: %v", *conf, err)
 	}
