@@ -1,5 +1,5 @@
-// package temp extracts current temperature data from selected providers.
-package temp
+// package weather extracts current weather data from selected providers.
+package weather
 
 import (
 	"encoding/json"
