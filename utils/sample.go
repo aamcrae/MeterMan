@@ -9,6 +9,7 @@ import (
 	"image/color"
 	"log"
 	"os"
+	"strconv"
 )
 
 var output = flag.String("output", "output.jpg", "output jpeg file")
@@ -23,6 +24,14 @@ func main() {
 	c, err := config.ParseFile(*configFile)
 	if err != nil {
 		log.Fatalf("Failed to read config %s: %v", *configFile, err)
+	}
+	var angle float64
+	a, err := c.GetArg("rotate")
+	if err == nil {
+		angle, err = strconv.ParseFloat(a, 64)
+		if err != nil {
+			angle = 0.0
+		}
 	}
 	l, err := lcd.CreateLcdDecoder(c)
 	s := c.Get("calibrate")
@@ -42,6 +51,12 @@ func main() {
 	}
 	defer inf.Close()
 	in, _, err := image.Decode(inf)
+	if err != nil {
+		log.Fatalf("Failed to read %s: %v", *input, err)
+	}
+	if angle != 0 {
+		in = lcd.RotateImage(in, angle)
+	}
 	// Convert image to RGBA.
 	b := in.Bounds()
 	img := image.NewRGBA(b)
@@ -49,9 +64,6 @@ func main() {
 		for x := b.Min.X; x < b.Max.X; x++ {
 			img.Set(x, y, color.RGBAModel.Convert(in.At(x, y)))
 		}
-	}
-	if err != nil {
-		log.Fatalf("Failed to read %s: %v", *input, err)
 	}
 	vals, ok := l.Decode(img)
 	for i, v := range vals {
