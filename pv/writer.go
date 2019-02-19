@@ -27,18 +27,19 @@ func init() {
 }
 
 func pvoutputInit(conf *config.Config) (func(time.Time), error) {
+	sect := conf.GetSection("pvoutput")
 	log.Printf("Registered pvoutput uploader as writer\n")
-	if a, err := conf.GetArg("apikey"); err != nil {
+	if a, err := sect.GetArg("apikey"); err != nil {
 		return nil, err
 	} else {
 		apikey = a
 	}
-	if a, err := conf.GetArg("systemid"); err != nil {
+	if a, err := sect.GetArg("systemid"); err != nil {
 		return nil, err
 	} else {
 		systemid = a
 	}
-	if a, err := conf.GetArg("pvurl"); err != nil {
+	if a, err := sect.GetArg("pvurl"); err != nil {
 		return nil, err
 	} else {
 		serverUrl = a

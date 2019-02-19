@@ -36,7 +36,7 @@ func init() {
 func csvInit(conf *config.Config) (func(time.Time), error) {
 	log.Printf("Registered CSV as writer\n")
 	var err error
-	filePath, err = conf.GetArg("csv")
+	filePath, err = conf.GetSection("csv").GetArg("csv")
 	if err != nil {
 		return nil, err
 	}

@@ -87,12 +87,13 @@ func init() {
 
 func smaReader(conf *config.Config, wr chan<- core.Input) error {
 	log.Printf("Registered SMA inverter reader\n")
+	sect := conf.GetSection("sma")
 	// Inverter name is of the format [IP address|name]:port
-	inverter, err := conf.GetArg("inverter")
+	inverter, err := sect.GetArg("inverter")
 	if err != nil {
 		return err
 	}
-	password, err := conf.GetArg("inverter-password")
+	password, err := sect.GetArg("inverter-password")
 	if err != nil {
 		return err
 	}

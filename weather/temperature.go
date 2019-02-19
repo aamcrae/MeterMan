@@ -24,8 +24,9 @@ func init() {
 }
 
 func weatherReader(conf *config.Config, wr chan<- core.Input) error {
+	sect := conf.GetSection("weather")
 	log.Printf("Registered temperature reader\n")
-	service, err := conf.GetArg("tempservice")
+	service, err := sect.GetArg("tempservice")
 	if err != nil {
 		return err
 	}
@@ -34,7 +35,7 @@ func weatherReader(conf *config.Config, wr chan<- core.Input) error {
 	default:
 		return fmt.Errorf("%s: Unknown weather service", service)
 	case "bom":
-		url, err := conf.GetArg("bom")
+		url, err := sect.GetArg("bom")
 		if err != nil {
 			return err
 		}
@@ -42,11 +43,11 @@ func weatherReader(conf *config.Config, wr chan<- core.Input) error {
 			return BOM(url)
 		}
 	case "openweather":
-		id, err := conf.GetArg("tempid")
+		id, err := sect.GetArg("tempid")
 		if err != nil {
 			return err
 		}
-		key, err := conf.GetArg("tempkey")
+		key, err := sect.GetArg("tempkey")
 		if err != nil {
 			return err
 		}
@@ -55,15 +56,15 @@ func weatherReader(conf *config.Config, wr chan<- core.Input) error {
 			return OpenWeather(url)
 		}
 	case "darksky":
-		key, err := conf.GetArg("darkskykey")
+		key, err := sect.GetArg("darkskykey")
 		if err != nil {
 			return err
 		}
-		lat, err := conf.GetArg("darkskylat")
+		lat, err := sect.GetArg("darkskylat")
 		if err != nil {
 			return err
 		}
-		lng, err := conf.GetArg("darkskylong")
+		lng, err := sect.GetArg("darkskylong")
 		if err != nil {
 			return err
 		}

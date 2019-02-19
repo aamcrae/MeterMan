@@ -25,8 +25,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to read config %s: %v", *configFile, err)
 	}
+	sect := c.GetSection("meter")
 	var angle float64
-	a, err := c.GetArg("rotate")
+	a, err := sect.GetArg("rotate")
 	if err == nil {
 		angle, err = strconv.ParseFloat(a, 64)
 		if err != nil {
@@ -34,7 +35,7 @@ func main() {
 		}
 	}
 	l, err := lcd.CreateLcdDecoder(c)
-	s := c.Get("calibrate")
+	s := sect.Get("calibrate")
 	if len(s) == 1 && len(s[0].Tokens) == 1 {
 		img, err := lcd.ReadImage(s[0].Tokens[0])
 		if err != nil {
