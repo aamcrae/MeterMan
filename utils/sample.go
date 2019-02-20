@@ -48,7 +48,7 @@ func main() {
 			angle = 0.0
 		}
 	}
-	l, err := lcd.CreateLcdDecoder(c)
+	l, err := lcd.CreateLcdDecoder(sect)
 	s := sect.Get("calibrate")
 	if len(s) == 1 && len(s[0].Tokens) == 1 {
 		img, err := lcd.ReadImage(s[0].Tokens[0])
