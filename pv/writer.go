@@ -176,6 +176,7 @@ func writer(t time.Time) {
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Printf("Request failed: %v", err)
+		return
 	}
 	defer resp.Body.Close()
 	if *core.Verbose {
