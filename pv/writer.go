@@ -32,10 +32,6 @@ import (
 
 var dryrun = flag.Bool("dryrun", false, "Do not upload data")
 
-var apikey string
-var systemid string
-var serverUrl string
-
 func init() {
 	core.RegisterWriter(pvoutputInit)
 }
@@ -43,26 +39,25 @@ func init() {
 func pvoutputInit(conf *config.Config) (func(time.Time), error) {
 	sect := conf.GetSection("pvoutput")
 	log.Printf("Registered pvoutput uploader as writer\n")
-	if a, err := sect.GetArg("apikey"); err != nil {
+	key, err := sect.GetArg("apikey")
+	if err != nil {
 		return nil, err
-	} else {
-		apikey = a
 	}
-	if a, err := sect.GetArg("systemid"); err != nil {
+	id, err := sect.GetArg("systemid")
+	if err != nil {
 		return nil, err
-	} else {
-		systemid = a
 	}
-	if a, err := sect.GetArg("pvurl"); err != nil {
+	pvurl, err := sect.GetArg("pvurl")
+	if err != nil {
 		return nil, err
-	} else {
-		serverUrl = a
 	}
-	return writer, nil
+	return func(t time.Time) {
+		writer(t, pvurl, id, key)
+	}, nil
 }
 
 // writer creates a post request to pvoutput.org to upload the current data.
-func writer(t time.Time) {
+func writer(t time.Time, pvurl, id, key string) {
 	tp := core.GetElement(core.G_TP)
 	pv_power := core.GetElement(core.G_GEN_P)
 	temp := core.GetElement(core.G_TEMP)
@@ -159,13 +154,13 @@ func writer(t time.Time) {
 			log.Printf("Total not fresh, v4 not updated\n")
 		}
 	}
-	req, err := http.NewRequest("POST", serverUrl, strings.NewReader(val.Encode()))
+	req, err := http.NewRequest("POST", pvurl, strings.NewReader(val.Encode()))
 	if err != nil {
 		log.Printf("NewRequest failed: %v", err)
 		return
 	}
-	req.Header.Add("X-Pvoutput-Apikey", apikey)
-	req.Header.Add("X-Pvoutput-SystemId", systemid)
+	req.Header.Add("X-Pvoutput-Apikey", key)
+	req.Header.Add("X-Pvoutput-SystemId", id)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if *core.Verbose || *dryrun {
 		log.Printf("req: %s (size %d)", val.Encode(), req.ContentLength)

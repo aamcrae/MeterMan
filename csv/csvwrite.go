@@ -38,82 +38,89 @@ const header = "#date,time"
 
 var gauges []string = []string{"TP", "GEN-P", "VOLTS", "TEMP"}
 var accums []string = []string{"IMP", "EXP", "GEN-T", "GEN-D", "IN", "OUT"}
-var filePath string
-var currentDay int
-var fileWriter *writer
+
+type csv struct {
+	fpath string
+	day int
+	writer *writer
+}
 
 func init() {
 	core.RegisterWriter(csvInit)
 }
 
-// Writes daily CSV files in the form path/year/month/day
+// Returns a writer that writes daily CSV files in the form path/year/month/day
 func csvInit(conf *config.Config) (func(time.Time), error) {
 	log.Printf("Registered CSV as writer\n")
 	var err error
-	filePath, err = conf.GetSection("csv").GetArg("csv")
+	p, err := conf.GetSection("csv").GetArg("csv")
 	if err != nil {
 		return nil, err
 	}
-	return csvWriter, nil
+	c := &csv{fpath: p}
+	return func(t time.Time) {
+		c.write(t)
+	}, nil
 }
 
-func csvWriter(t time.Time) {
-	if t.YearDay() != currentDay {
-		if fileWriter != nil {
-			fileWriter.Close()
-			fileWriter = nil
+func (c* csv) write(t time.Time) {
+	// Check for new day.
+	if t.YearDay() != c.day {
+		if c.writer != nil {
+			c.writer.Close()
+			c.writer = nil
 		}
 		var err error
 		var created bool
-		fileWriter, created, err = NewWriter(filePath, t)
+		c.writer, created, err = NewWriter(c.fpath, t)
 		if err != nil {
-			log.Printf("%v", err)
+			log.Printf("%s: %v", c.fpath, err)
 			return
 		}
 		if created {
-			fmt.Fprint(fileWriter, header)
+			fmt.Fprint(c.writer, header)
 			for _, s := range gauges {
-				fmt.Fprintf(fileWriter, ",%s", s)
+				fmt.Fprintf(c.writer, ",%s", s)
 			}
 			for _, s := range accums {
-				fmt.Fprintf(fileWriter, ",%s,%s-DAILY", s, s)
+				fmt.Fprintf(c.writer, ",%s,%s-DAILY", s, s)
 			}
-			fmt.Fprint(fileWriter, "\n")
+			fmt.Fprint(c.writer, "\n")
 		}
-		currentDay = t.YearDay()
+		c.day = t.YearDay()
 	}
 	// Write values into file.
 	if *core.Verbose {
-		log.Printf("Writing CSV data to %s\n", fileWriter.name)
+		log.Printf("Writing CSV data to %s\n", c.writer.name)
 	}
-	fmt.Fprint(fileWriter, t.Format("2006-01-02,15:04"))
+	fmt.Fprint(c.writer, t.Format("2006-01-02,15:04"))
 	for _, s := range gauges {
 		g := core.GetElement(s)
-		fmt.Fprint(fileWriter, ",")
+		fmt.Fprint(c.writer, ",")
 		if g != nil && g.Updated() {
-			fmt.Fprintf(fileWriter, "%f", g.Get())
+			fmt.Fprintf(c.writer, "%f", g.Get())
 		}
 	}
 	for _, s := range accums {
 		a := core.GetAccum(s)
-		fmt.Fprint(fileWriter, ",")
+		fmt.Fprint(c.writer, ",")
 		if a != nil && a.Updated() {
-			fmt.Fprintf(fileWriter, "%f,%f", a.Get(), a.Daily())
+			fmt.Fprintf(c.writer, "%f,%f", a.Get(), a.Daily())
 		} else {
-			fmt.Fprint(fileWriter, ",")
+			fmt.Fprint(c.writer, ",")
 		}
 	}
-	fmt.Fprint(fileWriter, "\n")
-	fileWriter.Flush()
+	fmt.Fprint(c.writer, "\n")
+	c.writer.Flush()
 }
 
-// NewWriter creates a new writer.
+// NewWriter creates a new file writer.
 func NewWriter(p string, t time.Time) (*writer, bool, error) {
 	// Create the path.
 	dir := path.Join(p, t.Format("2006"), t.Format("01"))
 	fn := path.Join(dir, t.Format("2006-01-02"))
 	if err := os.MkdirAll(dir, 0775); err != nil {
-		log.Printf("Mkdir %s: %v", dir, err)
+		return nil, false, err
 	}
 	var created bool
 	f, err := os.OpenFile(fn, os.O_APPEND|os.O_WRONLY, 0664)
@@ -121,7 +128,6 @@ func NewWriter(p string, t time.Time) (*writer, bool, error) {
 		// Create new file and write initial header.
 		f, err = os.OpenFile(fn, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0664)
 		if err != nil {
-			log.Printf("Failed to create %s: %v", fn, err)
 			return nil, false, err
 		}
 		created = true
