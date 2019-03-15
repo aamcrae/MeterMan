@@ -51,12 +51,16 @@ func init() {
 
 // Returns a writer that writes daily CSV files in the form path/year/month/day
 func csvInit(conf *config.Config) (func(time.Time), error) {
-	log.Printf("Registered CSV as writer\n")
 	var err error
-	p, err := conf.GetSection("csv").GetArg("csv")
+	s := conf.GetSection("csv")
+	if s == nil {
+		return nil, nil
+	}
+	p, err := s.GetArg("csv")
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("Registered CSV as writer\n")
 	c := &csv{fpath: p}
 	return func(t time.Time) {
 		c.write(t)

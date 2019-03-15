@@ -22,7 +22,7 @@ Group=meter
 UMask=0002
 Type=simple
 TimeoutStopSec=10
-ExecStart=/usr/local/bin/MeterMan --savebad
+ExecStart=/usr/local/bin/MeterMan --checkpoint=/var/cache/MeterMan/checkpoint
 
 Restart=on-failure
 RestartSec=15s

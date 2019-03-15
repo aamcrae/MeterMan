@@ -34,7 +34,7 @@ import (
 
 var Verbose = flag.Bool("verbose", false, "Verbose tracing")
 var updateRate = flag.Int("update", 5, "Update rate (in minutes)")
-var checkpoint = flag.String("checkpoint", "/var/cache/MeterMan/checkpoint", "Checkpoint file")
+var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
 
 // Input represents the data sent by each reader.
 type Input struct {
@@ -100,7 +100,7 @@ func SetUpAndRun(conf *config.Config) error {
 	for _, wi := range writersInit {
 		if of, err := wi(conf); err != nil {
 			return err
-		} else {
+		} else if of != nil {
 			outputs = append(outputs, of)
 		}
 	}
@@ -229,6 +229,9 @@ func checkInterval() {
 // writerCheckpoint will save the current values of all the elements in the
 // database to a file.
 func writeCheckpoint(file string, now time.Time) {
+	if *Verbose {
+		log.Printf("Writing checkpoint data to %s\n", file)
+	}
 	f, err := os.Create(file)
 	if err != nil {
 		log.Printf("Checkpoint file create: %s %v\n", file, err)
@@ -248,6 +251,7 @@ func writeCheckpoint(file string, now time.Time) {
 
 // readCheckpoint restores the database elements from the last checkpoint.
 func readCheckpoint(file string, cp map[string]string) {
+	log.Printf("Reading checkpoint data from %s\n", file)
 	f, err := os.Open(file)
 	if err != nil {
 		log.Printf("Checkpoint file open: %s %v\n", file, err)
