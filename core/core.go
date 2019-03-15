@@ -34,7 +34,7 @@ import (
 
 var Verbose = flag.Bool("verbose", false, "Verbose tracing")
 var updateRate = flag.Int("update", 5, "Update rate (in minutes)")
-var checkpoint = flag.String("checkpoint", "/var/cache/MeterMan/checkpoint", "Checkpoint file")
+var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
 
 // Input represents the data sent by each reader.
 type Input struct {
@@ -100,7 +100,7 @@ func SetUpAndRun(conf *config.Config) error {
 	for _, wi := range writersInit {
 		if of, err := wi(conf); err != nil {
 			return err
-		} else {
+		} else if of != nil {
 			outputs = append(outputs, of)
 		}
 	}

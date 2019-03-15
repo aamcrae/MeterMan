@@ -38,7 +38,9 @@ func init() {
 
 func pvoutputInit(conf *config.Config) (func(time.Time), error) {
 	sect := conf.GetSection("pvoutput")
-	log.Printf("Registered pvoutput uploader as writer\n")
+	if sect == nil {
+		return nil, nil
+	}
 	key, err := sect.GetArg("apikey")
 	if err != nil {
 		return nil, err
@@ -51,6 +53,7 @@ func pvoutputInit(conf *config.Config) (func(time.Time), error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("Registered pvoutput uploader as writer\n")
 	return func(t time.Time) {
 		writer(t, pvurl, id, key)
 	}, nil

@@ -39,6 +39,9 @@ func init() {
 
 func weatherReader(conf *config.Config, wr chan<- core.Input) error {
 	sect := conf.GetSection("weather")
+	if sect == nil {
+		return nil
+	}
 	log.Printf("Registered temperature reader\n")
 	service, err := sect.GetArg("tempservice")
 	if err != nil {
