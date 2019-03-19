@@ -29,6 +29,7 @@ import (
 var output = flag.String("output", "output.jpg", "output jpeg file")
 var configFile = flag.String("config", "config", "Configuration file")
 var input = flag.String("input", "input.png", "Input file")
+var process = flag.Bool("process", true, "Decode digits in image")
 
 func init() {
 	flag.Parse()
@@ -80,9 +81,11 @@ func main() {
 			img.Set(x, y, color.RGBAModel.Convert(in.At(x, y)))
 		}
 	}
-	vals, ok := l.Decode(img)
-	for i, v := range vals {
-		fmt.Printf("segment %d = '%s', ok = %v\n", i, v, ok[i])
+	if *process {
+		vals, ok := l.Decode(img)
+		for i, v := range vals {
+			fmt.Printf("segment %d = '%s', ok = %v\n", i, v, ok[i])
+		}
 	}
 	l.MarkSamples(img)
 	err = lcd.SaveImage(*output, img)
