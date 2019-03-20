@@ -1,11 +1,11 @@
 // Copyright 2019 Google LLC
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     https://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -40,8 +40,8 @@ var gauges []string = []string{"TP", "GEN-P", "VOLTS", "TEMP"}
 var accums []string = []string{"IMP", "EXP", "GEN-T", "GEN-D", "IN", "OUT"}
 
 type csv struct {
-	fpath string
-	day int
+	fpath  string
+	day    int
 	writer *writer
 }
 
@@ -67,7 +67,7 @@ func csvInit(conf *config.Config) (func(time.Time), error) {
 	}, nil
 }
 
-func (c* csv) write(t time.Time) {
+func (c *csv) write(t time.Time) {
 	// Check for new day.
 	if t.YearDay() != c.day {
 		if c.writer != nil {

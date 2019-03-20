@@ -1,11 +1,11 @@
 // Copyright 2019 Google LLC
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     https://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -78,10 +78,10 @@ type SMA struct {
 	password  []byte
 	conn      *net.UDPConn
 	timeout   time.Duration
-    genP      string
-    volts     string
-    genDaily  string
-    genT     string
+	genP      string
+	volts     string
+	genDaily  string
+	genT      string
 	appSusyid uint16
 	appSerial uint32
 	susyid    uint16
@@ -236,7 +236,7 @@ func (s *SMA) Logon() (uint16, uint32, error) {
 	if err != nil {
 		return 0, 0, err
 	}
-    pkt := b.Bytes()
+	pkt := b.Bytes()
 	retCode := binary.LittleEndian.Uint16(pkt[36:])
 	if retCode == 0x0100 {
 		return 0, 0, fmt.Errorf("Invalid password")
@@ -376,7 +376,7 @@ func (s *SMA) cmdpacket(cmd, first, last uint32) (*request, error) {
 
 // Read the packet from the inverter and verify it.
 func (s *SMA) response(req *request) (*bytes.Buffer, error) {
-    tout := time.Now().Add(time.Duration(*smatimeout) * time.Second)
+	tout := time.Now().Add(time.Duration(*smatimeout) * time.Second)
 	for {
 		b, err := s.read(tout.Sub(time.Now()))
 		if err != nil {
@@ -385,7 +385,7 @@ func (s *SMA) response(req *request) (*bytes.Buffer, error) {
 		// Verify the packet and id.
 		pkt := b.Bytes()
 		if binary.LittleEndian.Uint32(pkt[14:]) != signature {
-            log.Printf("Unknown signature, skipping packet\n")
+			log.Printf("Unknown signature, skipping packet\n")
 			continue
 		}
 		rx_id := binary.LittleEndian.Uint16(pkt[40:])
