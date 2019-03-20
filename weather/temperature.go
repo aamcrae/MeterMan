@@ -104,7 +104,7 @@ func reader(get func() (float64, error), wr chan<- core.Input) {
 			if *core.Verbose {
 				log.Printf("Current temperature: %f\n", t)
 			}
-			wr <- core.Input{core.G_TEMP, t}
+			wr <- core.Input{Tag: core.G_TEMP, Value: t}
 		}
 		time.Sleep(time.Duration(*weatherpoll) * time.Second)
 	}

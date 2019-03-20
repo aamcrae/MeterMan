@@ -124,7 +124,6 @@ func SetUpAndRun(conf *config.Config) error {
 			checkInterval()
 		}
 	}
-	return nil
 }
 
 // AddSumGauge adds a gauge that is part of a master gauge.

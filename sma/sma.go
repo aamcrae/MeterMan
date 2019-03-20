@@ -179,8 +179,8 @@ func (s *SMA) poll(wr chan<- core.Input, daytime bool) error {
 	if *core.Verbose {
 		log.Printf("Tag %s Daily yield = %f, tag %s total yield = %f", s.genDaily, d, s.genT, t)
 	}
-	wr <- core.Input{s.genDaily,d}
-	wr <- core.Input{s.genT, t}
+	wr <- core.Input{Tag: s.genDaily, Value: d}
+	wr <- core.Input{Tag: s.genT, Value: t}
 	if daytime {
 		v, err := s.Voltage()
 		if err != nil {
@@ -190,7 +190,7 @@ func (s *SMA) poll(wr chan<- core.Input, daytime bool) error {
 			if *core.Verbose {
 				log.Printf("Tag %s volts = %f", s.volts, v)
 			}
-			wr <- core.Input{s.volts, v}
+			wr <- core.Input{Tag: s.volts, Value: v}
 		}
 		p, err := s.Power()
 		if err != nil {
@@ -201,7 +201,7 @@ func (s *SMA) poll(wr chan<- core.Input, daytime bool) error {
 			if *core.Verbose {
 				log.Printf("Tag %s power = %f", s.genP, pf)
 			}
-			wr <- core.Input{s.genP, pf}
+			wr <- core.Input{Tag: s.genP, Value: pf}
 		}
 	}
 	return nil
