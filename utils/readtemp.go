@@ -18,7 +18,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/aamcrae/MeterMan/temp"
+	"github.com/aamcrae/MeterMan/weather"
 )
 
 var url = flag.String("weather", "", "Weather URL")
@@ -29,7 +29,7 @@ func init() {
 
 func main() {
 
-	t, err := temp.BOM(*url)
+	t, err := weather.BOM(*url)
 	if err != nil {
 		log.Fatalf("%s: %v", *url, err)
 	}

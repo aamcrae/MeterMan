@@ -38,7 +38,7 @@ func main() {
 	flag.Parse()
 	conf, err := config.ParseFile(*configFile)
 	if err != nil {
-		log.Fatalf("Can't read config %s: %v", *conf, err)
+		log.Fatalf("Can't read config %s: %v", *configFile, err)
 	}
 	if *profile {
 		go func() {
