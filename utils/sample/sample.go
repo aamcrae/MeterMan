@@ -28,8 +28,10 @@ import (
 
 var output = flag.String("output", "output.jpg", "output jpeg file")
 var configFile = flag.String("config", "config", "Configuration file")
+var section = flag.String("section", "meter", "Configuration section")
 var input = flag.String("input", "input.png", "Input file")
 var process = flag.Bool("process", true, "Decode digits in image")
+var digits = flag.String("digits", "888888888888", "Digits for calibration")
 
 func init() {
 	flag.Parse()
@@ -40,7 +42,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to read config %s: %v", *configFile, err)
 	}
-	sect := c.GetSection("meter")
+	sect := c.GetSection(*section)
 	var angle float64
 	a, err := sect.GetArg("rotate")
 	if err == nil {
@@ -56,7 +58,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("%v", err)
 		}
-		l.Calibrate(img)
+		l.Calibrate(img, *digits)
 	}
 	if err != nil {
 		log.Fatalf("LCD config failed %v", err)

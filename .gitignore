@@ -4,8 +4,7 @@
 *.so
 *.dylib
 MeterMan
-sample/sample
-sample/output.jpg
+utils/sample/sample
 grab/grab
 
 # Test binary, build with `go test -c`
