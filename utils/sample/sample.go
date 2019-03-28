@@ -31,6 +31,7 @@ var configFile = flag.String("config", "config", "Configuration file")
 var section = flag.String("section", "meter", "Configuration section")
 var input = flag.String("input", "input.png", "Input file")
 var process = flag.Bool("process", true, "Decode digits in image")
+var calibrate = flag.Bool("calibrate", true, "Calibrate using image")
 var digits = flag.String("digits", "888888888888", "Digits for calibration")
 
 func init() {
@@ -74,6 +75,9 @@ func main() {
 	}
 	if angle != 0 {
 		in = lcd.RotateImage(in, angle)
+	}
+	if *calibrate && *process {
+		l.Calibrate(in, *digits)
 	}
 	// Convert image to RGBA.
 	b := in.Bounds()
