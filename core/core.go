@@ -163,14 +163,6 @@ func AddSubAccum(base string, resettable bool) string {
 	return tag
 }
 
-// AddAverage adds an averaging element.
-func AddAverage(name string) {
-	elements[name] = NewAverage(checkpointMap[name])
-	if *Verbose {
-		log.Printf("Adding average %s\n", name)
-	}
-}
-
 // AddGauge adds a new gauge to the database.
 func AddGauge(name string) {
 	elements[name] = NewGauge(checkpointMap[name])

@@ -20,9 +20,11 @@ import (
 )
 
 // Gauge is a value representing a instantaneuous measurement.
+// If multiple updates occur during an interval, an average is taken.
 type Gauge struct {
 	value   float64
-	updated bool
+	total  float64
+	updated int
 }
 
 func NewGauge(cp string) *Gauge {
@@ -32,8 +34,9 @@ func NewGauge(cp string) *Gauge {
 }
 
 func (g *Gauge) Update(value float64) {
-	g.value = value
-	g.updated = true
+	g.total += value
+	g.updated++
+	g.value = g.total / float64(g.updated)
 }
 
 func (g *Gauge) Interval(last time.Time, midnight bool) {
@@ -44,11 +47,12 @@ func (g *Gauge) Get() float64 {
 }
 
 func (g *Gauge) Updated() bool {
-	return g.updated
+	return g.updated != 0
 }
 
 func (g *Gauge) ClearUpdate() {
-	g.updated = false
+	g.updated = 0
+	g.total = 0
 }
 
 func (g *Gauge) Checkpoint() string {
