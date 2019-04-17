@@ -54,7 +54,7 @@ func (a *Accum) Update(v float64) {
 	// Check whether the accumulator has been reset.
 	if v < a.value {
 		if !a.resettable {
-			log.Printf("Non-resettableccumulator going backwards, value = %f, current = %f\n", v, a.value)
+			log.Printf("Non-resettable accumulator going backwards, value = %f, current = %f\n", v, a.value)
 			return
 		}
 		a.midnight = v
