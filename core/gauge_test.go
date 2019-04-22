@@ -20,7 +20,7 @@ import (
 	"testing"
 )
 
-const tolerance = 0.001		// Floating point comparison to 0.1%
+const tolerance = 0.001 // Floating point comparison to 0.1%
 
 func TestGauge(t *testing.T) {
 	g := NewGauge("100.0")
@@ -65,5 +65,5 @@ func cmp(f1, f2 float64) bool {
 		return false
 	}
 	d := math.Abs(f1 - f2)
-	return math.Abs(d / f1) < tolerance
+	return math.Abs(d/f1) < tolerance
 }
