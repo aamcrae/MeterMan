@@ -89,9 +89,9 @@ func main() {
 		}
 	}
 	if *process {
-		vals, ok := l.Decode(img)
+		vals, ok, bits := l.Decode(img)
 		for i, v := range vals {
-			fmt.Printf("segment %d = '%s', ok = %v\n", i, v, ok[i])
+			fmt.Printf("segment %d = '%s', ok = %v, bits = %02x\n", i, v, ok[i], bits[i])
 		}
 	}
 	l.MarkSamples(img, *fill)
