@@ -5,6 +5,7 @@
 *.dylib
 MeterMan
 utils/sample/sample
+utils/scandump/scandump
 grab/grab
 
 # Test binary, build with `go test -c`
