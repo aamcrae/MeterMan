@@ -28,7 +28,9 @@ import (
 var configFile = flag.String("config", "config", "Configuration file")
 var section = flag.String("section", "meter", "Configuration section")
 var input = flag.String("input", "input.jpg", "Input file")
-var calibration = flag.String("calibration", "calibration", "Calibration cache file")
+var calImage = flag.String("image", "", "Calibration image")
+var calibration = flag.String("calibration", "", "Calibration cache file")
+var digits = flag.String("digits", "888888888888", "Digits for calibration")
 
 func init() {
 	flag.Parse()
@@ -52,11 +54,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("LCD config failed %v", err)
 	}
-	if f, err := os.Open(*calibration); err != nil {
-		log.Fatalf("%s: %v\n", *calibration, err)
-	} else {
-		l.RestoreCalibration(f)
-		f.Close()
+	if len(*calibration) > 0 {
+		if f, err := os.Open(*calibration); err != nil {
+			log.Fatalf("%s: %v\n", *calibration, err)
+		} else {
+			l.RestoreCalibration(f)
+			f.Close()
+		}
+	}
+	if len(*calImage) > 0 {
+		img, err := lcd.ReadImage(*calImage)
+		if err != nil {
+			log.Fatalf("%v", err)
+		}
+		l.Calibrate(img, *digits)
 	}
 	inf, err := os.Open(*input)
 	if err != nil {
@@ -70,25 +81,34 @@ func main() {
 	if angle != 0 {
 		img = lcd.RotateImage(img, angle)
 	}
-	fmt.Printf("Digit |  Min |  Off |  TL  |  TM  |  TR  |  BR  |  BM  |  BL  |  MM  |\n")
+	vals, ok, bits := l.Decode(img)
+	for i, v := range vals {
+		fmt.Printf("segment %d = '%s', ok = %v, bits = %02x\n", i, v, ok[i], bits[i])
+	}
+	fmt.Printf("Digit |  Off |  TL  |  TM  |  TR  |  BR  |  BM  |  BL  |  MM  |\n")
 	for i, d := range l.Digits {
 		min := d.Min()
 		off := d.Off(img)
 		max := d.Max()
 		s := d.Samples(img)
-		fmt.Printf("  %-2d  | %-5d| %-5d|", i, min, off)
+		fmt.Printf("  %-2d  | %-5d|", i, off)
 		for _, v := range s {
 			fmt.Printf(" %-5d|", v)
 		}
 		fmt.Printf("\n")
-		fmt.Printf("         Max        |")
+		fmt.Printf("         Min |")
+		for _, v := range min {
+			fmt.Printf(" %-5d|", v)
+		}
+		fmt.Printf("\n")
+		fmt.Printf("         Max |")
 		for _, v := range max {
 			fmt.Printf(" %-5d|", v)
 		}
 		fmt.Printf("\n")
-		fmt.Printf("      |     0|  %-4d|", off - min)
+		fmt.Printf("        Perc |")
 		for i, v := range s {
-			fmt.Printf(" %-5d|", perc(max[i], off, v))
+			fmt.Printf(" %-5d|", perc(max[i], min[i], v))
 		}
 		fmt.Printf("\n")
 	}
