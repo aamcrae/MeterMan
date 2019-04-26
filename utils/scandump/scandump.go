@@ -31,6 +31,7 @@ var input = flag.String("input", "input.jpg", "Input file")
 var calImage = flag.String("image", "", "Calibration image")
 var calibration = flag.String("calibration", "", "Calibration cache file")
 var digits = flag.String("digits", "888888888888", "Digits for calibration")
+var rewrite = flag.String("rewrite", "", "Write calibration to file")
 
 func init() {
 	flag.Parse()
@@ -81,9 +82,10 @@ func main() {
 	if angle != 0 {
 		img = lcd.RotateImage(img, angle)
 	}
-	vals, ok, bits := l.Decode(img)
-	for i, v := range vals {
-		fmt.Printf("segment %d = '%s', ok = %v, bits = %02x\n", i, v, ok[i], bits[i])
+	res := l.Decode(img)
+	for i := range res.Digits {
+		d := &res.Digits[i]
+		fmt.Printf("segment %d = '%s', ok = %v, bits = %02x\n", i, d.Str, d.Valid, d.Bits)
 	}
 	fmt.Printf("Digit |  Off |  TL  |  TM  |  TR  |  BR  |  BM  |  BL  |  MM  |\n")
 	for i, d := range l.Digits {
@@ -111,6 +113,32 @@ func main() {
 			fmt.Printf(" %-5d|", perc(max[i], min[i], v))
 		}
 		fmt.Printf("\n")
+	}
+	if len(*rewrite) > 0 {
+		out, err := os.Create(*rewrite)
+		if err != nil {
+			log.Fatalf("Failed to create %s: %v", *rewrite, err)
+		}
+		defer out.Close()
+		b, err := lcd.DigitsToSegments(*digits)
+		if err != nil {
+			log.Fatalf("DigitsToSegments: %v", err)
+		}
+		if len(b) != len(l.Digits) {
+			log.Fatalf("Wrong digit count (%d), expected (%d)", len(b), len(l.Digits))
+		}
+		for i, d := range l.Digits {
+			min := d.Min()
+			max := d.Max()
+			s := d.Samples(img)
+			for j := range s {
+				if ((1 << uint(j)) & b[i]) != 0 {
+					fmt.Fprintf(out, "%d,%d,%d,%d\n", i, j, min[j], s[j])
+				} else {
+					fmt.Fprintf(out, "%d,%d,%d,%d\n", i, j, s[j], max[j])
+				}
+			}
+		}
 	}
 }
 
