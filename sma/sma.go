@@ -30,9 +30,9 @@ import (
 	"github.com/aamcrae/config"
 )
 
-var smatimeout = flag.Int("inverter_timeout", 10, "Inverter timeout in seconds")
+var smatimeout = flag.Int("inverter-timeout", 10, "Inverter timeout in seconds")
 var smapoll = flag.Int("inverter-poll", 120, "Inverter poll time (seconds)")
-var trace = flag.Bool("trace", false, "Enable trace packet dumps")
+var trace = flag.Bool("inverter-trace", false, "Enable trace packet dumps")
 
 const maxPacketSize = 8 * 1024
 
@@ -105,20 +105,17 @@ func smaReader(conf *config.Config, wr chan<- core.Input) error {
 		return nil
 	}
 	log.Printf("Registered SMA inverter reader\n")
-	// Inverter name is of the format [IP address|name]:port
-	inverter, err := sect.GetArg("inverter")
-	if err != nil {
-		return err
+	// Inverter name is of the format [IP address|name]:port,password
+	for _, e := range sect.Get("inverter") {
+		if len(e.Tokens) != 2 {
+			return fmt.Errorf("Inverter config error at line %d", e.Lineno)
+		}
+		sma, err := NewSMA(e.Tokens[0], e.Tokens[1])
+		if err != nil {
+			return err
+		}
+		go sma.run(wr)
 	}
-	password, err := sect.GetArg("inverter-password")
-	if err != nil {
-		return err
-	}
-	sma, err := NewSMA(inverter, password)
-	if err != nil {
-		return err
-	}
-	go sma.run(wr)
 	return nil
 }
 
