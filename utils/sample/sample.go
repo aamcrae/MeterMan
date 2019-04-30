@@ -60,7 +60,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("%v", err)
 		}
-		l.Calibrate(img, *digits)
+		l.CalibrateImage(img, *digits)
 	}
 	if err != nil {
 		log.Fatalf("LCD config failed %v", err)
@@ -78,7 +78,7 @@ func main() {
 		in = lcd.RotateImage(in, angle)
 	}
 	if *calibrate && *process {
-		l.Calibrate(in, *digits)
+		l.CalibrateImage(in, *digits)
 	}
 	// Convert image to RGBA.
 	b := in.Bounds()
@@ -92,7 +92,7 @@ func main() {
 		res := l.Decode(img)
 		for i := range res.Digits {
 			d := &res.Digits[i]
-			fmt.Printf("segment %d = '%s', ok = %v, bits = %02x\n", i, d.Str, d.Valid, d.Bits)
+			fmt.Printf("segment %d = '%s', ok = %v, bits = %02x\n", i, d.Str, d.Valid, d.Mask)
 		}
 	}
 	l.MarkSamples(img, *fill)

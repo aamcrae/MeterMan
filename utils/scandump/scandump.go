@@ -68,7 +68,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("%v", err)
 		}
-		l.Calibrate(img, *digits)
+		l.CalibrateImage(img, *digits)
 	}
 	inf, err := os.Open(*input)
 	if err != nil {
@@ -85,16 +85,15 @@ func main() {
 	res := l.Decode(img)
 	for i := range res.Digits {
 		d := &res.Digits[i]
-		fmt.Printf("segment %d = '%s', ok = %v, bits = %02x\n", i, d.Str, d.Valid, d.Bits)
+		fmt.Printf("segment %d = '%s', ok = %v, bits = %02x\n", i, d.Str, d.Valid, d.Mask)
 	}
 	fmt.Printf("Digit |  Off |  TL  |  TM  |  TR  |  BR  |  BM  |  BL  |  MM  |\n")
 	for i, d := range l.Digits {
 		min := d.Min()
 		off := d.Off(img)
 		max := d.Max()
-		s := d.Samples(img)
 		fmt.Printf("  %-2d  | %-5d|", i, off)
-		for _, v := range s {
+		for _, v := range res.Digits[i].Segments {
 			fmt.Printf(" %-5d|", v)
 		}
 		fmt.Printf("\n")
@@ -109,7 +108,7 @@ func main() {
 		}
 		fmt.Printf("\n")
 		fmt.Printf("        Perc |")
-		for i, v := range s {
+		for i, v := range res.Digits[i].Segments {
 			fmt.Printf(" %-5d|", perc(max[i], min[i], v))
 		}
 		fmt.Printf("\n")
@@ -130,12 +129,11 @@ func main() {
 		for i, d := range l.Digits {
 			min := d.Min()
 			max := d.Max()
-			s := d.Samples(img)
-			for j := range s {
+			for j, s := range res.Digits[i].Segments {
 				if ((1 << uint(j)) & b[i]) != 0 {
-					fmt.Fprintf(out, "%d,%d,%d,%d\n", i, j, min[j], s[j])
+					fmt.Fprintf(out, "%d,%d,%d,%d\n", i, j, min[j], s)
 				} else {
-					fmt.Fprintf(out, "%d,%d,%d,%d\n", i, j, s[j], max[j])
+					fmt.Fprintf(out, "%d,%d,%d,%d\n", i, j, s, max[j])
 				}
 			}
 		}
