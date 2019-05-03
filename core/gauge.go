@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-// Gauge is a value representing a instantaneuous measurement.
+// Gauge is a value representing a instantaneous measurement.
 // If multiple updates occur during an interval, an average is taken.
 type Gauge struct {
 	value   float64

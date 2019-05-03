@@ -20,6 +20,7 @@ import (
 )
 
 // MultiAccum allows multiple accumulators to be treated as a single accumulator.
+// The sub-values are summed.
 type MultiAccum struct {
 	name   string
 	accums []Acc
