@@ -25,13 +25,9 @@ import (
 	"math/rand"
 	"net"
 	"time"
-
-	"github.com/aamcrae/MeterMan/core"
-	"github.com/aamcrae/config"
 )
 
 var smatimeout = flag.Int("inverter-timeout", 10, "Inverter timeout in seconds")
-var smapoll = flag.Int("inverter-poll", 120, "Inverter poll time (seconds)")
 var trace = flag.Bool("inverter-trace", false, "Enable trace packet dumps")
 
 const maxPacketSize = 8 * 1024
@@ -78,10 +74,6 @@ type SMA struct {
 	password  []byte
 	conn      *net.UDPConn
 	timeout   time.Duration
-	genP      string
-	volts     string
-	genDaily  string
-	genT      string
 	appSusyid uint16
 	appSerial uint32
 	susyid    uint16
@@ -94,30 +86,6 @@ type request struct {
 }
 
 var packet_id uint16 = 1
-
-func init() {
-	core.RegisterReader(smaReader)
-}
-
-func smaReader(conf *config.Config, wr chan<- core.Input) error {
-	sect := conf.GetSection("sma")
-	if sect == nil {
-		return nil
-	}
-	log.Printf("Registered SMA inverter reader\n")
-	// Inverter name is of the format [IP address|name]:port,password
-	for _, e := range sect.Get("inverter") {
-		if len(e.Tokens) != 2 {
-			return fmt.Errorf("Inverter config error at line %d", e.Lineno)
-		}
-		sma, err := NewSMA(e.Tokens[0], e.Tokens[1])
-		if err != nil {
-			return err
-		}
-		go sma.run(wr)
-	}
-	return nil
-}
 
 func NewSMA(inverter string, password string) (*SMA, error) {
 	raddr, err := net.ResolveUDPAddr("udp4", inverter)
@@ -141,67 +109,7 @@ func NewSMA(inverter string, password string) (*SMA, error) {
 	s := &SMA{name: inverter, password: enc, conn: conn}
 	s.appSusyid = 125
 	s.appSerial = 900000000 + uint32(rand.Intn(100000000))
-	s.genP = core.AddSubGauge(core.G_GEN_P, false)
-	s.volts = core.AddSubGauge(core.G_VOLTS, true)
-	s.genDaily = core.AddSubAccum(core.A_GEN_DAILY, true)
-	s.genT = core.AddSubAccum(core.A_GEN_TOTAL, false)
 	return s, nil
-}
-
-func (s *SMA) run(wr chan<- core.Input) {
-	defer s.conn.Close()
-	for {
-		hour := time.Now().Hour()
-		err := s.poll(wr, hour >= *core.StartHour && hour < *core.EndHour)
-		if err != nil {
-			log.Printf("Inverter poll error:%s - %v", s.name, err)
-		}
-		time.Sleep(time.Duration(*smapoll) * time.Second)
-	}
-}
-
-func (s *SMA) poll(wr chan<- core.Input, daytime bool) error {
-	if *core.Verbose {
-		log.Printf("Polling inverter %s", s.name)
-	}
-	_, _, err := s.Logon()
-	if err != nil {
-		return err
-	}
-	defer s.Logoff()
-	d, t, err := s.Energy()
-	if err != nil {
-		return err
-	}
-	if *core.Verbose {
-		log.Printf("Tag %s Daily yield = %f, tag %s total yield = %f", s.genDaily, d, s.genT, t)
-	}
-	wr <- core.Input{Tag: s.genDaily, Value: d}
-	wr <- core.Input{Tag: s.genT, Value: t}
-	if daytime {
-		v, err := s.Voltage()
-		if err != nil {
-			return err
-		}
-		if v != 0 {
-			if *core.Verbose {
-				log.Printf("Tag %s volts = %f", s.volts, v)
-			}
-			wr <- core.Input{Tag: s.volts, Value: v}
-		}
-		p, err := s.Power()
-		if err != nil {
-			return err
-		}
-		if p != 0 {
-			pf := float64(p) / 1000
-			if *core.Verbose {
-				log.Printf("Tag %s power = %f", s.genP, pf)
-			}
-			wr <- core.Input{Tag: s.genP, Value: pf}
-		}
-	}
-	return nil
 }
 
 // Initialise the connection to the inverter.
@@ -242,7 +150,7 @@ func (s *SMA) Logon() (uint16, uint32, error) {
 	}
 	s.susyid = binary.LittleEndian.Uint16(pkt[28:])
 	s.serial = binary.LittleEndian.Uint32(pkt[30:])
-	if *core.Verbose {
+	if *trace {
 		log.Printf("Successful logon to inverter, susyid = %d, serial = %d",
 			s.susyid, s.serial)
 	}
@@ -254,6 +162,14 @@ func (s *SMA) Logoff() error {
 	binary.Write(r.buf, binary.LittleEndian, 0xFFFD010E)
 	binary.Write(r.buf, binary.LittleEndian, 0xFFFFFFFF)
 	return s.send(r)
+}
+
+func (s *SMA) Name() string {
+	return s.name
+}
+
+func (s *SMA) Close() {
+	s.conn.Close()
 }
 
 func (s *SMA) DeviceStatus() (string, error) {
