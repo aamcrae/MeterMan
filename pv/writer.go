@@ -86,7 +86,7 @@ func writer(t time.Time, pvurl, id, key string) {
 			log.Printf("PV Energy not fresh, v1 not updated\n")
 		}
 	}
-	if pv_power != nil && pv_power.Updated() {
+	if pv_power != nil && pv_power.Updated() && pv_power.Get() != 0 {
 		val.Add("v2", fmt.Sprintf("%d", int(pv_power.Get()*1000)))
 		if *core.Verbose {
 			log.Printf("v2 = %f", pv_power.Get())
