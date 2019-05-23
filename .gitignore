@@ -8,7 +8,6 @@ utils/sample/sample
 utils/scandump/scandump
 utils/readtemp/readtemp
 utils/smaping/smaping
-grab/grab
 
 # Test binary, build with `go test -c`
 *.test
