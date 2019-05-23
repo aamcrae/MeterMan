@@ -18,7 +18,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/aamcrae/MeterMan/lcd"
-	"github.com/aamcrae/MeterMan/meter"
 	"github.com/aamcrae/config"
 	"image"
 	"image/color"
@@ -57,7 +56,7 @@ func main() {
 	l, err := lcd.CreateLcdDecoder(sect)
 	s := sect.Get("calibrate")
 	if len(s) == 1 && len(s[0].Tokens) == 1 {
-		img, err := meter.ReadImage(s[0].Tokens[0])
+		img, err := lcd.ReadImage(s[0].Tokens[0])
 		if err != nil {
 			log.Fatalf("%v", err)
 		}
@@ -76,7 +75,7 @@ func main() {
 		log.Fatalf("Failed to read %s: %v", *input, err)
 	}
 	if angle != 0 {
-		in = meter.RotateImage(in, angle)
+		in = lcd.RotateImage(in, angle)
 	}
 	if *calibrate && *process {
 		l.CalibrateImage(in, *digits)
@@ -97,7 +96,7 @@ func main() {
 		}
 	}
 	l.MarkSamples(img, *fill)
-	err = meter.SaveImage(*output, img)
+	err = lcd.SaveImage(*output, img)
 	if err != nil {
 		log.Fatalf("%s encode error: %v", *output, err)
 	}

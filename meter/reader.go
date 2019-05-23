@@ -99,7 +99,7 @@ func NewReader(c *config.Section, trace bool) (*Reader, error) {
 	r.Restore()
 	s, err := c.GetArg("calibrate")
 	if err == nil {
-		img, err := ReadImage(s)
+		img, err := lcd.ReadImage(s)
 		if err != nil {
 			return nil, err
 		}

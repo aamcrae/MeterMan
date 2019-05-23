@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/core"
+	"github.com/aamcrae/MeterMan/lcd"
 	"github.com/aamcrae/config"
 )
 
@@ -82,19 +83,19 @@ func runReader(r *Reader, source string, angle float64, wr chan<- core.Input) {
 	for {
 		time.Sleep(delay - time.Now().Sub(lastTime))
 		lastTime = time.Now()
-		img, err := GetImage(source)
+		img, err := lcd.GetImage(source)
 		if err != nil {
 			log.Printf("Failed to retrieve source image from %s: %v", source, err)
 			continue
 		}
 		if angle != 0 {
-			img = RotateImage(img, angle)
+			img = lcd.RotateImage(img, angle)
 		}
 		label, val, err := r.Read(img)
 		if err != nil {
 			log.Printf("Read error: %v", err)
 			if *saveBad {
-				SaveImage(*badFile, img)
+				lcd.SaveImage(*badFile, img)
 			}
 		} else if len(label) > 0 {
 			tag, ok := tagMap[label]
