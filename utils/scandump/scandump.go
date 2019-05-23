@@ -18,6 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/aamcrae/MeterMan/lcd"
+	"github.com/aamcrae/MeterMan/meter"
 	"github.com/aamcrae/config"
 	"image"
 	"log"
@@ -64,7 +65,7 @@ func main() {
 		}
 	}
 	if len(*calImage) > 0 {
-		img, err := lcd.ReadImage(*calImage)
+		img, err := meter.ReadImage(*calImage)
 		if err != nil {
 			log.Fatalf("%v", err)
 		}
@@ -80,7 +81,7 @@ func main() {
 		log.Fatalf("Failed to read %s: %v", *input, err)
 	}
 	if angle != 0 {
-		img = lcd.RotateImage(img, angle)
+		img = meter.RotateImage(img, angle)
 	}
 	res := l.Decode(img)
 	for i := range res.Digits {
