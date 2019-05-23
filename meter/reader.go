@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package lcd
+package meter
 
 import (
 	"flag"
@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aamcrae/MeterMan/lcd"
 	"github.com/aamcrae/config"
 )
 
@@ -38,7 +39,7 @@ type limit struct {
 
 type Reader struct {
 	trace           bool
-	decoder         *LcdDecoder
+	decoder         *lcd.LcdDecoder
 	current         image.Image
 	lastCalibration time.Time
 	limits          map[string]limit
@@ -67,7 +68,7 @@ var measures map[string]*measure = map[string]*measure{
 }
 
 func NewReader(c *config.Section, trace bool) (*Reader, error) {
-	d, err := CreateLcdDecoder(c)
+	d, err := lcd.CreateLcdDecoder(c)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +139,7 @@ func (r *Reader) Save() {
 }
 
 // A successful scan is used to recalibrate the scan levels.
-func (r *Reader) GoodScan(res *ScanResult) {
+func (r *Reader) GoodScan(res *lcd.ScanResult) {
 	if *recalibrate {
 		err := r.decoder.CalibrateScan(res)
 		if err != nil {
