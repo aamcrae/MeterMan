@@ -30,7 +30,7 @@ import (
 
 var recalibrate = flag.Bool("recalibrate", false, "Recalibrate with new image")
 
-const calibrateCache = time.Minute * 1
+const calibrateCache = time.Minute * 2
 
 type limit struct {
 	last  time.Time
@@ -97,6 +97,7 @@ func NewReader(c *config.Section, trace bool) (*Reader, error) {
 	cf, err := c.GetArg("calibration")
 	r := &Reader{trace: trace, decoder: d, limits: map[string]limit{}, calFile: cf}
 	r.Restore()
+	r.lastCalibration = time.Now()
 	s, err := c.GetArg("calibrate")
 	if err == nil {
 		img, err := lcd.ReadImage(s)
@@ -140,6 +141,7 @@ func (r *Reader) Save() {
 
 // A successful scan is used to recalibrate the scan levels.
 func (r *Reader) GoodScan(res *lcd.ScanResult) {
+	r.decoder.Good()
 	if *recalibrate {
 		err := r.decoder.CalibrateScan(res)
 		if err != nil {
@@ -150,6 +152,7 @@ func (r *Reader) GoodScan(res *lcd.ScanResult) {
 			if time.Now().Sub(r.lastCalibration) >= calibrateCache {
 				r.lastCalibration = now
 				r.Save()
+				r.decoder.Recalibrate()
 			}
 		}
 	}
@@ -165,17 +168,21 @@ func (r *Reader) Read(img image.Image) (string, float64, error) {
 				badSeg = append(badSeg, fmt.Sprintf("%d[%02x]", s, res.Digits[s].Mask))
 			}
 		}
+		r.decoder.Bad()
 		return "", 0.0, fmt.Errorf("Bad read on segment[s] %s", strings.Join(badSeg, ","))
 	}
 	key := res.Text[0:4]
 	value := res.Text[4:]
 	m, ok := measures[key]
 	if !ok {
+		r.decoder.Bad()
 		return "", 0.0, fmt.Errorf("Unknown key (%s) value %s", key, value)
 	}
 	str, num, err := m.handler(r, m, key, value)
 	if err == nil {
 		r.GoodScan(res)
+	} else {
+		r.decoder.Bad()
 	}
 	return str, num, err
 }
