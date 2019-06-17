@@ -29,8 +29,7 @@ import (
 )
 
 var recalibrate = flag.Bool("recalibrate", false, "Recalibrate with new image")
-
-const calibrateCache = time.Minute * 2
+var recalInterval = flag.Int("recal_interval", 120, "Recalibrate interval (seconds)")
 
 type limit struct {
 	last  time.Time
@@ -149,7 +148,7 @@ func (r *Reader) GoodScan(res *lcd.ScanResult) {
 		} else {
 			// Regularly, save the calibration data.
 			now := time.Now()
-			if time.Now().Sub(r.lastCalibration) >= calibrateCache {
+			if time.Now().Sub(r.lastCalibration) >= time.Duration(*recalInterval) * time.Second {
 				r.lastCalibration = now
 				r.Save()
 				r.decoder.Recalibrate()
