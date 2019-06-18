@@ -148,7 +148,7 @@ func (r *Reader) GoodScan(res *lcd.ScanResult) {
 		} else {
 			// Regularly, save the calibration data.
 			now := time.Now()
-			if time.Now().Sub(r.lastCalibration) >= time.Duration(*recalInterval) * time.Second {
+			if time.Now().Sub(r.lastCalibration) >= time.Duration(*recalInterval)*time.Second {
 				r.lastCalibration = now
 				r.Save()
 				r.decoder.Recalibrate()
