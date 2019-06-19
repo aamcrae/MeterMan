@@ -105,5 +105,6 @@ func runReader(r *Reader, source string, angle float64, wr chan<- core.Input) {
 				wr <- core.Input{Tag: tag, Value: val}
 			}
 		}
+		r.Recalibrate()
 	}
 }

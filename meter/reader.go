@@ -28,8 +28,8 @@ import (
 	"github.com/aamcrae/config"
 )
 
-var recalibrate = flag.Bool("recalibrate", false, "Recalibrate with new image")
 var recalInterval = flag.Int("recal_interval", 120, "Recalibrate interval (seconds)")
+var recalibrate = flag.Bool("recalibrate", false, "Recalibrate with new image")
 
 type limit struct {
 	last  time.Time
@@ -138,21 +138,26 @@ func (r *Reader) Save() {
 	}
 }
 
-// A successful scan is used to recalibrate the scan levels.
+// A successful scan is used to adjust the scan levels.
 func (r *Reader) GoodScan(res *lcd.ScanResult) {
 	r.decoder.Good()
 	if *recalibrate {
 		err := r.decoder.CalibrateScan(res)
 		if err != nil {
 			log.Printf("CalibrateScan error: %v\n", err)
-		} else {
-			// Regularly, save the calibration data.
-			now := time.Now()
-			if time.Now().Sub(r.lastCalibration) >= time.Duration(*recalInterval)*time.Second {
-				r.lastCalibration = now
-				r.Save()
-				r.decoder.Recalibrate()
-			}
+		}
+	}
+}
+
+// If enabled, save the calibration data and recalibrate.
+func (r *Reader) Recalibrate() {
+	if *recalibrate {
+		// Regularly, save the calibration data.
+		now := time.Now()
+		if time.Now().Sub(r.lastCalibration) >= time.Duration(*recalInterval)*time.Second {
+			r.lastCalibration = now
+			r.decoder.Recalibrate()
+			r.Save()
 		}
 	}
 }
