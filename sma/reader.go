@@ -30,11 +30,11 @@ var smapoll = flag.Int("inverter-poll", 120, "Inverter poll time (seconds)")
 
 // InverterReader polls the inverter(s)
 type InverterReader struct {
-	sma		  *SMA
-	genP      string
-	volts     string
-	genDaily  string
-	genT      string
+	sma      *SMA
+	genP     string
+	volts    string
+	genDaily string
+	genT     string
 }
 
 func init() {

@@ -225,15 +225,20 @@ func (s *SMA) Energy() (float64, float64, error) {
 	if err != nil {
 		return 0, 0, err
 	}
+	var dval, tval float64
 	daily, ok := recs[0x2622]
-	if !ok {
-		return 0, 0, fmt.Errorf("Bad records")
+	if ok {
+		dval = float64(daily.value) / 1000
+	} else {
+		dval = 0.0
 	}
 	total, ok := recs[0x2601]
-	if !ok {
-		return 0, 0, fmt.Errorf("Bad records")
+	if ok {
+		tval = float64(total.value) / 1000
+	} else {
+		tval = 0.0
 	}
-	return float64(daily.value) / 1000, float64(total.value) / 1000, nil
+	return dval, tval, nil
 }
 
 func (s *SMA) Power() (int64, error) {
@@ -390,8 +395,9 @@ func unpackRecords(b *bytes.Buffer) map[uint16]*record {
 			size = 16
 		// 28 byte records
 		case 0x251E, 0x263F, 0x411E, 0x411F, 0x4120, 0x4640, 0x4641,
-			0x4642, 0x4648, 0x4649, 0x464A, 0x4650, 0x4651, 0x4652,
-			0x4653, 0x4654, 0x4655:
+			0x4642, 0x4648, 0x4649, 0x464A, 0x464B, 0x464C, 0x464D,
+			0x464E, 0x4650,
+			0x4651, 0x4652, 0x4653, 0x4654, 0x4655:
 			size = 28
 
 		// 40 byte records
