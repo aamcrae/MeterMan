@@ -116,6 +116,7 @@ func (r *Reader) Restore() {
 		} else {
 			r.decoder.RestoreCalibration(f)
 			f.Close()
+			r.decoder.PickCalibration()
 		}
 	}
 }
