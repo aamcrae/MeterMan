@@ -118,11 +118,11 @@ func (s *SMA) Logon() (uint16, uint32, error) {
 	s.serial = 0xFFFFFFFF
 	req, err := s.cmdpacket(0x00000200, 0, 0)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, fmt.Errorf("logon: %v", err)
 	}
 	b, err := s.response(req)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, fmt.Errorf("logon: %v", err)
 	}
 	s.Logoff()
 	// Now logon to the inverter.
@@ -135,11 +135,11 @@ func (s *SMA) Logon() (uint16, uint32, error) {
 	r.buf.Write(s.password)
 	err = s.send(r)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, fmt.Errorf("logon: %v", err)
 	}
 	b, err = s.response(r)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, fmt.Errorf("logon: %v", err)
 	}
 	pkt := b.Bytes()
 	retCode := binary.LittleEndian.Uint16(pkt[36:])
@@ -175,11 +175,11 @@ func (s *SMA) Close() {
 func (s *SMA) DeviceStatus() (string, error) {
 	req, err := s.cmdpacket(0x51800200, 0x00214800, 0x002148FF)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("device status: %v", err)
 	}
 	b, err := s.response(req)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("device status: %v", err)
 	}
 	rec := unpackRecords(b)
 	if *trace {
@@ -210,11 +210,11 @@ func (s *SMA) DeviceStatus() (string, error) {
 func (s *SMA) Voltage() (float64, error) {
 	recs, err := s.getRecords(0x51000200, 0x00464800, 0x004655FF)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("voltage: %v", err)
 	}
 	r, ok := recs[0x4648]
 	if !ok {
-		return 0, fmt.Errorf("Bad records")
+		return 0, fmt.Errorf("voltage: bad records")
 	}
 	return float64(r.value) / 100, nil
 }
@@ -223,7 +223,7 @@ func (s *SMA) Voltage() (float64, error) {
 func (s *SMA) Energy() (float64, float64, error) {
 	recs, err := s.getRecords(0x54000200, 0x00260100, 0x002622FF)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, fmt.Errorf("energy: %v", err)
 	}
 	var dval, tval float64
 	daily, ok := recs[0x2622]
@@ -245,6 +245,7 @@ func (s *SMA) Power() (int64, error) {
 	recs, err := s.getRecords(0x51000200, 0x00263F00, 0x00263FFF)
 	if err != nil {
 		return 0, err
+		return 0, fmt.Errorf("power: %v", err)
 	}
 	var total int64
 	for _, c := range []uint16{0x263F} {
@@ -271,7 +272,7 @@ func (s *SMA) getRecords(code, a1, a2 uint32) (map[uint16]*record, error) {
 	}
 	b, err := s.response(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getrecords: %v", err)
 	}
 	m := unpackRecords(b)
 	if *trace {
@@ -287,7 +288,7 @@ func (s *SMA) cmdpacket(cmd, first, last uint32) (*request, error) {
 	binary.Write(r.buf, binary.LittleEndian, last)
 	err := s.send(r)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cmdpacket: %v", err)
 	}
 	return r, nil
 }
@@ -298,7 +299,7 @@ func (s *SMA) response(req *request) (*bytes.Buffer, error) {
 	for {
 		b, err := s.read(tout.Sub(time.Now()))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("response: %v", err)
 		}
 		// Verify the packet and id.
 		pkt := b.Bytes()
@@ -352,10 +353,10 @@ func (s *SMA) send(r *request) error {
 	}
 	n, err := s.conn.Write(r.buf.Bytes())
 	if err != nil {
-		return err
+		return fmt.Errorf("send: %v", err)
 	}
 	if n != r.buf.Len() {
-		return fmt.Errorf("Write %d bytes of buffer size %d", n, r.buf.Len())
+		return fmt.Errorf("wrote %d bytes of buffer size %d", n, r.buf.Len())
 	}
 	return nil
 }
@@ -365,7 +366,7 @@ func (s *SMA) read(timeout time.Duration) (*bytes.Buffer, error) {
 	b := make([]byte, maxPacketSize)
 	n, err := s.conn.Read(b)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read: %v", err)
 	}
 	return bytes.NewBuffer(b[:n]), nil
 }
