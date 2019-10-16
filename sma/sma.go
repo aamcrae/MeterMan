@@ -24,6 +24,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"sync/atomic"
 	"time"
 )
 
@@ -75,7 +76,6 @@ type SMA struct {
 	conn      *net.UDPConn
 	timeout   time.Duration
 	appSusyid uint16
-	appSerial uint32
 	susyid    uint16
 	serial    uint32
 }
@@ -85,7 +85,13 @@ type request struct {
 	buf       *bytes.Buffer
 }
 
-var packet_id uint16 = 1
+var master_packet_id uint32
+var appSerial uint32
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+	appSerial = 900000000 + uint32(rand.Intn(100000000))
+}
 
 func NewSMA(inverter string, password string) (*SMA, error) {
 	raddr, err := net.ResolveUDPAddr("udp4", inverter)
@@ -108,7 +114,6 @@ func NewSMA(inverter string, password string) (*SMA, error) {
 	}
 	s := &SMA{name: inverter, password: enc, conn: conn}
 	s.appSusyid = 125
-	s.appSerial = 900000000 + uint32(rand.Intn(100000000))
 	return s, nil
 }
 
@@ -321,8 +326,8 @@ func (s *SMA) response(req *request) (*bytes.Buffer, error) {
 }
 
 func (s *SMA) packet(longwords, c1 byte, c2 uint16) *request {
-	var id uint16 = packet_id | 0x8000
-	packet_id++
+	new_id := atomic.AddUint32(&master_packet_id, 1)
+	var id uint16 = uint16(new_id) | 0x8000
 	b := new(bytes.Buffer)
 	b.Write(packet_header)                            // 0
 	binary.Write(b, binary.LittleEndian, signature)   // 14
@@ -332,7 +337,7 @@ func (s *SMA) packet(longwords, c1 byte, c2 uint16) *request {
 	binary.Write(b, binary.LittleEndian, s.serial)    // 22
 	binary.Write(b, binary.LittleEndian, c2)          // 26 control2
 	binary.Write(b, binary.LittleEndian, s.appSusyid) // 28
-	binary.Write(b, binary.LittleEndian, s.appSerial) // 30
+	binary.Write(b, binary.LittleEndian, appSerial)   // 30
 	binary.Write(b, binary.LittleEndian, c2)          // 34 control2
 	binary.Write(b, binary.LittleEndian, uint16(0))   // 36
 	binary.Write(b, binary.LittleEndian, uint16(0))   // 38
