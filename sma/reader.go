@@ -26,7 +26,8 @@ import (
 	"github.com/aamcrae/config"
 )
 
-var smapoll = flag.Int("inverter-poll", 120, "Inverter poll time (seconds)")
+var smaPoll = flag.Int("inverter-poll", 120, "Inverter poll time (seconds)")
+var smaRetry = flag.Int("inverter-retry", 10, "Inverter poll retry time (seconds)")
 
 // InverterReader polls the inverter(s)
 type InverterReader struct {
@@ -73,8 +74,10 @@ func (s *InverterReader) run(wr chan<- core.Input) {
 		err := s.poll(wr, hour >= *core.StartHour && hour < *core.EndHour)
 		if err != nil {
 			log.Printf("Inverter poll error:%s - %v", s.sma.Name(), err)
+			time.Sleep(time.Duration(*smaRetry) * time.Second)
+		} else {
+			time.Sleep(time.Duration(*smaPoll) * time.Second)
 		}
-		time.Sleep(time.Duration(*smapoll) * time.Second)
 	}
 }
 
