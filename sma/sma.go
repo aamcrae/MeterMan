@@ -235,14 +235,18 @@ func (s *SMA) Energy() (float64, float64, error) {
 	if ok {
 		dval = float64(daily.value) / 1000
 	} else {
-		log.Printf("energy: missing daily record\n")
+		if *trace {
+			log.Printf("energy: missing daily record\n")
+		}
 		dval = 0.0
 	}
 	total, ok := recs[0x2601]
 	if ok {
 		tval = float64(total.value) / 1000
 	} else {
-		log.Printf("energy: missing total record\n")
+		if *trace {
+			log.Printf("energy: missing total record\n")
+		}
 		tval = 0.0
 	}
 	return dval, tval, nil
