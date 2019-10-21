@@ -121,7 +121,7 @@ func NewSMA(inverter string, password string) (*SMA, error) {
 func (s *SMA) Logon() (uint16, uint32, error) {
 	s.susyid = 0xFFFF
 	s.serial = 0xFFFFFFFF
-	req, err := s.cmdpacket(0x00000200, 0, 0)
+	req, err := s.cmdPacket(0x00000200, 0, 0)
 	if err != nil {
 		return 0, 0, fmt.Errorf("logon: %v", err)
 	}
@@ -178,7 +178,7 @@ func (s *SMA) Close() {
 }
 
 func (s *SMA) DeviceStatus() (string, error) {
-	req, err := s.cmdpacket(0x51800200, 0x00214800, 0x002148FF)
+	req, err := s.cmdPacket(0x51800200, 0x00214800, 0x002148FF)
 	if err != nil {
 		return "", fmt.Errorf("device status: %v", err)
 	}
@@ -192,7 +192,7 @@ func (s *SMA) DeviceStatus() (string, error) {
 	}
 	r, ok := rec[0x2148]
 	if !ok {
-		return "", fmt.Errorf("Unknown status record")
+		return "", fmt.Errorf("device status: missing record")
 	}
 	var status string
 	for i, at := range r.attribute {
@@ -219,7 +219,7 @@ func (s *SMA) Voltage() (float64, error) {
 	}
 	r, ok := recs[0x4648]
 	if !ok {
-		return 0, fmt.Errorf("voltage: bad records")
+		return 0, fmt.Errorf("voltage: missing record")
 	}
 	return float64(r.value) / 100, nil
 }
@@ -235,12 +235,14 @@ func (s *SMA) Energy() (float64, float64, error) {
 	if ok {
 		dval = float64(daily.value) / 1000
 	} else {
+		log.Printf("energy: missing daily record\n")
 		dval = 0.0
 	}
 	total, ok := recs[0x2601]
 	if ok {
 		tval = float64(total.value) / 1000
 	} else {
+		log.Printf("energy: missing total record\n")
 		tval = 0.0
 	}
 	return dval, tval, nil
@@ -249,7 +251,6 @@ func (s *SMA) Energy() (float64, float64, error) {
 func (s *SMA) Power() (int64, error) {
 	recs, err := s.getRecords(0x51000200, 0x00263F00, 0x00263FFF)
 	if err != nil {
-		return 0, err
 		return 0, fmt.Errorf("power: %v", err)
 	}
 	var total int64
@@ -271,9 +272,9 @@ func (s *SMA) processRecords(code, a1, a2 uint32) (int, error) {
 }
 
 func (s *SMA) getRecords(code, a1, a2 uint32) (map[uint16]*record, error) {
-	req, err := s.cmdpacket(code, a1, a2)
+	req, err := s.cmdPacket(code, a1, a2)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getRecords: %v", err)
 	}
 	b, err := s.response(req)
 	if err != nil {
@@ -286,14 +287,14 @@ func (s *SMA) getRecords(code, a1, a2 uint32) (map[uint16]*record, error) {
 	return m, nil
 }
 
-func (s *SMA) cmdpacket(cmd, first, last uint32) (*request, error) {
+func (s *SMA) cmdPacket(cmd, first, last uint32) (*request, error) {
 	r := s.packet(9, 0xA0, 0)
 	binary.Write(r.buf, binary.LittleEndian, cmd)
 	binary.Write(r.buf, binary.LittleEndian, first)
 	binary.Write(r.buf, binary.LittleEndian, last)
 	err := s.send(r)
 	if err != nil {
-		return nil, fmt.Errorf("cmdpacket: %v", err)
+		return nil, fmt.Errorf("cmdPacket: %v", err)
 	}
 	return r, nil
 }
