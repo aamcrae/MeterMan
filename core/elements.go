@@ -14,13 +14,6 @@
 
 package core
 
-import (
-	"flag"
-)
-
-var StartHour = flag.Int("starthour", 6, "Start hour for PV (e.g 6)")
-var EndHour = flag.Int("endhour", 20, "End hour for PV (e.g 19)")
-
 // A database of values is held in a map.  The values are identifed with strings called tags, listed below.
 // A single value may have multiple inputs that could be averaged or accumulated together.
 // These multiple inputs use the base tag string followed by an index value e.g TAG/0, TAG/1 etc.

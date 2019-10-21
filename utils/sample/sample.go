@@ -29,7 +29,7 @@ import (
 var output = flag.String("output", "output.jpg", "output jpeg file")
 var configFile = flag.String("config", "config", "Configuration file")
 var section = flag.String("section", "meter", "Configuration section")
-var input = flag.String("input", "input.png", "Input file")
+var input = flag.String("input", "", "Input file")
 var process = flag.Bool("process", true, "Decode digits in image")
 var fill = flag.Bool("fill", true, "Fill in segments")
 var calibrate = flag.Bool("calibrate", true, "Calibrate using image")
