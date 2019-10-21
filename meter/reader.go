@@ -30,6 +30,7 @@ import (
 
 var recalInterval = flag.Int("recal_interval", 120, "Recalibrate interval (seconds)")
 var recalibrate = flag.Bool("recalibrate", false, "Recalibrate with new image")
+var saveCalibration = flag.Bool("save_calibration", false, "Save calibration data")
 
 type limit struct {
 	last  time.Time
@@ -123,7 +124,7 @@ func (r *Reader) Restore() {
 
 // Save the current calibration.
 func (r *Reader) Save() {
-	if len(r.calFile) != 0 {
+	if *saveCalibration && len(r.calFile) != 0 {
 		if r.trace {
 			log.Printf("Saving calibration data")
 		}
