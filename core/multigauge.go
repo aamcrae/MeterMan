@@ -16,7 +16,6 @@ package core
 
 import (
 	"fmt"
-	"time"
 )
 
 // MultiGauge allows multiple gauges to be treated as a single gauge.
@@ -44,9 +43,9 @@ func (m *MultiGauge) Update(value float64) {
 	panic(fmt.Errorf("Updated called on MultiGauge"))
 }
 
-func (m *MultiGauge) Interval(t time.Time, midnight bool) {
+func (m *MultiGauge) Midnight() {
 	for _, g := range m.gauges {
-		g.Interval(t, midnight)
+		g.Midnight()
 	}
 }
 

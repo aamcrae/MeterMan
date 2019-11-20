@@ -16,7 +16,6 @@ package core
 
 import (
 	"fmt"
-	"time"
 )
 
 // Gauge is a value representing a instantaneous measurement.
@@ -39,7 +38,7 @@ func (g *Gauge) Update(value float64) {
 	g.value = g.total / float64(g.updated)
 }
 
-func (g *Gauge) Interval(last time.Time, midnight bool) {
+func (g *Gauge) Midnight() {
 }
 
 func (g *Gauge) Get() float64 {

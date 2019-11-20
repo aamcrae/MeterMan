@@ -30,7 +30,7 @@ import (
 	"github.com/aamcrae/config"
 )
 
-var configFile = flag.String("config", "/etc/meterman.conf", "Config file")
+var configFile = flag.String("config", "", "Config file")
 var profile = flag.Bool("profile", false, "Enable profiling")
 var port = flag.Int("port", 6060, "Port for http server")
 

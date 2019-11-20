@@ -17,7 +17,6 @@ package core
 import (
 	"fmt"
 	"log"
-	"time"
 )
 
 // Acc is a common interface for accumulators.
@@ -67,10 +66,8 @@ func (a *Accum) Get() float64 {
 	return a.value
 }
 
-func (a *Accum) Interval(last time.Time, midnight bool) {
-	if midnight {
-		a.midnight = a.value
-	}
+func (a *Accum) Midnight() {
+	a.midnight = a.value
 }
 
 func (a *Accum) Updated() bool {

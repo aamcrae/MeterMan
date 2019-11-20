@@ -44,19 +44,16 @@ type Input struct {
 
 // Element represents each data item that is being updated by the readers.
 type Element interface {
-	Update(v float64)                       // Update element with new value.
-	Interval(last time.Time, midnight bool) // Called before uploading.
-	Get() float64                           // Get the element's value
-	Updated() bool                          // Return true if value has been updated in this interval.
-	ClearUpdate()                           // Reset the update flag.
-	Checkpoint() string                     // Return a checkpoint string.
+	Update(v float64)   // Update element with new value.
+	Midnight()          // Called when it is midnight
+	Get() float64       // Get the element's value
+	Updated() bool      // Return true if value has been updated in this interval.
+	ClearUpdate()       // Reset the update flag.
+	Checkpoint() string // Return a checkpoint string.
 }
 
 var elements map[string]Element = map[string]Element{}
 var checkpointMap map[string]string = make(map[string]string)
-
-var interval time.Duration
-var lastInterval time.Time
 
 // Callbacks for processing outputs.
 var outputs []func(time.Time)
@@ -84,16 +81,17 @@ func SetUpAndRun(conf *config.Config) error {
 	if len(*checkpoint) != 0 {
 		readCheckpoint(*checkpoint, checkpointMap)
 	}
-	interval = time.Minute * time.Duration(*updateRate)
+	intv := time.Minute * time.Duration(*updateRate)
+	var last time.Time
 	lt, ok := checkpointMap[C_TIME]
 	if !ok {
-		lastInterval = time.Now().Truncate(interval)
+		last = time.Now().Truncate(intv)
 	} else {
 		var sec int64
 		fmt.Sscanf(lt, "%d", &sec)
-		lastInterval = time.Unix(sec, 0)
+		last = time.Unix(sec, 0)
 		if *Verbose {
-			log.Printf("Last interval was %s\n", lastInterval.Format(time.UnixDate))
+			log.Printf("Last interval was %s\n", last.Format(time.UnixDate))
 		}
 	}
 	input := make(chan Input, 200)
@@ -109,21 +107,35 @@ func SetUpAndRun(conf *config.Config) error {
 			return err
 		}
 	}
-	tick := time.Tick(10 * time.Second)
+	tick := ticker(intv)
 	for {
 		select {
 		case r := <-input:
-			checkInterval()
 			h, ok := elements[r.Tag]
 			if ok {
 				h.Update(r.Value)
 			} else {
 				log.Printf("Unknown tag: %s\n", r.Tag)
 			}
-		case <-tick:
-			checkInterval()
+		case now := <-tick:
+			update(last, now)
+			now = last
 		}
 	}
+}
+
+// ticker sends time through a channel at intv rates.
+func ticker(intv time.Duration) <-chan time.Time {
+	t := make(chan time.Time, 10)
+	go func() {
+		for {
+			now := time.Now()
+			next := (now.Add(intv)).Truncate(intv)
+			time.Sleep(next.Sub(now))
+			t <- next
+		}
+	}()
+	return t
 }
 
 // AddSumGauge adds a gauge that is part of a master gauge.
@@ -179,42 +191,37 @@ func AddAccum(name string, resettable bool) {
 	}
 }
 
-// checkInterval performs the interval update processing, calling the writers
+// update performs the interval update processing, calling the writers
 // with the updated database. Some pre-write processing is done e.g if it is
 // midnight, a flag is set.
 // After write processing, the data is checkpointed, and the 'update' flag is
 // cleared on all the elements.
-func checkInterval() {
-	// See if an update interval has passed.
-	now := time.Now()
-	if now.Sub(lastInterval) < interval {
-		return
-	}
-	nowInterval := now.Truncate(interval)
+func update(last, now time.Time) {
 	// Check for daily reset processing.
-	newDay := nowInterval.YearDay() != lastInterval.YearDay()
-	if *Verbose {
-		log.Printf("Updating for interval %s\n", nowInterval.Format("15:04"))
-		if newDay {
-			log.Printf("New day reset")
+	midnight := now.YearDay() != last.YearDay()
+	if midnight {
+		for _, el := range elements {
+			el.Midnight()
 		}
 	}
-	for tag, el := range elements {
-		el.Interval(lastInterval, newDay)
-		if *Verbose {
+	if *Verbose {
+		log.Printf("Updating for interval %s\n", now.Format("15:04"))
+		if midnight {
+			log.Printf("New day reset")
+		}
+		for tag, el := range elements {
 			log.Printf("Output: Tag: %5s, value: %f, updated: %v\n", tag, el.Get(), el.Updated())
 		}
 	}
 	for _, wf := range outputs {
-		wf(nowInterval)
+		wf(now)
 	}
 	if len(*checkpoint) != 0 {
-		writeCheckpoint(*checkpoint, nowInterval)
+		writeCheckpoint(*checkpoint, now)
 	}
 	for _, el := range elements {
 		el.ClearUpdate()
 	}
-	lastInterval = nowInterval
 }
 
 // writerCheckpoint will save the current values of all the elements in the

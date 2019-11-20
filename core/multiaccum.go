@@ -16,7 +16,6 @@ package core
 
 import (
 	"fmt"
-	"time"
 )
 
 // MultiAccum allows multiple accumulators to be treated as a single accumulator.
@@ -51,9 +50,9 @@ func (m *MultiAccum) Get() float64 {
 	return v
 }
 
-func (m *MultiAccum) Interval(t time.Time, midnight bool) {
+func (m *MultiAccum) Midnight() {
 	for _, a := range m.accums {
-		a.Interval(t, midnight)
+		a.Midnight()
 	}
 }
 
