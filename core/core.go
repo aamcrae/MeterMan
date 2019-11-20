@@ -130,7 +130,7 @@ func ticker(intv time.Duration) <-chan time.Time {
 	go func() {
 		for {
 			now := time.Now()
-			next := (now.Add(intv)).Truncate(intv)
+			next := now.Add(intv).Truncate(intv)
 			time.Sleep(next.Sub(now))
 			t <- next
 		}
