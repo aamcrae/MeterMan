@@ -103,6 +103,7 @@ func (s *InverterReader) poll(wr chan<- core.Input, daytime bool) error {
 	}
 	t, err := s.sma.TotalEnergy()
 	if err != nil {
+		if *core.Verbose {
 			log.Printf("Missing record for tag %s", s.genT)
 		}
 	} else {

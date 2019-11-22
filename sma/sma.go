@@ -38,24 +38,26 @@ var packet_header = []byte{'S', 'M', 'A', 0, 0, 0x04, 0x02, 0xA0,
 	0, 0, 0, 0x01, 0, 0}
 
 const signature = uint32(0x65601000)
+
+const password_length = 12
+const password_enc = 0x88
+
+// Data types of record value.
+const (
+	DT_ULONG  = 0		// Unsigned 32 bits
+	DT_STATUS = 8		// upper bits is attribute value, lower 24 bits attribute ID.
+	DT_STRING = 16		// 32 bytes null terminated string
+	DT_FLOAT  = 32		// 32 bit float (unused)
+	DT_SLONG  = 64		// Signed 32 bits
+	DT_ULONGLONG = 128	// Unsigned 64 bits
+)
+// Special meanings of record values.
 const nan64 = 0x8000000000000000
 const nan32 = 0x80000000
 const nanu64 = 0xFFFFFFFFFFFFFFFF
 const nanu32 = 0xFFFFFFFF
 
-const password_length = 12
-const password_enc = 0x88
-
-const (
-	DT_ULONG  = 0
-	DT_STATUS = 8
-	DT_STRING = 16
-	DT_FLOAT  = 32
-	DT_SLONG  = 64
-	DT_ULONGLONG = 128
-)
-
-// Command values to inverter for retrieving records.
+// Commands to inverter for retrieving records.
 const (
 	CMD_INV_LOGON = 0x00000200	// Login to inverter.
 	CMD_INV_40 = 0x58000200		// Inverter status, 40 byte records
@@ -66,7 +68,7 @@ const (
 	CMD_DC_28 = 0x53800200		// DC spot values, 28 byte records
 )
 
-// Map commands to record size.
+// Map of commands to record size.
 var cmdRecSize = map[uint32]int{
 	CMD_INV_40 : 40,
 	CMD_SPOT_28: 28,
@@ -84,8 +86,7 @@ type record struct {
 	classType byte
 	date      time.Time
 	value     int64
-	str       string
-	fvalue    float64
+	str       string	// If dataType is DT_STRING
 	attribute []uint32
 	attrVal   []byte
 }
@@ -151,7 +152,7 @@ func (s *SMA) Logon() (uint16, uint32, error) {
 		return 0, 0, fmt.Errorf("logon: %v", err)
 	}
 	s.Logoff()
-	// Now logon to the inverter.
+	// logon to the inverter.
 	r := s.packet(14, 0xA0, 0x100)
 	binary.Write(r.buf, binary.LittleEndian, uint32(0xFFFD040C))
 	binary.Write(r.buf, binary.LittleEndian, uint32(0x7))               // group = USER
@@ -198,6 +199,9 @@ func (s *SMA) Close() {
 	s.conn.Close()
 }
 
+// Helper functions to retrieve specific values from the inverter.
+
+// Retrieve the current status of the inverter.
 func (s *SMA) DeviceStatus() (string, error) {
 	recs, err := s.getRecords(CMD_AC_40, 0x00214800, 0x002148FF)
 	if err != nil {
@@ -229,17 +233,6 @@ func (s *SMA) DeviceStatus() (string, error) {
 	return status, nil
 }
 
-func (s *SMA) GetAll() error {
-	codes := []uint32{CMD_AC_28, CMD_AC_40, CMD_INV_40, CMD_DC_28, CMD_AC_16, CMD_INV_40}
-	for _, req := range codes {
-		_, err := s.getRecords(req, 0x00000000, 0x00FFFFFF)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (s *SMA) Voltage() (float64, error) {
 	return s.getValue(CMD_AC_28, 0x4648, 100.0)
 }
@@ -257,6 +250,18 @@ func (s *SMA) TotalEnergy() (float64, error) {
 // Return power in watts.
 func (s *SMA) Power() (float64, error) {
 	return s.getValue(CMD_AC_28, 0x263F, 1.0)
+}
+
+// Debug code to retrieve all records.
+func (s *SMA) GetAll() error {
+	codes := []uint32{CMD_AC_28, CMD_AC_40, CMD_INV_40, CMD_DC_28, CMD_AC_16, CMD_INV_40}
+	for _, req := range codes {
+		_, err := s.getRecords(req, 0x00000000, 0x00FFFFFF)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Get a scaled float value.
