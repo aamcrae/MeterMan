@@ -96,12 +96,13 @@ func (s *InverterReader) poll(wr chan<- core.Input, daytime bool) error {
 			log.Printf("Missing record for tag %s", s.genDaily)
 		}
 	} else {
-		log.Printf("Tag %s Daily yield = %f", s.genDaily, d)
+		if *core.Verbose {
+			log.Printf("Tag %s Daily yield = %f", s.genDaily, d)
+		}
 		wr <- core.Input{Tag: s.genDaily, Value: d}
 	}
 	t, err := s.sma.TotalEnergy()
 	if err != nil {
-		if *core.Verbose {
 			log.Printf("Missing record for tag %s", s.genT)
 		}
 	} else {
