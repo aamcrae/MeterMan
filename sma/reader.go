@@ -90,7 +90,11 @@ func (s *InverterReader) poll(wr chan<- core.Input, daytime bool) error {
 		return err
 	}
 	defer s.sma.Logoff()
-	d, t, err := s.sma.Energy()
+	d, err := s.sma.DailyEnergy()
+	if err != nil {
+		return err
+	}
+	t, err := s.sma.TotalEnergy()
 	if err != nil {
 		return err
 	}

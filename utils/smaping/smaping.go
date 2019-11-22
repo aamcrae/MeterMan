@@ -23,6 +23,7 @@ import (
 
 var inverter = flag.String("inverter", "inverter:9522", "Inverter address and port")
 var password = flag.String("password", "", "Inverter password")
+var getall = flag.Bool("all", false, "Get all records")
 
 func init() {
 	flag.Parse()
@@ -45,19 +46,26 @@ func main() {
 		log.Fatalf("DeviceStatus: %v", err)
 	}
 	log.Printf("status = %s\n", stat)
-	day, total, err := sma.Energy()
+	day, err := sma.DailyEnergy()
 	if err != nil {
-		log.Fatalf("Energy: %v", err)
+		log.Printf("Daily Energy: %v", err)
+	}
+	total, err := sma.TotalEnergy()
+	if err != nil {
+		log.Printf("Total Energy: %v", err)
 	}
 	log.Printf("day = %f KwH, total = %f KwH\n", day, total)
 	p, err := sma.Power()
 	if err != nil {
 		log.Fatalf("Power: %v", err)
 	}
-	log.Printf("power = %d\n", p)
+	log.Printf("power = %f\n", p)
 	v, err := sma.Voltage()
 	if err != nil {
 		log.Fatalf("Voltage: %v", err)
 	}
 	log.Printf("volts = %f\n", v)
+	if *getall {
+		sma.GetAll()
+	}
 }

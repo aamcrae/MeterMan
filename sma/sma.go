@@ -29,7 +29,8 @@ import (
 )
 
 var smatimeout = flag.Int("inverter-timeout", 10, "Inverter timeout in seconds")
-var trace = flag.Bool("inverter-trace", false, "Enable trace packet dumps")
+var trace = flag.Bool("inverter-trace", false, "Enable trace of record processing")
+var pktTrace = flag.Bool("packet-trace", false, "Enable packet dumps")
 
 const maxPacketSize = 8 * 1024
 
@@ -51,9 +52,29 @@ const (
 	DT_STRING = 16
 	DT_FLOAT  = 32
 	DT_SLONG  = 64
-	//
 	DT_ULONGLONG = 128
 )
+
+// Command values to inverter for retrieving records.
+const (
+	CMD_INV_LOGON = 0x00000200	// Login to inverter.
+	CMD_INV_40 = 0x58000200		// Inverter status, 40 byte records
+	CMD_SPOT_28 = 0x52000200	// Spot values, 28 byte records
+	CMD_AC_16 = 0x54000200		// AC spot values, 16 byte records
+	CMD_AC_28 = 0x51000200		// AC spot values, 28 byte records
+	CMD_AC_40 = 0x51800200		// AC spot values, 40 byte records
+	CMD_DC_28 = 0x53800200		// DC spot values, 28 byte records
+)
+
+// Map commands to record size.
+var cmdRecSize = map[uint32]int{
+	CMD_INV_40 : 40,
+	CMD_SPOT_28: 28,
+	CMD_AC_16 : 16,
+	CMD_AC_28 : 28,
+	CMD_AC_40 : 40,
+	CMD_DC_28 : 28,
+}
 
 // record represents a single telemetry record that contains
 // an identifying code, a data type, and optional status attributes.
@@ -121,7 +142,7 @@ func NewSMA(inverter string, password string) (*SMA, error) {
 func (s *SMA) Logon() (uint16, uint32, error) {
 	s.susyid = 0xFFFF
 	s.serial = 0xFFFFFFFF
-	req, err := s.cmdPacket(0x00000200, 0, 0)
+	req, err := s.cmdPacket(CMD_INV_LOGON, 0, 0)
 	if err != nil {
 		return 0, 0, fmt.Errorf("logon: %v", err)
 	}
@@ -151,7 +172,7 @@ func (s *SMA) Logon() (uint16, uint32, error) {
 	if retCode == 0x0100 {
 		return 0, 0, fmt.Errorf("Invalid password")
 	} else if retCode != 0 {
-		return 0, 0, fmt.Errorf("Logon faied, retCode = %04x", retCode)
+		return 0, 0, fmt.Errorf("Logon failed, retCode = %04x", retCode)
 	}
 	s.susyid = binary.LittleEndian.Uint16(pkt[28:])
 	s.serial = binary.LittleEndian.Uint32(pkt[30:])
@@ -178,22 +199,18 @@ func (s *SMA) Close() {
 }
 
 func (s *SMA) DeviceStatus() (string, error) {
-	req, err := s.cmdPacket(0x51800200, 0x00214800, 0x002148FF)
+	recs, err := s.getRecords(CMD_AC_40, 0x00214800, 0x002148FF)
 	if err != nil {
 		return "", fmt.Errorf("device status: %v", err)
 	}
-	b, err := s.response(req)
-	if err != nil {
-		return "", fmt.Errorf("device status: %v", err)
-	}
-	rec := unpackRecords(b)
 	if *trace {
-		dumpRecords("Device status", rec)
+		dumpRecords("Device status", recs)
 	}
-	r, ok := rec[0x2148]
+	rl, ok := recs[0x2148]
 	if !ok {
 		return "", fmt.Errorf("device status: missing record")
 	}
+	r := rl[0]
 	var status string
 	for i, at := range r.attribute {
 		switch at {
@@ -212,70 +229,55 @@ func (s *SMA) DeviceStatus() (string, error) {
 	return status, nil
 }
 
+func (s *SMA) GetAll() error {
+	codes := []uint32{CMD_AC_28, CMD_AC_40, CMD_INV_40, CMD_DC_28, CMD_AC_16, CMD_INV_40}
+	for _, req := range codes {
+		_, err := s.getRecords(req, 0x00000000, 0x00FFFFFF)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *SMA) Voltage() (float64, error) {
-	recs, err := s.getRecords(0x51000200, 0x00464800, 0x004655FF)
-	if err != nil {
-		return 0, fmt.Errorf("voltage: %v", err)
-	}
-	r, ok := recs[0x4648]
-	if !ok {
-		return 0, fmt.Errorf("voltage: missing record")
-	}
-	return float64(r.value) / 100, nil
+	return s.getValue(CMD_AC_28, 0x4648, 100.0)
 }
 
-// Return daily yield and total yield in KwH
-func (s *SMA) Energy() (float64, float64, error) {
-	recs, err := s.getRecords(0x54000200, 0x00260100, 0x002622FF)
-	if err != nil {
-		return 0, 0, fmt.Errorf("energy: %v", err)
-	}
-	var dval, tval float64
-	daily, ok := recs[0x2622]
-	if ok {
-		dval = float64(daily.value) / 1000
-	} else {
-		if *trace {
-			log.Printf("energy: missing daily record\n")
-		}
-		dval = 0.0
-	}
-	total, ok := recs[0x2601]
-	if ok {
-		tval = float64(total.value) / 1000
-	} else {
-		if *trace {
-			log.Printf("energy: missing total record\n")
-		}
-		tval = 0.0
-	}
-	return dval, tval, nil
+// Return daily yield in KwH
+func (s *SMA) DailyEnergy() (float64, error) {
+	return s.getValue(CMD_AC_16, 0x2622, 1000.0)
 }
 
-func (s *SMA) Power() (int64, error) {
-	recs, err := s.getRecords(0x51000200, 0x00263F00, 0x00263FFF)
-	if err != nil {
-		return 0, fmt.Errorf("power: %v", err)
-	}
-	var total int64
-	for _, c := range []uint16{0x263F} {
-		p, ok := recs[c]
-		if ok {
-			total += p.value
-		}
-	}
-	return total, nil
+// Return total yield in KwH
+func (s *SMA) TotalEnergy() (float64, error) {
+	return s.getValue(CMD_AC_16, 0x2601, 1000.0)
 }
 
-func (s *SMA) processRecords(code, a1, a2 uint32) (int, error) {
-	recs, err := s.getRecords(code, a1, a2)
+// Return power in watts.
+func (s *SMA) Power() (float64, error) {
+	return s.getValue(CMD_AC_28, 0x263F, 1.0)
+}
+
+// Get a scaled float value.
+func (s *SMA) getValue(cmd uint32, id uint16, scale float64) (float64, error) {
+	recId := uint32(id) << 8
+	recs, err := s.getRecords(cmd, recId , recId | 0xFF)
 	if err != nil {
 		return 0, err
 	}
-	return len(recs), nil
+	v, ok := recs[id]
+	if ok {
+		return float64(v[0].value) / scale, nil
+	} else {
+		if *trace {
+			log.Printf("getValue: missing record (0x%04x)\n", id)
+		}
+		return 0, fmt.Errorf("getValue: missing record")
+	}
 }
 
-func (s *SMA) getRecords(code, a1, a2 uint32) (map[uint16]*record, error) {
+func (s *SMA) getRecords(code, a1, a2 uint32) (map[uint16][]*record, error) {
 	req, err := s.cmdPacket(code, a1, a2)
 	if err != nil {
 		return nil, fmt.Errorf("getRecords: %v", err)
@@ -284,7 +286,10 @@ func (s *SMA) getRecords(code, a1, a2 uint32) (map[uint16]*record, error) {
 	if err != nil {
 		return nil, fmt.Errorf("getrecords: %v", err)
 	}
-	m := unpackRecords(b)
+	m, err := unpackRecords(code, b)
+	if err != nil {
+		return nil, fmt.Errorf("unpackRecords: %v", err)
+	}
 	if *trace {
 		dumpRecords("GetRecords", m)
 	}
@@ -296,6 +301,9 @@ func (s *SMA) cmdPacket(cmd, first, last uint32) (*request, error) {
 	binary.Write(r.buf, binary.LittleEndian, cmd)
 	binary.Write(r.buf, binary.LittleEndian, first)
 	binary.Write(r.buf, binary.LittleEndian, last)
+	if *trace {
+		log.Printf("Sending cmd 0x%08x, first 0x%08x, last 0x%08x", cmd, first, last)
+	}
 	err := s.send(r)
 	if err != nil {
 		return nil, fmt.Errorf("cmdPacket: %v", err)
@@ -322,7 +330,7 @@ func (s *SMA) response(req *request) (*bytes.Buffer, error) {
 			log.Printf("RX id %04x, looking for %04x\n", rx_id, req.packet_id)
 			continue
 		}
-		if *trace {
+		if *pktTrace {
 			log.Printf("Read buf, len %d\n", b.Len())
 			dumpPacket(b)
 		}
@@ -357,7 +365,7 @@ func (s *SMA) send(r *request) error {
 	len := r.buf.Len() - (6 + len(packet_header))
 	binary.BigEndian.PutUint16(r.buf.Bytes()[12:], uint16(len))
 
-	if *trace {
+	if *pktTrace {
 		log.Printf("Sending pkt ID: %04x, length %d", r.packet_id, r.buf.Len())
 		dumpPacket(r.buf)
 	}
@@ -382,11 +390,11 @@ func (s *SMA) read(timeout time.Duration) (*bytes.Buffer, error) {
 }
 
 // Unpack records from the buffer.
-func unpackRecords(b *bytes.Buffer) map[uint16]*record {
-	m := make(map[uint16]*record)
+func unpackRecords(cmd uint32, b *bytes.Buffer) (map[uint16][]*record, error) {
+	m := make(map[uint16][]*record)
 	// Skip headers.
 	b.Next(54)
-	if *trace {
+	if *pktTrace {
 		log.Printf("Unpacking:")
 		dumpPacket(b)
 	}
@@ -399,31 +407,9 @@ func unpackRecords(b *bytes.Buffer) map[uint16]*record {
 		binary.Read(b, binary.LittleEndian, &t)
 		r.date = time.Unix(int64(t), 0)
 		done := 8
-		var size int
-		switch r.code {
-		// 16 byte records
-		case 0x2601, 0x2622:
-			size = 16
-		// 28 byte records
-		case 0x251E, 0x263F, 0x411E, 0x411F, 0x4120, 0x4640, 0x4641,
-			0x4642, 0x4648, 0x4649, 0x464A, 0x464B, 0x464C, 0x464D,
-			0x464E, 0x4650,
-			0x4651, 0x4652, 0x4653, 0x4654, 0x4655:
-			size = 28
-
-		// 40 byte records
-		case 0x2148:
-			size = 40
-
-		// Unknown.
-		default:
-			log.Printf("code %04x length not known, aborting\n", r.code)
-			return m
-		}
-		switch r.code {
-		// These codes have a 64 bit value.
-		case 0x2622, 0x2601, 0x462F, 0x462E:
-			r.dataType = DT_ULONGLONG
+		size, ok := cmdRecSize[cmd]
+		if !ok {
+			return m, fmt.Errorf("Unknown size for cmd 0x%04x", cmd)
 		}
 		switch r.dataType {
 		case DT_ULONG:
@@ -442,6 +428,9 @@ func unpackRecords(b *bytes.Buffer) map[uint16]*record {
 			}
 			r.value = int64(int32(v))
 			done += 4
+		case DT_STRING:
+			r.str = string(bytes.Trim(b.Next(32), "\x00"))
+			done += 32
 		case DT_ULONGLONG:
 			var v uint64
 			binary.Read(b, binary.LittleEndian, &v)
@@ -462,16 +451,15 @@ func unpackRecords(b *bytes.Buffer) map[uint16]*record {
 				r.attrVal = append(r.attrVal, byte(a>>24))
 			}
 		default:
-			log.Printf("Data type %02x not known, aborting\n", r.code)
-			return m
+			return m, fmt.Errorf("cmd 0x%08x code 0x%04x, unknown data type: 0x%02x", cmd, r.code, r.dataType)
 		}
 		b.Next(size - done)
 		if *trace {
 			log.Printf("Rec # %d, code: %04x, record size %d", len(m), r.code, size)
 		}
-		m[r.code] = r
+		m[r.code] = append(m[r.code], r)
 	}
-	return m
+	return m, nil
 }
 
 func dumpPacket(b *bytes.Buffer) {
@@ -491,14 +479,21 @@ func dumpPacket(b *bytes.Buffer) {
 	log.Printf(s)
 }
 
-func dumpRecords(req string, recs map[uint16]*record) {
+func dumpRecords(req string, recs map[uint16][]*record) {
 	log.Printf("Req: %s, records %d\n", req, len(recs))
-	for _, r := range recs {
-		log.Printf("Rec date %s code 0x%04x, data type %02x, class %02x, value %d\n",
-			r.date.Format(time.RFC822), r.code, r.dataType,
-			r.classType, r.value)
-		for j, a := range r.attribute {
-			log.Printf("Attribute %d, value %d", a, r.attrVal[j])
+	for _, rs := range recs {
+		for _, r := range rs {
+			var v string
+			if r.dataType == DT_STRING {
+				v = fmt.Sprintf("<%s>", r.str)
+			} else {
+				v = fmt.Sprintf("%d", r.value)
+			}
+			log.Printf("Rec date %s code 0x%04x, data type %02x, class %02x, value %s\n",
+				r.date.Format(time.RFC822), r.code, r.dataType, r.classType, v)
+			for j, a := range r.attribute {
+				log.Printf("Attribute %d, value %d", a, r.attrVal[j])
+			}
 		}
 	}
 }
