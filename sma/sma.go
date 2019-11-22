@@ -44,13 +44,14 @@ const password_enc = 0x88
 
 // Data types of record value.
 const (
-	DT_ULONG  = 0		// Unsigned 32 bits
-	DT_STATUS = 8		// upper bits is attribute value, lower 24 bits attribute ID.
-	DT_STRING = 16		// 32 bytes null terminated string
-	DT_FLOAT  = 32		// 32 bit float (unused)
-	DT_SLONG  = 64		// Signed 32 bits
-	DT_ULONGLONG = 128	// Unsigned 64 bits
+	DT_ULONG     = 0   // Unsigned 32 bits
+	DT_STATUS    = 8   // upper bits is attribute value, lower 24 bits attribute ID.
+	DT_STRING    = 16  // 32 bytes null terminated string
+	DT_FLOAT     = 32  // 32 bit float (unused)
+	DT_SLONG     = 64  // Signed 32 bits
+	DT_ULONGLONG = 128 // Unsigned 64 bits
 )
+
 // Special meanings of record values.
 const nan64 = 0x8000000000000000
 const nan32 = 0x80000000
@@ -59,23 +60,23 @@ const nanu32 = 0xFFFFFFFF
 
 // Commands to inverter for retrieving records.
 const (
-	CMD_INV_LOGON = 0x00000200	// Login to inverter.
-	CMD_INV_40 = 0x58000200		// Inverter status, 40 byte records
-	CMD_SPOT_28 = 0x52000200	// Spot values, 28 byte records
-	CMD_AC_16 = 0x54000200		// AC spot values, 16 byte records
-	CMD_AC_28 = 0x51000200		// AC spot values, 28 byte records
-	CMD_AC_40 = 0x51800200		// AC spot values, 40 byte records
-	CMD_DC_28 = 0x53800200		// DC spot values, 28 byte records
+	CMD_INV_LOGON = 0x00000200 // Login to inverter.
+	CMD_INV_40    = 0x58000200 // Inverter status, 40 byte records
+	CMD_SPOT_28   = 0x52000200 // Spot values, 28 byte records
+	CMD_AC_16     = 0x54000200 // AC spot values, 16 byte records
+	CMD_AC_28     = 0x51000200 // AC spot values, 28 byte records
+	CMD_AC_40     = 0x51800200 // AC spot values, 40 byte records
+	CMD_DC_28     = 0x53800200 // DC spot values, 28 byte records
 )
 
 // Map of commands to record size.
 var cmdRecSize = map[uint32]int{
-	CMD_INV_40 : 40,
+	CMD_INV_40:  40,
 	CMD_SPOT_28: 28,
-	CMD_AC_16 : 16,
-	CMD_AC_28 : 28,
-	CMD_AC_40 : 40,
-	CMD_DC_28 : 28,
+	CMD_AC_16:   16,
+	CMD_AC_28:   28,
+	CMD_AC_40:   40,
+	CMD_DC_28:   28,
 }
 
 // record represents a single telemetry record that contains
@@ -86,7 +87,7 @@ type record struct {
 	classType byte
 	date      time.Time
 	value     int64
-	str       string	// If dataType is DT_STRING
+	str       string // If dataType is DT_STRING
 	attribute []uint32
 	attrVal   []byte
 }
@@ -267,7 +268,7 @@ func (s *SMA) GetAll() error {
 // Get a scaled float value.
 func (s *SMA) getValue(cmd uint32, id uint16, scale float64) (float64, error) {
 	recId := uint32(id) << 8
-	recs, err := s.getRecords(cmd, recId , recId | 0xFF)
+	recs, err := s.getRecords(cmd, recId, recId|0xFF)
 	if err != nil {
 		return 0, err
 	}

@@ -183,6 +183,5 @@ func writer(t time.Time, pvurl, id, key string) {
 	if resp.StatusCode != http.StatusOK {
 		body, _ := ioutil.ReadAll(resp.Body)
 		log.Printf("Error: %s: %s", resp.Status, body)
-		return
 	}
 }
