@@ -119,7 +119,7 @@ func SetUpAndRun(conf *config.Config) error {
 			}
 		case now := <-tick:
 			update(last, now)
-			now = last
+			last = now
 		}
 	}
 }
