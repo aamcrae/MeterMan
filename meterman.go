@@ -33,6 +33,9 @@ import (
 var configFile = flag.String("config", "", "Config file")
 var profile = flag.Bool("profile", false, "Enable profiling")
 var port = flag.Int("port", 6060, "Port for http server")
+var verbose = flag.Bool("verbose", false, "Verbose tracing")
+var updateRate = flag.Int("update", 5, "Update rate (in minutes)")
+var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
 
 func main() {
 	flag.Parse()
@@ -45,7 +48,13 @@ func main() {
 			log.Println(http.ListenAndServe(fmt.Sprintf("localhost:%d", *port), nil))
 		}()
 	}
-	d := db.NewDatabase()
+	d := db.NewDatabase(*updateRate)
+	if *verbose {
+		d.Trace = true
+	}
+	if len(*checkpoint) > 0 {
+		d.Checkpoint(*checkpoint)
+	}
 	err = d.Start(conf)
 	log.Fatalf("Initialisation error: %v", err)
 }

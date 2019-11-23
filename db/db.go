@@ -32,12 +32,13 @@ import (
 	"github.com/aamcrae/config"
 )
 
-var Verbose = flag.Bool("verbose", false, "Verbose tracing")
-var updateRate = flag.Int("update", 5, "Update rate (in minutes)")
-var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
-
 // DB contains the central database and variables.
 type DB struct {
+	Trace bool
+	Elements map[string]Element
+	Config conf.Config
+	checkpoint string
+	checkpointMap map[string]string
 }
 
 // Input represents the data sent by each reader.
@@ -45,19 +46,6 @@ type Input struct {
 	Tag   string  // The name of the tag.
 	Value float64 // The current value.
 }
-
-// Element represents each data item that is being updated by the readers.
-type Element interface {
-	Update(v float64)   // Update element with new value.
-	Midnight()          // Called when it is midnight
-	Get() float64       // Get the element's value
-	Updated() bool      // Return true if value has been updated in this interval.
-	ClearUpdate()       // Reset the update flag.
-	Checkpoint() string // Return a checkpoint string.
-}
-
-var elements map[string]Element = map[string]Element{}
-var checkpointMap map[string]string = make(map[string]string)
 
 // Callbacks for processing outputs.
 var outputs []func(time.Time)
@@ -77,18 +65,25 @@ func RegisterReader(f func(*config.Config, chan<- Input) error) {
 	readersInit = append(readersInit, f)
 }
 
-func NewDatabase() *DB {
-	return &DB{}
+// NewDatabase creates a new database with the updateRate (in minutes)
+func NewDatabase(updateRate int) *DB {
+	d := new(DB)
+	d.Elements = make(map[string]Element{})
+	d.checkpointMap = make(map[string]string)
+	return d
 }
 
-// Start restores the database from the checkpoint, calls the init
-// functions for the readers and writers, and then goes into a
-// service loop processing the inputs from the readers.
+// Checkpoint sets the name of the checkpoint file, and
+// does an initial read of the checkpoint database.
+func (d *DB) Checkpoint(checkpoint string) error {
+	d.checkpoint = checkpoint
+	return d.readCheckpoint()
+}
+
+// Start calls the init functions for the readers and writers,
+// and then goes into a service loop processing the inputs from the readers.
 func (d *DB) Start(conf *config.Config) error {
-	// Read checkpoint file
-	if len(*checkpoint) != 0 {
-		readCheckpoint(*checkpoint, checkpointMap)
-	}
+	db.Config = conf
 	intv := time.Minute * time.Duration(*updateRate)
 	var last time.Time
 	lt, ok := checkpointMap[C_TIME]
@@ -148,17 +143,17 @@ func ticker(intv time.Duration) <-chan time.Time {
 
 // AddSumGauge adds a gauge that is part of a master gauge.
 // If average is true, values are averaged, otherwise they are summed.
-func AddSubGauge(base string, average bool) string {
-	el, ok := elements[base]
+func (d *DB) AddSubGauge(base string, average bool) string {
+	el, ok := d.Elements[base]
 	if !ok {
 		el = NewMultiGauge(base, average)
-		elements[base] = el
+		d.Elements[base] = el
 	}
 	m := el.(*MultiGauge)
 	tag := m.NextTag()
 	g := NewGauge(checkpointMap[tag])
 	m.Add(g)
-	elements[tag] = g
+	d.Elements[tag] = g
 	if *Verbose {
 		log.Printf("Adding subgauge %s to %s\n", tag, base)
 	}
@@ -166,17 +161,17 @@ func AddSubGauge(base string, average bool) string {
 }
 
 // AddSubAccum adds an accumulator that is part of a master accumulator.
-func AddSubAccum(base string, resettable bool) string {
-	el, ok := elements[base]
+func (d *DB) AddSubAccum(base string, resettable bool) string {
+	el, ok := d.Elements[base]
 	if !ok {
 		el = NewMultiAccum(base)
-		elements[base] = el
+		d.Elements[base] = el
 	}
 	m := el.(*MultiAccum)
 	tag := m.NextTag()
 	a := NewAccum(checkpointMap[tag], resettable)
 	m.Add(a)
-	elements[tag] = a
+	d.Elements[tag] = a
 	if *Verbose {
 		log.Printf("Adding subaccumulator %s to %s\n", tag, base)
 	}
@@ -184,16 +179,16 @@ func AddSubAccum(base string, resettable bool) string {
 }
 
 // AddGauge adds a new gauge to the database.
-func AddGauge(name string) {
-	elements[name] = NewGauge(checkpointMap[name])
+func (d *DB) AddGauge(name string) {
+	d.Elements[name] = NewGauge(d.checkpointMap[name])
 	if *Verbose {
 		log.Printf("Adding gauge %s\n", name)
 	}
 }
 
 // AddAccum adds a new accumulator to the database.
-func AddAccum(name string, resettable bool) {
-	elements[name] = NewAccum(checkpointMap[name], resettable)
+func (d *DB) AddAccum(name string, resettable bool) {
+	d.Elements[name] = NewAccum(d.checkpointMap[name], resettable)
 	if *Verbose {
 		log.Printf("Adding accumulator %s\n", name)
 	}
@@ -204,11 +199,11 @@ func AddAccum(name string, resettable bool) {
 // midnight, a flag is set.
 // After write processing, the data is checkpointed, and the 'update' flag is
 // cleared on all the elements.
-func update(last, now time.Time) {
+func (d *DB) update(last, now time.Time) {
 	// Check for daily reset processing.
 	midnight := now.YearDay() != last.YearDay()
 	if midnight {
-		for _, el := range elements {
+		for _, el := range d.Elements {
 			el.Midnight()
 		}
 	}
@@ -217,36 +212,37 @@ func update(last, now time.Time) {
 		if midnight {
 			log.Printf("New day reset")
 		}
-		for tag, el := range elements {
+		for tag, el := range d.Elements {
 			log.Printf("Output: Tag: %5s, value: %f, updated: %v\n", tag, el.Get(), el.Updated())
 		}
 	}
 	for _, wf := range outputs {
 		wf(now)
 	}
-	if len(*checkpoint) != 0 {
-		writeCheckpoint(*checkpoint, now)
-	}
-	for _, el := range elements {
+	d.writeCheckpoint(now)
+	for _, el := range d.Elements {
 		el.ClearUpdate()
 	}
 }
 
 // writerCheckpoint will save the current values of all the elements in the
 // database to a file.
-func writeCheckpoint(file string, now time.Time) {
-	if *Verbose {
-		log.Printf("Writing checkpoint data to %s\n", file)
+func (d *DB) writeCheckpoint(now time.Time) {
+	if len(d.checkpoint) == 0 {
+		return
 	}
-	f, err := os.Create(file)
+	if *Verbose {
+		log.Printf("Writing checkpoint data to %s\n", d.checkpoint)
+	}
+	f, err := os.Create(d.checkpoint)
 	if err != nil {
-		log.Printf("Checkpoint file create: %s %v\n", file, err)
+		log.Printf("Checkpoint file create: %s %v\n", d.checkpoint, err)
 		return
 	}
 	defer f.Close()
 	wr := bufio.NewWriter(f)
 	defer wr.Flush()
-	for n, e := range elements {
+	for n, e := range d.Elements {
 		s := e.Checkpoint()
 		if len(s) != 0 {
 			fmt.Fprintf(wr, "%s:%s\n", n, s)
@@ -255,13 +251,17 @@ func writeCheckpoint(file string, now time.Time) {
 	fmt.Fprintf(wr, "%s:%d\n", C_TIME, now.Unix())
 }
 
-// readCheckpoint restores the database elements from the last checkpoint.
-func readCheckpoint(file string, cp map[string]string) {
-	log.Printf("Reading checkpoint data from %s\n", file)
-	f, err := os.Open(file)
+// Checkpoint sets the name of the checkpoint file, and
+// does an initial read of the checkpoint database.
+func (d *DB) Checkpoint(checkpoint string) error {
+	d.checkpoint = checkpoint
+	if len(d.checkpoint) == 0 {
+		return nil
+	}
+	log.Printf("Reading checkpoint data from %s\n", d.checkpoint)
+	f, err := os.Open(d.checkpoint)
 	if err != nil {
-		log.Printf("Checkpoint file open: %s %v\n", file, err)
-		return
+		return fmt.Errorf("checkpoint file %s: %v", d.checkpoint, err)
 	}
 	defer f.Close()
 	r := bufio.NewReader(f)
@@ -271,26 +271,17 @@ func readCheckpoint(file string, cp map[string]string) {
 		s, err := r.ReadString('\n')
 		if err != nil {
 			if err != io.EOF {
-				log.Printf("Checkpoint file read: %s line %d: %v\n", file, lineno, err)
+				return fmt.Errorf("checkpoint read %s: line %d: %v", d.checkpoint, lineno, err)
 			}
-			return
+			return nil
 		}
 		s = strings.TrimSuffix(s, "\n")
 		i := strings.IndexRune(s, ':')
 		if i > 0 {
-			cp[s[:i]] = s[i+1:]
-		}
-		if *Verbose {
-			log.Printf("Checkpoint %s = %s\n", s[:i], s[i+1:])
+			d.checkpointMap[s[:i]] = s[i+1:]
+			if d.Trace {
+				log.Printf("Checkpoint entry %s = %s\n", s[:i], s[i+1:])
+			}
 		}
 	}
-}
-
-// GetElement returns the database element named.
-func GetElement(name string) Element {
-	el, ok := elements[name]
-	if !ok {
-		return nil
-	}
-	return el
 }
