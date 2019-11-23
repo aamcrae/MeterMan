@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
-	"github.com/aamcrae/config"
 )
 
 type writer struct {
@@ -40,6 +39,7 @@ var gauges []string = []string{"TP", "GEN-P", "VOLTS", "TEMP"}
 var accums []string = []string{"IMP", "EXP", "GEN-T", "GEN-D", "IN", "OUT"}
 
 type csv struct {
+	d      *db.DB
 	fpath  string
 	day    int
 	writer *writer
@@ -50,9 +50,9 @@ func init() {
 }
 
 // Returns a writer that writes daily CSV files in the form path/year/month/day
-func csvInit(conf *config.Config) (func(time.Time), error) {
+func csvInit(d *db.DB) (func(*db.DB, time.Time), error) {
 	var err error
-	s := conf.GetSection("csv")
+	s := d.Config.GetSection("csv")
 	if s == nil {
 		return nil, nil
 	}
@@ -61,8 +61,8 @@ func csvInit(conf *config.Config) (func(time.Time), error) {
 		return nil, err
 	}
 	log.Printf("Registered CSV as writer\n")
-	c := &csv{fpath: p}
-	return func(t time.Time) {
+	c := &csv{d: d, fpath: p}
+	return func(db *db.DB, t time.Time) {
 		c.write(t)
 	}, nil
 }
@@ -94,19 +94,19 @@ func (c *csv) write(t time.Time) {
 		c.day = t.YearDay()
 	}
 	// Write values into file.
-	if *db.Verbose {
+	if c.d.Trace {
 		log.Printf("Writing CSV data to %s\n", c.writer.name)
 	}
 	fmt.Fprint(c.writer, t.Format("2006-01-02,15:04"))
 	for _, s := range gauges {
-		g := db.GetElement(s)
+		g := c.d.Elements[s]
 		fmt.Fprint(c.writer, ",")
 		if g != nil && g.Updated() {
 			fmt.Fprintf(c.writer, "%f", g.Get())
 		}
 	}
 	for _, s := range accums {
-		a := db.GetAccum(s)
+		a := c.d.GetAccum(s)
 		fmt.Fprint(c.writer, ",")
 		if a != nil && a.Updated() {
 			fmt.Fprintf(c.writer, "%f,%f", a.Get(), a.Daily())

@@ -21,8 +21,8 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
-	"github.com/aamcrae/MeterMan/db"
 	_ "github.com/aamcrae/MeterMan/csv"
+	"github.com/aamcrae/MeterMan/db"
 	_ "github.com/aamcrae/MeterMan/meter"
 	_ "github.com/aamcrae/MeterMan/pv"
 	_ "github.com/aamcrae/MeterMan/sma"
@@ -36,6 +36,8 @@ var port = flag.Int("port", 6060, "Port for http server")
 var verbose = flag.Bool("verbose", false, "Verbose tracing")
 var updateRate = flag.Int("update", 5, "Update rate (in minutes)")
 var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
+var startHour = flag.Int("starthour", 6, "Start hour for PV (e.g 6)")
+var endHour = flag.Int("endhour", 20, "End hour for PV (e.g 19)")
 
 func main() {
 	flag.Parse()
@@ -49,6 +51,8 @@ func main() {
 		}()
 	}
 	d := db.NewDatabase(*updateRate)
+	d.StartHour = *startHour
+	d.EndHour = *endHour
 	if *verbose {
 		d.Trace = true
 	}

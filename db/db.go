@@ -21,7 +21,6 @@ package db
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -34,94 +33,87 @@ import (
 
 // DB contains the central database and variables.
 type DB struct {
-	Trace bool
-	Elements map[string]Element
-	Config conf.Config
-	checkpoint string
+	Trace     bool
+	Elements  map[string]Element
+	Config    *config.Config
+	InChan    chan<- Input
+	StartHour int
+	EndHour   int
+
+	outputs       []func(*DB, time.Time)
+	checkpoint    string
+	intv          time.Duration
 	checkpointMap map[string]string
 }
 
-// Input represents the data sent by each reader.
-type Input struct {
-	Tag   string  // The name of the tag.
-	Value float64 // The current value.
-}
-
-// Callbacks for processing outputs.
-var outputs []func(time.Time)
-
-var writersInit []func(*config.Config) (func(time.Time), error)
-var readersInit []func(*config.Config, chan<- Input) error
+var writersInit []func(*DB) (func(*DB, time.Time), error)
+var readersInit []func(*DB) error
 
 // Register a 'writer' i.e a function that takes the collated data and
 // processes it (e.g writes it to a file).
-func RegisterWriter(f func(*config.Config) (func(time.Time), error)) {
+func RegisterWriter(f func(*DB) (func(*DB, time.Time), error)) {
 	writersInit = append(writersInit, f)
 }
 
 // Register a 'reader', a module that reads data and sends it via the
 // provided channel.
-func RegisterReader(f func(*config.Config, chan<- Input) error) {
+func RegisterReader(f func(*DB) error) {
 	readersInit = append(readersInit, f)
 }
 
 // NewDatabase creates a new database with the updateRate (in minutes)
 func NewDatabase(updateRate int) *DB {
 	d := new(DB)
-	d.Elements = make(map[string]Element{})
+	d.Elements = make(map[string]Element)
 	d.checkpointMap = make(map[string]string)
+	d.intv = time.Minute * time.Duration(updateRate)
+	d.StartHour = 6
+	d.EndHour = 20
 	return d
-}
-
-// Checkpoint sets the name of the checkpoint file, and
-// does an initial read of the checkpoint database.
-func (d *DB) Checkpoint(checkpoint string) error {
-	d.checkpoint = checkpoint
-	return d.readCheckpoint()
 }
 
 // Start calls the init functions for the readers and writers,
 // and then goes into a service loop processing the inputs from the readers.
 func (d *DB) Start(conf *config.Config) error {
-	db.Config = conf
-	intv := time.Minute * time.Duration(*updateRate)
+	d.Config = conf
 	var last time.Time
-	lt, ok := checkpointMap[C_TIME]
+	lt, ok := d.checkpointMap[C_TIME]
 	if !ok {
-		last = time.Now().Truncate(intv)
+		last = time.Now().Truncate(d.intv)
 	} else {
 		var sec int64
 		fmt.Sscanf(lt, "%d", &sec)
 		last = time.Unix(sec, 0)
-		if *Verbose {
+		if d.Trace {
 			log.Printf("Last interval was %s\n", last.Format(time.UnixDate))
 		}
 	}
 	input := make(chan Input, 200)
+	d.InChan = input
 	for _, wi := range writersInit {
-		if of, err := wi(conf); err != nil {
+		if of, err := wi(d); err != nil {
 			return err
 		} else if of != nil {
-			outputs = append(outputs, of)
+			d.outputs = append(d.outputs, of)
 		}
 	}
 	for _, ri := range readersInit {
-		if err := ri(conf, input); err != nil {
+		if err := ri(d); err != nil {
 			return err
 		}
 	}
-	tick := ticker(intv)
+	tick := ticker(d.intv)
 	for {
 		select {
 		case r := <-input:
-			h, ok := elements[r.Tag]
+			h, ok := d.Elements[r.Tag]
 			if ok {
 				h.Update(r.Value)
 			} else {
 				log.Printf("Unknown tag: %s\n", r.Tag)
 			}
 		case now := <-tick:
-			update(last, now)
+			d.update(last, now)
 			last = now
 		}
 	}
@@ -151,10 +143,10 @@ func (d *DB) AddSubGauge(base string, average bool) string {
 	}
 	m := el.(*MultiGauge)
 	tag := m.NextTag()
-	g := NewGauge(checkpointMap[tag])
+	g := NewGauge(d.checkpointMap[tag])
 	m.Add(g)
 	d.Elements[tag] = g
-	if *Verbose {
+	if d.Trace {
 		log.Printf("Adding subgauge %s to %s\n", tag, base)
 	}
 	return tag
@@ -169,10 +161,10 @@ func (d *DB) AddSubAccum(base string, resettable bool) string {
 	}
 	m := el.(*MultiAccum)
 	tag := m.NextTag()
-	a := NewAccum(checkpointMap[tag], resettable)
+	a := NewAccum(d.checkpointMap[tag], resettable)
 	m.Add(a)
 	d.Elements[tag] = a
-	if *Verbose {
+	if d.Trace {
 		log.Printf("Adding subaccumulator %s to %s\n", tag, base)
 	}
 	return tag
@@ -181,7 +173,7 @@ func (d *DB) AddSubAccum(base string, resettable bool) string {
 // AddGauge adds a new gauge to the database.
 func (d *DB) AddGauge(name string) {
 	d.Elements[name] = NewGauge(d.checkpointMap[name])
-	if *Verbose {
+	if d.Trace {
 		log.Printf("Adding gauge %s\n", name)
 	}
 }
@@ -189,8 +181,24 @@ func (d *DB) AddGauge(name string) {
 // AddAccum adds a new accumulator to the database.
 func (d *DB) AddAccum(name string, resettable bool) {
 	d.Elements[name] = NewAccum(d.checkpointMap[name], resettable)
-	if *Verbose {
+	if d.Trace {
 		log.Printf("Adding accumulator %s\n", name)
+	}
+}
+
+// GetAccum returns the named accumulator.
+func (d *DB) GetAccum(name string) Acc {
+	el, ok := d.Elements[name]
+	if !ok {
+		return nil
+	}
+	switch a := el.(type) {
+	case *Accum:
+		return a
+	case *MultiAccum:
+		return a
+	default:
+		return nil
 	}
 }
 
@@ -207,7 +215,7 @@ func (d *DB) update(last, now time.Time) {
 			el.Midnight()
 		}
 	}
-	if *Verbose {
+	if d.Trace {
 		log.Printf("Updating for interval %s\n", now.Format("15:04"))
 		if midnight {
 			log.Printf("New day reset")
@@ -216,8 +224,8 @@ func (d *DB) update(last, now time.Time) {
 			log.Printf("Output: Tag: %5s, value: %f, updated: %v\n", tag, el.Get(), el.Updated())
 		}
 	}
-	for _, wf := range outputs {
-		wf(now)
+	for _, wf := range d.outputs {
+		wf(d, now)
 	}
 	d.writeCheckpoint(now)
 	for _, el := range d.Elements {
@@ -231,7 +239,7 @@ func (d *DB) writeCheckpoint(now time.Time) {
 	if len(d.checkpoint) == 0 {
 		return
 	}
-	if *Verbose {
+	if d.Trace {
 		log.Printf("Writing checkpoint data to %s\n", d.checkpoint)
 	}
 	f, err := os.Create(d.checkpoint)

@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
-	"github.com/aamcrae/config"
 )
 
 const weatherUrl = "http://api.openweathermap.org/data/2.5/weather?id=%s&units=metric&appid=%s"
@@ -37,8 +36,8 @@ func init() {
 	db.RegisterReader(weatherReader)
 }
 
-func weatherReader(conf *config.Config, wr chan<- db.Input) error {
-	sect := conf.GetSection("weather")
+func weatherReader(d *db.DB) error {
+	sect := d.Config.GetSection("weather")
 	if sect == nil {
 		return nil
 	}
@@ -90,21 +89,21 @@ func weatherReader(conf *config.Config, wr chan<- db.Input) error {
 			return Darksky(url)
 		}
 	}
-	db.AddGauge(db.G_TEMP)
-	go reader(get, wr)
+	d.AddGauge(db.G_TEMP)
+	go reader(d, get)
 	return nil
 }
 
-func reader(get func() (float64, error), wr chan<- db.Input) {
+func reader(d *db.DB, get func() (float64, error)) {
 	for {
 		t, err := get()
 		if err != nil {
 			log.Printf("Getting temperature: %v\n", err)
 		} else {
-			if *db.Verbose {
+			if d.Trace {
 				log.Printf("Current temperature: %f\n", t)
 			}
-			wr <- db.Input{Tag: db.G_TEMP, Value: t}
+			d.InChan <- db.Input{Tag: db.G_TEMP, Value: t}
 		}
 		time.Sleep(time.Duration(*weatherpoll) * time.Second)
 	}

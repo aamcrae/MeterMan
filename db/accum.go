@@ -43,9 +43,6 @@ func NewAccum(cp string, resettable bool) *Accum {
 		a.midnight = a.value
 	}
 	a.resettable = resettable
-	if *Verbose {
-		fmt.Printf("New accum, midnight = %f, value = %f\n", a.midnight, a.value)
-	}
 	return a
 }
 
@@ -85,20 +82,4 @@ func (a *Accum) Checkpoint() string {
 
 func (a *Accum) Daily() float64 {
 	return a.value - a.midnight
-}
-
-// GetAccum returns the named accumulator.
-func GetAccum(name string) Acc {
-	el, ok := elements[name]
-	if !ok {
-		return nil
-	}
-	switch a := el.(type) {
-	case *Accum:
-		return a
-	case *MultiAccum:
-		return a
-	default:
-		return nil
-	}
 }

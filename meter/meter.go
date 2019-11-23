@@ -24,7 +24,6 @@ import (
 
 	"github.com/aamcrae/MeterMan/db"
 	"github.com/aamcrae/MeterMan/lcd"
-	"github.com/aamcrae/config"
 )
 
 var saveBad = flag.Bool("savebad", false, "Save each bad image")
@@ -47,8 +46,8 @@ func init() {
 	db.RegisterReader(meterReader)
 }
 
-func meterReader(conf *config.Config, wr chan<- db.Input) error {
-	sect := conf.GetSection("meter")
+func meterReader(d *db.DB) error {
+	sect := d.Config.GetSection("meter")
 	if sect == nil {
 		return nil
 	}
@@ -64,23 +63,23 @@ func meterReader(conf *config.Config, wr chan<- db.Input) error {
 	if err != nil {
 		return err
 	}
-	r, err := NewReader(sect, *db.Verbose)
+	r, err := NewReader(sect, d.Trace)
 	if err != nil {
 		return err
 	}
-	db.AddGauge(db.G_TP)
-	db.AddAccum(db.A_IN_TOTAL, false)
-	db.AddAccum(db.A_OUT_TOTAL, false)
-	db.AddSubAccum(db.A_IMPORT, false)
-	db.AddSubAccum(db.A_IMPORT, false)
-	db.AddSubAccum(db.A_EXPORT, false)
-	db.AddSubAccum(db.A_EXPORT, false)
+	d.AddGauge(db.G_TP)
+	d.AddAccum(db.A_IN_TOTAL, false)
+	d.AddAccum(db.A_OUT_TOTAL, false)
+	d.AddSubAccum(db.A_IMPORT, false)
+	d.AddSubAccum(db.A_IMPORT, false)
+	d.AddSubAccum(db.A_EXPORT, false)
+	d.AddSubAccum(db.A_EXPORT, false)
 	log.Printf("Registered LCD decoder as reader\n")
-	go runReader(r, source, angle, wr)
+	go runReader(d, r, source, angle)
 	return nil
 }
 
-func runReader(r *Reader, source string, angle float64, wr chan<- db.Input) {
+func runReader(d *db.DB, r *Reader, source string, angle float64) {
 	delay := time.Duration(*sampleTime) * time.Millisecond
 	lastTime := time.Now()
 	client := http.Client{
@@ -100,7 +99,7 @@ func runReader(r *Reader, source string, angle float64, wr chan<- db.Input) {
 			log.Printf("Failed to decode image from %s: %v", source, err)
 			continue
 		}
-		if *db.Verbose {
+		if d.Trace {
 			log.Printf("Successful image read from %s, delay %s", source, time.Now().Sub(lastTime).String())
 		}
 		if angle != 0 {
@@ -117,7 +116,7 @@ func runReader(r *Reader, source string, angle float64, wr chan<- db.Input) {
 			if !ok {
 				log.Printf("Unknown meter label: %s\n", label)
 			} else {
-				wr <- db.Input{Tag: tag, Value: val}
+				d.InChan <- db.Input{Tag: tag, Value: val}
 			}
 		}
 		r.Recalibrate()
