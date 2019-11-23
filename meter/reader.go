@@ -177,6 +177,9 @@ func (r *Reader) Read(img image.Image) (string, float64, error) {
 		r.decoder.Bad()
 		return "", 0.0, fmt.Errorf("Bad read on segment[s] %s", strings.Join(badSeg, ","))
 	}
+	if r.trace {
+		log.Printf("LCD image processed: text=<%s>", res.Text)
+	}
 	key := res.Text[0:4]
 	value := res.Text[4:]
 	m, ok := measures[key]
@@ -194,6 +197,9 @@ func (r *Reader) Read(img image.Image) (string, float64, error) {
 }
 
 func handlerIgnore(r *Reader, m *measure, key, value string) (string, float64, error) {
+	if r.trace {
+		log.Printf("Meter read: ignoring key %s, value %s", key, value)
+	}
 	return "", 0.0, nil
 }
 

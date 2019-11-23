@@ -13,6 +13,15 @@
 // limitations under the License.
 
 // package pv implements a writer that uploads the current data to pvoutput.org.
+// URL parameters:
+// d  - Date in YYYYMMDD format
+// t  - Time in HH:MM format
+// v1 - PV daily generation (energy) (wH)
+// v2 - PV current power output (w)
+// v3 - Daily energy consumption (wH)
+// v4 - Import/export power, -ve is export (w)
+// v5 - Temperature (C)
+// v6 - AC voltage (V)
 
 package pv
 
@@ -31,6 +40,7 @@ import (
 )
 
 var dryrun = flag.Bool("dryrun", false, "Do not upload data")
+var pvLog = flag.Bool("pvlog", true, "Log upload parameters")
 
 func init() {
 	core.RegisterWriter(pvoutputInit)
@@ -128,7 +138,7 @@ func writer(t time.Time, pvurl, id, key string) {
 				log.Printf("No PV energy data\n")
 			}
 		}
-	} else if *core.Verbose {
+	} else if *pvLog || *core.Verbose {
 		if exp == nil {
 			log.Printf("No export data\n")
 		} else if !exp.Updated() {
@@ -161,6 +171,9 @@ func writer(t time.Time, pvurl, id, key string) {
 	if err != nil {
 		log.Printf("NewRequest failed: %v", err)
 		return
+	}
+	if *pvLog {
+		log.Printf("PV Uploading: %v", val)
 	}
 	req.Header.Add("X-Pvoutput-Apikey", key)
 	req.Header.Add("X-Pvoutput-SystemId", id)

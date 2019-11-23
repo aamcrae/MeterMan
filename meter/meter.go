@@ -16,7 +16,9 @@ package meter
 
 import (
 	"flag"
+	"image"
 	"log"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -28,6 +30,7 @@ import (
 var saveBad = flag.Bool("savebad", false, "Save each bad image")
 var badFile = flag.String("bad", "/tmp/bad.jpg", "Bad images")
 var sampleTime = flag.Int("sample", 4900, "Image sample rate (milliseconds)")
+var sourceTimeout = flag.Int("source_timeout", 20, "Source timeout in seconds")
 
 // Maps meter label to tag.
 var tagMap map[string]string = map[string]string{
@@ -80,13 +83,26 @@ func meterReader(conf *config.Config, wr chan<- core.Input) error {
 func runReader(r *Reader, source string, angle float64, wr chan<- core.Input) {
 	delay := time.Duration(*sampleTime) * time.Millisecond
 	lastTime := time.Now()
+	client := http.Client{
+		Timeout: time.Duration(*sourceTimeout) * time.Second,
+	}
 	for {
 		time.Sleep(delay - time.Now().Sub(lastTime))
 		lastTime = time.Now()
-		img, err := lcd.GetImage(source)
+		res, err := client.Get(source)
 		if err != nil {
 			log.Printf("Failed to retrieve source image from %s: %v", source, err)
 			continue
+		}
+		img, _, err := image.Decode(res.Body)
+		res.Body.Close()
+		if err != nil {
+			log.Printf("Failed to decode image from %s: %v", source, err)
+			continue
+		}
+		if *core.Verbose {
+			d := time.Now().Sub(lastTime)
+			log.Printf("Successful image read from %s, delay %s", source, d.String())
 		}
 		if angle != 0 {
 			img = lcd.RotateImage(img, angle)
