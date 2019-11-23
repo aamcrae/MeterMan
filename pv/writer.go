@@ -35,7 +35,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aamcrae/MeterMan/core"
+	"github.com/aamcrae/MeterMan/db"
 	"github.com/aamcrae/config"
 )
 
@@ -43,7 +43,7 @@ var dryrun = flag.Bool("dryrun", false, "Do not upload data")
 var pvLog = flag.Bool("pvlog", true, "Log upload parameters")
 
 func init() {
-	core.RegisterWriter(pvoutputInit)
+	db.RegisterWriter(pvoutputInit)
 }
 
 func pvoutputInit(conf *config.Config) (func(time.Time), error) {
@@ -71,25 +71,25 @@ func pvoutputInit(conf *config.Config) (func(time.Time), error) {
 
 // writer creates a post request to pvoutput.org to upload the current data.
 func writer(t time.Time, pvurl, id, key string) {
-	tp := core.GetElement(core.G_TP)
-	pv_power := core.GetElement(core.G_GEN_P)
-	temp := core.GetElement(core.G_TEMP)
-	volts := core.GetElement(core.G_VOLTS)
-	pv_daily := core.GetAccum(core.A_GEN_TOTAL)
-	imp := core.GetAccum(core.A_IN_TOTAL)
-	exp := core.GetAccum(core.A_OUT_TOTAL)
+	tp := db.GetElement(db.G_TP)
+	pv_power := db.GetElement(db.G_GEN_P)
+	temp := db.GetElement(db.G_TEMP)
+	volts := db.GetElement(db.G_VOLTS)
+	pv_daily := db.GetAccum(db.A_GEN_TOTAL)
+	imp := db.GetAccum(db.A_IN_TOTAL)
+	exp := db.GetAccum(db.A_OUT_TOTAL)
 	hour := t.Hour()
-	daytime := hour >= *core.StartHour && hour < *core.EndHour
+	daytime := hour >= *db.StartHour && hour < *db.EndHour
 
 	val := url.Values{}
 	val.Add("d", t.Format("20060102"))
 	val.Add("t", t.Format("15:04"))
 	if pv_daily != nil && pv_daily.Updated() && daytime {
 		val.Add("v1", fmt.Sprintf("%d", int(pv_daily.Daily()*1000)))
-		if *core.Verbose {
+		if *db.Verbose {
 			log.Printf("v1 = %f", pv_daily.Daily())
 		}
-	} else if *core.Verbose {
+	} else if *db.Verbose {
 		if pv_daily == nil {
 			log.Printf("No PV energy total, v1 not updated\n")
 		} else {
@@ -98,26 +98,26 @@ func writer(t time.Time, pvurl, id, key string) {
 	}
 	if pv_power != nil && pv_power.Updated() && pv_power.Get() != 0 {
 		val.Add("v2", fmt.Sprintf("%d", int(pv_power.Get()*1000)))
-		if *core.Verbose {
+		if *db.Verbose {
 			log.Printf("v2 = %f", pv_power.Get())
 		}
-	} else if *core.Verbose {
+	} else if *db.Verbose {
 		log.Printf("No PV power, v2 not updated\n")
 	}
 	if temp != nil && temp.Updated() && temp.Get() != 0 {
 		val.Add("v5", fmt.Sprintf("%.2f", temp.Get()))
-		if *core.Verbose {
+		if *db.Verbose {
 			log.Printf("v5 = %.2f", temp.Get())
 		}
-	} else if *core.Verbose {
+	} else if *db.Verbose {
 		log.Printf("No temperature, v5 not updated\n")
 	}
 	if volts != nil && volts.Updated() && volts.Get() != 0 {
 		val.Add("v6", fmt.Sprintf("%.2f", volts.Get()))
-		if *core.Verbose {
+		if *db.Verbose {
 			log.Printf("v6 = %.2f", volts.Get())
 		}
-	} else if *core.Verbose {
+	} else if *db.Verbose {
 		log.Printf("No Voltage, v6 not updated\n")
 	}
 	if imp != nil && imp.Updated() && exp != nil && exp.Updated() {
@@ -127,7 +127,7 @@ func writer(t time.Time, pvurl, id, key string) {
 			consumption += pv_daily.Daily()
 		}
 		val.Add("v3", fmt.Sprintf("%d", int(consumption*1000)))
-		if *core.Verbose {
+		if *db.Verbose {
 			log.Printf("v3 = %f, imp = %f, exp = %f", consumption, imp.Daily(), exp.Daily())
 			if pv_daily != nil {
 				log.Printf("daily = %f", pv_daily.Daily())
@@ -138,7 +138,7 @@ func writer(t time.Time, pvurl, id, key string) {
 				log.Printf("No PV energy data\n")
 			}
 		}
-	} else if *pvLog || *core.Verbose {
+	} else if *pvLog || *db.Verbose {
 		if exp == nil {
 			log.Printf("No export data\n")
 		} else if !exp.Updated() {
@@ -157,10 +157,10 @@ func writer(t time.Time, pvurl, id, key string) {
 			g = pv_power.Get()
 		}
 		val.Add("v4", fmt.Sprintf("%d", int((g+tp.Get())*1000)))
-		if *core.Verbose {
+		if *db.Verbose {
 			log.Printf("v4 = %f", g+tp.Get())
 		}
-	} else if *core.Verbose {
+	} else if *db.Verbose {
 		if tp == nil {
 			log.Printf("No total power, v4 not updated\n")
 		} else if !tp.Updated() {
@@ -178,7 +178,7 @@ func writer(t time.Time, pvurl, id, key string) {
 	req.Header.Add("X-Pvoutput-Apikey", key)
 	req.Header.Add("X-Pvoutput-SystemId", id)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if *core.Verbose || *dryrun {
+	if *db.Verbose || *dryrun {
 		log.Printf("req: %s (size %d)", val.Encode(), req.ContentLength)
 		if *dryrun {
 			return
@@ -190,7 +190,7 @@ func writer(t time.Time, pvurl, id, key string) {
 		return
 	}
 	defer resp.Body.Close()
-	if *core.Verbose {
+	if *db.Verbose {
 		log.Printf("Response is: %s", resp.Status)
 	}
 	if resp.StatusCode != http.StatusOK {

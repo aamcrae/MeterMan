@@ -21,7 +21,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
-	"github.com/aamcrae/MeterMan/core"
+	"github.com/aamcrae/MeterMan/db"
 	_ "github.com/aamcrae/MeterMan/csv"
 	_ "github.com/aamcrae/MeterMan/meter"
 	_ "github.com/aamcrae/MeterMan/pv"
@@ -45,6 +45,7 @@ func main() {
 			log.Println(http.ListenAndServe(fmt.Sprintf("localhost:%d", *port), nil))
 		}()
 	}
-	err = core.SetUpAndRun(conf)
+	d := db.NewDatabase()
+	err = d.Start(conf)
 	log.Fatalf("Initialisation error: %v", err)
 }

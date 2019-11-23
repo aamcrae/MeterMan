@@ -24,7 +24,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aamcrae/MeterMan/core"
+	"github.com/aamcrae/MeterMan/db"
 	"github.com/aamcrae/config"
 )
 
@@ -34,10 +34,10 @@ const darkskyUrl = "https://api.darksky.net/forecast/%s/%s,%s?exclude=minutely,h
 var weatherpoll = flag.Int("weather-poll", 120, "Weather poll time (seconds)")
 
 func init() {
-	core.RegisterReader(weatherReader)
+	db.RegisterReader(weatherReader)
 }
 
-func weatherReader(conf *config.Config, wr chan<- core.Input) error {
+func weatherReader(conf *config.Config, wr chan<- db.Input) error {
 	sect := conf.GetSection("weather")
 	if sect == nil {
 		return nil
@@ -90,21 +90,21 @@ func weatherReader(conf *config.Config, wr chan<- core.Input) error {
 			return Darksky(url)
 		}
 	}
-	core.AddGauge(core.G_TEMP)
+	db.AddGauge(db.G_TEMP)
 	go reader(get, wr)
 	return nil
 }
 
-func reader(get func() (float64, error), wr chan<- core.Input) {
+func reader(get func() (float64, error), wr chan<- db.Input) {
 	for {
 		t, err := get()
 		if err != nil {
 			log.Printf("Getting temperature: %v\n", err)
 		} else {
-			if *core.Verbose {
+			if *db.Verbose {
 				log.Printf("Current temperature: %f\n", t)
 			}
-			wr <- core.Input{Tag: core.G_TEMP, Value: t}
+			wr <- db.Input{Tag: db.G_TEMP, Value: t}
 		}
 		time.Sleep(time.Duration(*weatherpoll) * time.Second)
 	}

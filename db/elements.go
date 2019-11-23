@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package core
+package db
 
 // A database of values is held in a map.  The values are identifed with strings called tags, listed below.
 // A single value may have multiple inputs that could be averaged or accumulated together.

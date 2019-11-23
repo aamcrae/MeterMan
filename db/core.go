@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// package core stores data sent over a channel from data providers ('readers') and
+// package db stores data sent over a channel from data providers ('readers') and
 // at the selected update interval, sends the stored data to 'writers'.
 // Data can be stored as gauges or accumulators.
 // The stored data is checkpointed each update interval.
 
-package core
+package db
 
 import (
 	"bufio"
@@ -35,6 +35,10 @@ import (
 var Verbose = flag.Bool("verbose", false, "Verbose tracing")
 var updateRate = flag.Int("update", 5, "Update rate (in minutes)")
 var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
+
+// DB contains the central database and variables.
+type DB struct {
+}
 
 // Input represents the data sent by each reader.
 type Input struct {
@@ -73,10 +77,14 @@ func RegisterReader(f func(*config.Config, chan<- Input) error) {
 	readersInit = append(readersInit, f)
 }
 
-// SetUpAndRun restores the database from the checkpoint, calls the init
+func NewDatabase() *DB {
+	return &DB{}
+}
+
+// Start restores the database from the checkpoint, calls the init
 // functions for the readers and writers, and then goes into a
 // service loop processing the inputs from the readers.
-func SetUpAndRun(conf *config.Config) error {
+func (d *DB) Start(conf *config.Config) error {
 	// Read checkpoint file
 	if len(*checkpoint) != 0 {
 		readCheckpoint(*checkpoint, checkpointMap)

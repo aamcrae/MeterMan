@@ -24,7 +24,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/aamcrae/MeterMan/core"
+	"github.com/aamcrae/MeterMan/db"
 	"github.com/aamcrae/config"
 )
 
@@ -46,7 +46,7 @@ type csv struct {
 }
 
 func init() {
-	core.RegisterWriter(csvInit)
+	db.RegisterWriter(csvInit)
 }
 
 // Returns a writer that writes daily CSV files in the form path/year/month/day
@@ -94,19 +94,19 @@ func (c *csv) write(t time.Time) {
 		c.day = t.YearDay()
 	}
 	// Write values into file.
-	if *core.Verbose {
+	if *db.Verbose {
 		log.Printf("Writing CSV data to %s\n", c.writer.name)
 	}
 	fmt.Fprint(c.writer, t.Format("2006-01-02,15:04"))
 	for _, s := range gauges {
-		g := core.GetElement(s)
+		g := db.GetElement(s)
 		fmt.Fprint(c.writer, ",")
 		if g != nil && g.Updated() {
 			fmt.Fprintf(c.writer, "%f", g.Get())
 		}
 	}
 	for _, s := range accums {
-		a := core.GetAccum(s)
+		a := db.GetAccum(s)
 		fmt.Fprint(c.writer, ",")
 		if a != nil && a.Updated() {
 			fmt.Fprintf(c.writer, "%f,%f", a.Get(), a.Daily())

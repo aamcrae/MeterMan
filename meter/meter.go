@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aamcrae/MeterMan/core"
+	"github.com/aamcrae/MeterMan/db"
 	"github.com/aamcrae/MeterMan/lcd"
 	"github.com/aamcrae/config"
 )
@@ -34,20 +34,20 @@ var sourceTimeout = flag.Int("source_timeout", 20, "Source timeout in seconds")
 
 // Maps meter label to tag.
 var tagMap map[string]string = map[string]string{
-	"1NtL": core.A_OUT_TOTAL,
-	"tP  ": core.G_TP,
-	"EHtL": core.A_IN_TOTAL,
-	"EHL1": core.A_IMPORT + "/0",
-	"EHL2": core.A_IMPORT + "/1",
-	"1NL1": core.A_EXPORT + "/0",
-	"1NL2": core.A_EXPORT + "/1",
+	"1NtL": db.A_OUT_TOTAL,
+	"tP  ": db.G_TP,
+	"EHtL": db.A_IN_TOTAL,
+	"EHL1": db.A_IMPORT + "/0",
+	"EHL2": db.A_IMPORT + "/1",
+	"1NL1": db.A_EXPORT + "/0",
+	"1NL2": db.A_EXPORT + "/1",
 }
 
 func init() {
-	core.RegisterReader(meterReader)
+	db.RegisterReader(meterReader)
 }
 
-func meterReader(conf *config.Config, wr chan<- core.Input) error {
+func meterReader(conf *config.Config, wr chan<- db.Input) error {
 	sect := conf.GetSection("meter")
 	if sect == nil {
 		return nil
@@ -64,23 +64,23 @@ func meterReader(conf *config.Config, wr chan<- core.Input) error {
 	if err != nil {
 		return err
 	}
-	r, err := NewReader(sect, *core.Verbose)
+	r, err := NewReader(sect, *db.Verbose)
 	if err != nil {
 		return err
 	}
-	core.AddGauge(core.G_TP)
-	core.AddAccum(core.A_IN_TOTAL, false)
-	core.AddAccum(core.A_OUT_TOTAL, false)
-	core.AddSubAccum(core.A_IMPORT, false)
-	core.AddSubAccum(core.A_IMPORT, false)
-	core.AddSubAccum(core.A_EXPORT, false)
-	core.AddSubAccum(core.A_EXPORT, false)
+	db.AddGauge(db.G_TP)
+	db.AddAccum(db.A_IN_TOTAL, false)
+	db.AddAccum(db.A_OUT_TOTAL, false)
+	db.AddSubAccum(db.A_IMPORT, false)
+	db.AddSubAccum(db.A_IMPORT, false)
+	db.AddSubAccum(db.A_EXPORT, false)
+	db.AddSubAccum(db.A_EXPORT, false)
 	log.Printf("Registered LCD decoder as reader\n")
 	go runReader(r, source, angle, wr)
 	return nil
 }
 
-func runReader(r *Reader, source string, angle float64, wr chan<- core.Input) {
+func runReader(r *Reader, source string, angle float64, wr chan<- db.Input) {
 	delay := time.Duration(*sampleTime) * time.Millisecond
 	lastTime := time.Now()
 	client := http.Client{
@@ -100,7 +100,7 @@ func runReader(r *Reader, source string, angle float64, wr chan<- core.Input) {
 			log.Printf("Failed to decode image from %s: %v", source, err)
 			continue
 		}
-		if *core.Verbose {
+		if *db.Verbose {
 			log.Printf("Successful image read from %s, delay %s", source, time.Now().Sub(lastTime).String())
 		}
 		if angle != 0 {
@@ -117,7 +117,7 @@ func runReader(r *Reader, source string, angle float64, wr chan<- core.Input) {
 			if !ok {
 				log.Printf("Unknown meter label: %s\n", label)
 			} else {
-				wr <- core.Input{Tag: tag, Value: val}
+				wr <- db.Input{Tag: tag, Value: val}
 			}
 		}
 		r.Recalibrate()

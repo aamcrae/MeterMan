@@ -22,7 +22,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/aamcrae/MeterMan/core"
+	"github.com/aamcrae/MeterMan/db"
 	"github.com/aamcrae/config"
 )
 
@@ -39,10 +39,10 @@ type InverterReader struct {
 }
 
 func init() {
-	core.RegisterReader(inverterReader)
+	db.RegisterReader(inverterReader)
 }
 
-func inverterReader(conf *config.Config, wr chan<- core.Input) error {
+func inverterReader(conf *config.Config, wr chan<- db.Input) error {
 	sect := conf.GetSection("sma")
 	if sect == nil {
 		return nil
@@ -58,20 +58,20 @@ func inverterReader(conf *config.Config, wr chan<- core.Input) error {
 			return err
 		}
 		s := &InverterReader{sma: sma}
-		s.genP = core.AddSubGauge(core.G_GEN_P, false)
-		s.volts = core.AddSubGauge(core.G_VOLTS, true)
-		s.genDaily = core.AddSubAccum(core.A_GEN_DAILY, true)
-		s.genT = core.AddSubAccum(core.A_GEN_TOTAL, false)
+		s.genP = db.AddSubGauge(db.G_GEN_P, false)
+		s.volts = db.AddSubGauge(db.G_VOLTS, true)
+		s.genDaily = db.AddSubAccum(db.A_GEN_DAILY, true)
+		s.genT = db.AddSubAccum(db.A_GEN_TOTAL, false)
 		go s.run(wr)
 	}
 	return nil
 }
 
-func (s *InverterReader) run(wr chan<- core.Input) {
+func (s *InverterReader) run(wr chan<- db.Input) {
 	defer s.sma.Close()
 	for {
 		hour := time.Now().Hour()
-		err := s.poll(wr, hour >= *core.StartHour && hour < *core.EndHour)
+		err := s.poll(wr, hour >= *db.StartHour && hour < *db.EndHour)
 		if err != nil {
 			log.Printf("Inverter poll error:%s - %v", s.sma.Name(), err)
 			time.Sleep(time.Duration(*smaRetry) * time.Second)
@@ -81,8 +81,8 @@ func (s *InverterReader) run(wr chan<- core.Input) {
 	}
 }
 
-func (s *InverterReader) poll(wr chan<- core.Input, daytime bool) error {
-	if *core.Verbose {
+func (s *InverterReader) poll(wr chan<- db.Input, daytime bool) error {
+	if *db.Verbose {
 		log.Printf("Polling inverter %s", s.sma.Name())
 	}
 	_, _, err := s.sma.Logon()
@@ -92,25 +92,25 @@ func (s *InverterReader) poll(wr chan<- core.Input, daytime bool) error {
 	defer s.sma.Logoff()
 	d, err := s.sma.DailyEnergy()
 	if err != nil {
-		if *core.Verbose {
+		if *db.Verbose {
 			log.Printf("Missing record for tag %s", s.genDaily)
 		}
 	} else {
-		if *core.Verbose {
+		if *db.Verbose {
 			log.Printf("Tag %s Daily yield = %f", s.genDaily, d)
 		}
-		wr <- core.Input{Tag: s.genDaily, Value: d}
+		wr <- db.Input{Tag: s.genDaily, Value: d}
 	}
 	t, err := s.sma.TotalEnergy()
 	if err != nil {
-		if *core.Verbose {
+		if *db.Verbose {
 			log.Printf("Missing record for tag %s", s.genT)
 		}
 	} else {
-		if *core.Verbose {
+		if *db.Verbose {
 			log.Printf("Tag %s Total yield = %f", s.genT, t)
 		}
-		wr <- core.Input{Tag: s.genT, Value: t}
+		wr <- db.Input{Tag: s.genT, Value: t}
 	}
 	if daytime {
 		v, err := s.sma.Voltage()
@@ -118,10 +118,10 @@ func (s *InverterReader) poll(wr chan<- core.Input, daytime bool) error {
 			return err
 		}
 		if v != 0 {
-			if *core.Verbose {
+			if *db.Verbose {
 				log.Printf("Tag %s volts = %f", s.volts, v)
 			}
-			wr <- core.Input{Tag: s.volts, Value: v}
+			wr <- db.Input{Tag: s.volts, Value: v}
 		}
 		p, err := s.sma.Power()
 		if err != nil {
@@ -129,10 +129,10 @@ func (s *InverterReader) poll(wr chan<- core.Input, daytime bool) error {
 		}
 		if p != 0 {
 			pf := float64(p) / 1000
-			if *core.Verbose {
+			if *db.Verbose {
 				log.Printf("Tag %s power = %f", s.genP, pf)
 			}
-			wr <- core.Input{Tag: s.genP, Value: pf}
+			wr <- db.Input{Tag: s.genP, Value: pf}
 		}
 	}
 	return nil
