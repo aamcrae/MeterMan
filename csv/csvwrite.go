@@ -99,7 +99,7 @@ func (c *csv) write(t time.Time) {
 	}
 	fmt.Fprint(c.writer, t.Format("2006-01-02,15:04"))
 	for _, s := range gauges {
-		g := c.d.Elements[s]
+		g := c.d.GetElement(s)
 		fmt.Fprint(c.writer, ",")
 		if g != nil && g.Updated() {
 			fmt.Fprintf(c.writer, "%f", g.Get())

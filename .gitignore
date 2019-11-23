@@ -4,6 +4,7 @@
 *.so
 *.dylib
 MeterMan
+utils/rotate/rotate
 utils/sample/sample
 utils/scandump/scandump
 utils/readtemp/readtemp

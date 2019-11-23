@@ -70,10 +70,10 @@ func pvoutputInit(d *db.DB) (func(*db.DB, time.Time), error) {
 
 // writer creates a post request to pvoutput.org to upload the current data.
 func writer(d *db.DB, t time.Time, pvurl, id, key string) {
-	tp := d.Elements[db.G_TP]
-	pv_power := d.Elements[db.G_GEN_P]
-	temp := d.Elements[db.G_TEMP]
-	volts := d.Elements[db.G_VOLTS]
+	tp := d.GetElement(db.G_TP)
+	pv_power := d.GetElement(db.G_GEN_P)
+	temp := d.GetElement(db.G_TEMP)
+	volts := d.GetElement(db.G_VOLTS)
 	pv_daily := d.GetAccum(db.A_GEN_TOTAL)
 	imp := d.GetAccum(db.A_IN_TOTAL)
 	exp := d.GetAccum(db.A_OUT_TOTAL)

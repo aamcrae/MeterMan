@@ -34,12 +34,12 @@ import (
 // DB contains the central database and variables.
 type DB struct {
 	Trace     bool
-	Elements  map[string]Element
 	Config    *config.Config
 	InChan    chan<- Input
 	StartHour int
 	EndHour   int
 
+	elements  map[string]Element
 	outputs       []func(*DB, time.Time)
 	checkpoint    string
 	intv          time.Duration
@@ -64,7 +64,7 @@ func RegisterReader(f func(*DB) error) {
 // NewDatabase creates a new database with the updateRate (in minutes)
 func NewDatabase(updateRate int) *DB {
 	d := new(DB)
-	d.Elements = make(map[string]Element)
+	d.elements = make(map[string]Element)
 	d.checkpointMap = make(map[string]string)
 	d.intv = time.Minute * time.Duration(updateRate)
 	d.StartHour = 6
@@ -106,7 +106,7 @@ func (d *DB) Start(conf *config.Config) error {
 	for {
 		select {
 		case r := <-input:
-			h, ok := d.Elements[r.Tag]
+			h, ok := d.elements[r.Tag]
 			if ok {
 				h.Update(r.Value)
 			} else {
@@ -136,16 +136,16 @@ func ticker(intv time.Duration) <-chan time.Time {
 // AddSumGauge adds a gauge that is part of a master gauge.
 // If average is true, values are averaged, otherwise they are summed.
 func (d *DB) AddSubGauge(base string, average bool) string {
-	el, ok := d.Elements[base]
+	el, ok := d.elements[base]
 	if !ok {
 		el = NewMultiGauge(base, average)
-		d.Elements[base] = el
+		d.elements[base] = el
 	}
 	m := el.(*MultiGauge)
 	tag := m.NextTag()
 	g := NewGauge(d.checkpointMap[tag])
 	m.Add(g)
-	d.Elements[tag] = g
+	d.elements[tag] = g
 	if d.Trace {
 		log.Printf("Adding subgauge %s to %s\n", tag, base)
 	}
@@ -154,16 +154,16 @@ func (d *DB) AddSubGauge(base string, average bool) string {
 
 // AddSubAccum adds an accumulator that is part of a master accumulator.
 func (d *DB) AddSubAccum(base string, resettable bool) string {
-	el, ok := d.Elements[base]
+	el, ok := d.elements[base]
 	if !ok {
 		el = NewMultiAccum(base)
-		d.Elements[base] = el
+		d.elements[base] = el
 	}
 	m := el.(*MultiAccum)
 	tag := m.NextTag()
 	a := NewAccum(d.checkpointMap[tag], resettable)
 	m.Add(a)
-	d.Elements[tag] = a
+	d.elements[tag] = a
 	if d.Trace {
 		log.Printf("Adding subaccumulator %s to %s\n", tag, base)
 	}
@@ -172,7 +172,7 @@ func (d *DB) AddSubAccum(base string, resettable bool) string {
 
 // AddGauge adds a new gauge to the database.
 func (d *DB) AddGauge(name string) {
-	d.Elements[name] = NewGauge(d.checkpointMap[name])
+	d.elements[name] = NewGauge(d.checkpointMap[name])
 	if d.Trace {
 		log.Printf("Adding gauge %s\n", name)
 	}
@@ -180,15 +180,19 @@ func (d *DB) AddGauge(name string) {
 
 // AddAccum adds a new accumulator to the database.
 func (d *DB) AddAccum(name string, resettable bool) {
-	d.Elements[name] = NewAccum(d.checkpointMap[name], resettable)
+	d.elements[name] = NewAccum(d.checkpointMap[name], resettable)
 	if d.Trace {
 		log.Printf("Adding accumulator %s\n", name)
 	}
 }
 
+func (d *DB) GetElement(name string) Element {
+	return d.elements[name]
+}
+
 // GetAccum returns the named accumulator.
 func (d *DB) GetAccum(name string) Acc {
-	el, ok := d.Elements[name]
+	el, ok := d.elements[name]
 	if !ok {
 		return nil
 	}
@@ -211,7 +215,7 @@ func (d *DB) update(last, now time.Time) {
 	// Check for daily reset processing.
 	midnight := now.YearDay() != last.YearDay()
 	if midnight {
-		for _, el := range d.Elements {
+		for _, el := range d.elements {
 			el.Midnight()
 		}
 	}
@@ -220,7 +224,7 @@ func (d *DB) update(last, now time.Time) {
 		if midnight {
 			log.Printf("New day reset")
 		}
-		for tag, el := range d.Elements {
+		for tag, el := range d.elements {
 			log.Printf("Output: Tag: %5s, value: %f, updated: %v\n", tag, el.Get(), el.Updated())
 		}
 	}
@@ -228,7 +232,7 @@ func (d *DB) update(last, now time.Time) {
 		wf(d, now)
 	}
 	d.writeCheckpoint(now)
-	for _, el := range d.Elements {
+	for _, el := range d.elements {
 		el.ClearUpdate()
 	}
 }
@@ -250,7 +254,7 @@ func (d *DB) writeCheckpoint(now time.Time) {
 	defer f.Close()
 	wr := bufio.NewWriter(f)
 	defer wr.Flush()
-	for n, e := range d.Elements {
+	for n, e := range d.elements {
 		s := e.Checkpoint()
 		if len(s) != 0 {
 			fmt.Fprintf(wr, "%s:%s\n", n, s)
