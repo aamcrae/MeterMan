@@ -101,8 +101,7 @@ func runReader(r *Reader, source string, angle float64, wr chan<- core.Input) {
 			continue
 		}
 		if *core.Verbose {
-			d := time.Now().Sub(lastTime)
-			log.Printf("Successful image read from %s, delay %s", source, d.String())
+			log.Printf("Successful image read from %s, delay %s", source, time.Now().Sub(lastTime).String())
 		}
 		if angle != 0 {
 			img = lcd.RotateImage(img, angle)
