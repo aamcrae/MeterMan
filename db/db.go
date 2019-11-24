@@ -76,18 +76,6 @@ func NewDatabase(conf *config.Config, updateRate int) *DB {
 // Start calls the init functions for the readers and writers,
 // and then goes into a service loop processing the inputs from the readers.
 func (d *DB) Start() error {
-	var last time.Time
-	lt, ok := d.checkpointMap[C_TIME]
-	if !ok {
-		last = time.Now().Truncate(d.intv)
-	} else {
-		var sec int64
-		fmt.Sscanf(lt, "%d", &sec)
-		last = time.Unix(sec, 0)
-		if d.Trace {
-			log.Printf("Last interval was %s\n", last.Format(time.UnixDate))
-		}
-	}
 	input := make(chan Input, 200)
 	d.InChan = input
 	for _, wi := range writersInit {
@@ -102,19 +90,31 @@ func (d *DB) Start() error {
 			return err
 		}
 	}
+	var last time.Time
+	lt, ok := d.checkpointMap[C_TIME]
+	if !ok {
+		last = time.Now().Truncate(d.intv)
+	} else {
+		var sec int64
+		fmt.Sscanf(lt, "%d", &sec)
+		last = time.Unix(sec, 0)
+		if d.Trace {
+			log.Printf("Last interval was %s\n", last.Format(time.UnixDate))
+		}
+	}
 	tick := ticker(d.intv)
 	for {
 		select {
-		// Input from reader.
 		case r := <-input:
+			// Input from reader.
 			h, ok := d.elements[r.Tag]
 			if ok {
 				h.Update(r.Value)
 			} else {
 				log.Printf("Unknown tag: %s\n", r.Tag)
 			}
-		// Update tick.
 		case now := <-tick:
+			// Update tick.
 			d.update(last, now)
 			last = now
 		}
