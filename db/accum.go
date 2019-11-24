@@ -19,12 +19,6 @@ import (
 	"log"
 )
 
-// Acc is a common interface for accumulators.
-type Acc interface {
-	Element
-	Daily() float64 // Return the daily total.
-}
-
 // Accum represents an accumulating value i.e a value that continually increases.
 type Accum struct {
 	value      float64

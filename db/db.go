@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // package db stores data sent over a channel from data providers ('readers') and
-// at the selected update interval, sends the stored data to 'writers'.
+// at the selected update interval, invokes 'writers' to process the data.
 // Data can be stored as gauges or accumulators.
 // The stored data is checkpointed each update interval.
 
@@ -39,31 +39,32 @@ type DB struct {
 	StartHour int
 	EndHour   int
 
-	elements  map[string]Element
+	elements      map[string]Element
 	outputs       []func(*DB, time.Time)
-	checkpoint    string
 	intv          time.Duration
+	checkpoint    string
 	checkpointMap map[string]string
 }
 
 var writersInit []func(*DB) (func(*DB, time.Time), error)
 var readersInit []func(*DB) error
 
-// Register a 'writer' i.e a function that takes the collated data and
+// Register a 'writer' i.e a function that accesses the collated data and
 // processes it (e.g writes it to a file).
 func RegisterWriter(f func(*DB) (func(*DB, time.Time), error)) {
 	writersInit = append(writersInit, f)
 }
 
-// Register a 'reader', a module that reads data and sends it via the
-// provided channel.
+// Register a 'reader', a module that reads outside data and sends to the
+// database via the input channel.
 func RegisterReader(f func(*DB) error) {
 	readersInit = append(readersInit, f)
 }
 
 // NewDatabase creates a new database with the updateRate (in minutes)
-func NewDatabase(updateRate int) *DB {
+func NewDatabase(conf *config.Config, updateRate int) *DB {
 	d := new(DB)
+	d.Config = conf
 	d.elements = make(map[string]Element)
 	d.checkpointMap = make(map[string]string)
 	d.intv = time.Minute * time.Duration(updateRate)
@@ -74,8 +75,7 @@ func NewDatabase(updateRate int) *DB {
 
 // Start calls the init functions for the readers and writers,
 // and then goes into a service loop processing the inputs from the readers.
-func (d *DB) Start(conf *config.Config) error {
-	d.Config = conf
+func (d *DB) Start() error {
 	var last time.Time
 	lt, ok := d.checkpointMap[C_TIME]
 	if !ok {
@@ -105,6 +105,7 @@ func (d *DB) Start(conf *config.Config) error {
 	tick := ticker(d.intv)
 	for {
 		select {
+		// Input from reader.
 		case r := <-input:
 			h, ok := d.elements[r.Tag]
 			if ok {
@@ -112,6 +113,7 @@ func (d *DB) Start(conf *config.Config) error {
 			} else {
 				log.Printf("Unknown tag: %s\n", r.Tag)
 			}
+		// Update tick.
 		case now := <-tick:
 			d.update(last, now)
 			last = now
@@ -119,7 +121,7 @@ func (d *DB) Start(conf *config.Config) error {
 	}
 }
 
-// ticker sends time through a channel at intv rates.
+// ticker sends time through a channel each intv time.
 func ticker(intv time.Duration) <-chan time.Time {
 	t := make(chan time.Time, 10)
 	go func() {
@@ -156,6 +158,7 @@ func (d *DB) AddSubGauge(base string, average bool) string {
 func (d *DB) AddSubAccum(base string, resettable bool) string {
 	el, ok := d.elements[base]
 	if !ok {
+		// Create a new base and add it to the database.
 		el = NewMultiAccum(base)
 		d.elements[base] = el
 	}
@@ -186,6 +189,7 @@ func (d *DB) AddAccum(name string, resettable bool) {
 	}
 }
 
+// GetElement returns the named element.
 func (d *DB) GetElement(name string) Element {
 	return d.elements[name]
 }
@@ -202,15 +206,16 @@ func (d *DB) GetAccum(name string) Acc {
 	case *MultiAccum:
 		return a
 	default:
+		log.Printf("Tag %s is not an accumulator", name)
 		return nil
 	}
 }
 
-// update performs the interval update processing, calling the writers
-// with the updated database. Some pre-write processing is done e.g if it is
-// midnight, a flag is set.
-// After write processing, the data is checkpointed, and the 'update' flag is
-// cleared on all the elements.
+// update performs the per-interval actions in the following order:
+// - If a new day, call Midnight().
+// - Invoke the output functions.
+// - Write the checkpoint file.
+// - Clear the Updated flag.
 func (d *DB) update(last, now time.Time) {
 	// Check for daily reset processing.
 	midnight := now.YearDay() != last.YearDay()
@@ -237,7 +242,7 @@ func (d *DB) update(last, now time.Time) {
 	}
 }
 
-// writerCheckpoint will save the current values of all the elements in the
+// writerCheckpoint will save the current values of the elements in the
 // database to a file.
 func (d *DB) writeCheckpoint(now time.Time) {
 	if len(d.checkpoint) == 0 {

@@ -14,12 +14,18 @@
 
 package db
 
-// Element represents each data item that is being updated by the readers.
+// Element represents a data item that is updated by the readers.
 type Element interface {
 	Update(v float64)   // Update element with new value.
-	Midnight()          // Called when it is midnight
+	Midnight()          // Called when it is midnight for end-of-day processing
 	Get() float64       // Get the element's value
 	Updated() bool      // Return true if value has been updated in this interval.
 	ClearUpdate()       // Reset the update flag.
 	Checkpoint() string // Return a checkpoint string.
+}
+
+// Acc is a common interface for accumulators.
+type Acc interface {
+	Element
+	Daily() float64 // Return the daily total.
 }

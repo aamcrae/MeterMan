@@ -50,7 +50,7 @@ func main() {
 			log.Println(http.ListenAndServe(fmt.Sprintf("localhost:%d", *port), nil))
 		}()
 	}
-	d := db.NewDatabase(*updateRate)
+	d := db.NewDatabase(conf, *updateRate)
 	d.StartHour = *startHour
 	d.EndHour = *endHour
 	if *verbose {
@@ -59,6 +59,6 @@ func main() {
 	if len(*checkpoint) > 0 {
 		d.Checkpoint(*checkpoint)
 	}
-	err = d.Start(conf)
+	err = d.Start()
 	log.Fatalf("Initialisation error: %v", err)
 }

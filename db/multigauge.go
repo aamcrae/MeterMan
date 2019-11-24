@@ -19,7 +19,7 @@ import (
 )
 
 // MultiGauge allows multiple gauges to be treated as a single gauge.
-// The values are summed.
+// The values are summed or averaged depending on the flag.
 type MultiGauge struct {
 	name    string
 	average bool
@@ -40,7 +40,7 @@ func (m *MultiGauge) Add(g *Gauge) {
 
 func (m *MultiGauge) Update(value float64) {
 	// Should never happen.
-	panic(fmt.Errorf("Updated called on MultiGauge"))
+	panic(fmt.Errorf("Update called on MultiGauge"))
 }
 
 func (m *MultiGauge) Midnight() {
