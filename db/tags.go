@@ -15,9 +15,14 @@
 package db
 
 // A database of values is held in a map.  The values are identifed with strings called tags, listed below.
-// A single value may have multiple inputs that could be averaged or accumulated together.
+// A tag may have multiple inputs that may either be averaged or summed.
 // These multiple inputs use the base tag string followed by an index value e.g TAG/0, TAG/1 etc.
 // Gauges are prepended with 'G_', accumulators prepended with 'A_'.
+// For example, 2 separate voltage inputs are identified as "VOLTS/0", "VOLTS/1", and the
+// base tag of "VOLTS" is the average of the 2 inputs.
+// If there were 2 separate PV generation values from 2 different inverters, these
+// would be tagged as "GEN-D/0" and GEN-D/1", and the base tag of "GEN-D" will be the
+// sum of the 2 inputs.
 const (
 	// Values read from meter.
 	A_IN_TOTAL  = "IN"  // Total energy from grid to house (KwH)

@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-// Element represents a data item that is updated by the readers.
+// Element represents a data item in the database.
 type Element interface {
 	Update(float64, time.Time) // Update element with new value.
 	Midnight()                 // Called when it is midnight for end-of-day processing
