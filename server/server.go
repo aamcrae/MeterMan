@@ -35,17 +35,17 @@ type apiServer struct {
 }
 
 type Item struct {
-	Value     float64 `json: "value"`
-	Timestamp int64   `json: "timestamp"`
+	Value     int   `json: "value"`
+	Timestamp int64 `json: "timestamp"`
 }
 
 type Data struct {
-	Power       Item    `json: "power"`
-	Import      Item    `json: "import"`
-	Export      Item    `json: "export"`
-	Generated   Item    `json: "generated"`
-	Consumption float64 `json: "consumption"`
-	Available   float64 `json: "available"`
+	Power       Item `json: "power"`
+	Import      Item `json: "import"`
+	Export      Item `json: "export"`
+	Generated   Item `json: "generated"`
+	Consumption int  `json: "consumption"`
+	Available   int  `json: "available"`
 }
 
 func init() {
@@ -85,10 +85,10 @@ func (s *apiServer) api(w http.ResponseWriter, req *http.Request) {
 		log.Printf("Request: %s", req.URL.String())
 	}
 	var c Data
-	s.gauge(&c.Power, db.G_TP)
-	s.daily(&c.Import, db.A_IMPORT)
-	s.daily(&c.Export, db.A_EXPORT)
-	s.daily(&c.Generated, db.A_GEN_TOTAL)
+	s.gauge(&c.Power, db.G_TP, 1000)
+	s.daily(&c.Import, db.A_IMPORT, 1000)
+	s.daily(&c.Export, db.A_EXPORT, 1000)
+	s.daily(&c.Generated, db.A_GEN_TOTAL, 1000)
 	c.Consumption = c.Generated.Value + c.Import.Value - c.Export.Value
 	if c.Power.Value < 0 {
 		c.Available = -c.Power.Value
@@ -104,22 +104,22 @@ func (s *apiServer) api(w http.ResponseWriter, req *http.Request) {
 }
 
 // Fill in item from the gauge
-func (s *apiServer) gauge(i *Item, n string) {
+func (s *apiServer) gauge(i *Item, n string, scale float64) {
 	e := s.d.GetElement(n)
 	if e == nil {
 		return
 	}
-	i.Value = e.Get()
+	i.Value = int(e.Get() * scale)
 	i.Timestamp = e.Timestamp().Unix()
 }
 
 // Fill in item from the daily value of the accumlator
-func (s *apiServer) daily(i *Item, n string) {
+func (s *apiServer) daily(i *Item, n string, scale float64) {
 	e := s.d.GetAccum(n)
 	if e == nil {
 		return
 	}
-	i.Value = e.Daily()
+	i.Value = int(e.Daily() * scale)
 	i.Timestamp = e.Timestamp().Unix()
 }
 

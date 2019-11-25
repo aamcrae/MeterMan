@@ -127,13 +127,11 @@ func (s *InverterReader) poll(daytime bool) error {
 		if err != nil {
 			return err
 		}
-		if p != 0 {
-			pf := float64(p) / 1000
-			if s.d.Trace {
-				log.Printf("Tag %s power = %f", s.genP, pf)
-			}
-			s.d.InChan <- db.Input{Tag: s.genP, Value: pf}
+		pf := float64(p) / 1000
+		if s.d.Trace {
+			log.Printf("Tag %s power = %f", s.genP, pf)
 		}
+		s.d.InChan <- db.Input{Tag: s.genP, Value: pf}
 	}
 	return nil
 }
