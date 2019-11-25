@@ -36,7 +36,7 @@ type Update interface {
 	Update(time.Time, time.Time)
 }
 
-// DB contains the central database and variables.
+// DB contains the element database.
 type DB struct {
 	Trace     bool
 	Config    *config.Config
@@ -96,7 +96,16 @@ func (d *DB) Start() error {
 			log.Printf("Last interval was %s\n", last.Format(time.UnixDate))
 		}
 	}
-	tick := ticker(d.intv)
+	tick := make(chan time.Time, 10)
+	// Start a goroutine to send a tick every intv duration.
+	go func(ic chan<- time.Time, intv time.Duration) {
+		for {
+			now := time.Now()
+			next := now.Add(intv).Truncate(intv)
+			time.Sleep(next.Sub(now))
+			ic <- next
+		}
+	}(tick, d.intv)
 	for {
 		select {
 		case r := <-d.input:
@@ -115,27 +124,14 @@ func (d *DB) Start() error {
 	}
 }
 
-// ticker sends time through a channel each intv time.
-func ticker(intv time.Duration) <-chan time.Time {
-	t := make(chan time.Time, 10)
-	go func() {
-		for {
-			now := time.Now()
-			next := now.Add(intv).Truncate(intv)
-			time.Sleep(next.Sub(now))
-			t <- next
-		}
-	}()
-	return t
-}
-
 // AddUpdate adds a callback to be invoked during interval processing.
 func (d *DB) AddUpdate(upd Update) {
 	d.updateList = append(d.updateList, upd)
 }
 
-// AddSumGauge adds a gauge that is part of a master gauge.
+// AddSubGauge adds a sub-gauge to a master gauge.
 // If average is true, values are averaged, otherwise they are summed.
+// The tag of the new gauge is returned.
 func (d *DB) AddSubGauge(base string, average bool) string {
 	el, ok := d.elements[base]
 	if !ok {
@@ -153,7 +149,8 @@ func (d *DB) AddSubGauge(base string, average bool) string {
 	return tag
 }
 
-// AddSubAccum adds an accumulator that is part of a master accumulator.
+// AddSubAccum adds an sub-accumulator to a master accumulator.
+// The tag of the new accumulator is returned.
 func (d *DB) AddSubAccum(base string, resettable bool) string {
 	el, ok := d.elements[base]
 	if !ok {
@@ -214,7 +211,6 @@ func (d *DB) GetAccum(name string) Acc {
 // - If a new day, call Midnight().
 // - Invoke the update functions.
 // - Write the checkpoint file.
-// - Clear the Updated flag.
 func (d *DB) update(last, now time.Time) {
 	// Check for daily reset processing.
 	midnight := now.YearDay() != last.YearDay()
