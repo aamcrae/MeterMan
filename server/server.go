@@ -22,12 +22,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
 )
 
-var port = flag.Int("port", 8080, "Port for API server")
+var port = flag.Int("port", 0, "Port for API server")
 
 type apiServer struct {
 	d *db.DB
@@ -53,6 +54,9 @@ func init() {
 
 // Initialise a http server.
 func serverInit(d *db.DB) error {
+	if *port == 0 {
+		return nil
+	}
 	mux := http.NewServeMux()
 	s := &apiServer{d: d}
 	mux.HandleFunc("/api", func(w http.ResponseWriter, req *http.Request) {
@@ -75,6 +79,7 @@ func serverInit(d *db.DB) error {
 	return nil
 }
 
+// Handler for API requests.
 func (s *apiServer) api(w http.ResponseWriter, req *http.Request) {
 	if s.d.Trace {
 		log.Printf("Request: %s", req.URL.String())
@@ -125,9 +130,17 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprintf(w, "<h2>Current values of all the elements are:</h2>")
-	fmt.Fprintf(w, "<table><tr><th>Tag</th><th>Value</th><th>Timestamp</th></tr>")
-	for k, v := range s.d.GetElements() {
-		fmt.Fprintf(w, "<tr><td><bold>%s</bold></td><td>%f</td><td>%s</td></tr>", k, v.Get(), v.Timestamp().Format(time.UnixDate))
+	fmt.Fprintf(w, "<table border=\"1\"><tr><th>Tag</th><th>Value</th><th>Timestamp</th></tr>")
+	m := s.d.GetElements()
+	// Sort in key order.
+	var keys []string
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := m[k]
+		fmt.Fprintf(w, "<tr><td><bold>%s</bold></td><td style=\"text-align:right\">%f</td><td>%s</td></tr>", k, v.Get(), v.Timestamp().Format(time.UnixDate))
 	}
 	fmt.Fprintf(w, "</table>")
 }
