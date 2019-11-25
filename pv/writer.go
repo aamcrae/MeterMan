@@ -42,10 +42,10 @@ var dryrun = flag.Bool("dryrun", false, "Do not upload data")
 var pvLog = flag.Bool("pvlog", true, "Log upload parameters")
 
 type pvWriter struct {
-	d	   *db.DB
+	d      *db.DB
 	pvurl  string
 	id     string
-	key	   string
+	key    string
 	client *http.Client
 }
 
@@ -70,7 +70,7 @@ func pvoutputInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	p := &pvWriter{d:d, pvurl:pvurl, id:id, key:key, client:&http.Client{}}
+	p := &pvWriter{d: d, pvurl: pvurl, id: id, key: key, client: &http.Client{}}
 	d.AddUpdate(p)
 	log.Printf("Registered pvoutput uploader\n")
 	return nil

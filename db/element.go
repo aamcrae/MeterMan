@@ -21,10 +21,10 @@ import (
 // Element represents a data item that is updated by the readers.
 type Element interface {
 	Update(float64, time.Time) // Update element with new value.
-	Midnight()				   // Called when it is midnight for end-of-day processing
-	Get() float64			   // Get the element's value
-	Timestamp() time.Time	   // Return the timestamp of the last update.
-	Checkpoint() string		   // Return a checkpoint string.
+	Midnight()                 // Called when it is midnight for end-of-day processing
+	Get() float64              // Get the element's value
+	Timestamp() time.Time      // Return the timestamp of the last update.
+	Checkpoint() string        // Return a checkpoint string.
 }
 
 // Acc is a common interface for accumulators.

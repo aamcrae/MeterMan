@@ -23,9 +23,9 @@ import (
 // Accum represents an accumulating value i.e a value that continually increases.
 type Accum struct {
 	value      float64
-	midnight   float64	 // Value at the start of the day.
-	resettable bool		 // If set, the value can be reset to a lower value.
-	ts		   time.Time // Timestamp of last update.
+	midnight   float64   // Value at the start of the day.
+	resettable bool      // If set, the value can be reset to a lower value.
+	ts         time.Time // Timestamp of last update.
 }
 
 func NewAccum(cp string, resettable bool) *Accum {

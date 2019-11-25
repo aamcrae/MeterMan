@@ -50,7 +50,7 @@ type DB struct {
 	intv          time.Duration
 	checkpoint    string
 	checkpointMap map[string]string
-	updateList	  []Update
+	updateList    []Update
 }
 
 // List of init functions to call after database is ready.

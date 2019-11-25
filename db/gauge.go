@@ -23,7 +23,7 @@ import (
 // If multiple updates occur during an interval, an average is taken.
 type Gauge struct {
 	value float64
-	ts	  time.Time
+	ts    time.Time
 }
 
 func NewGauge(cp string) *Gauge {
