@@ -129,7 +129,7 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 		log.Printf("Request: %s", req.URL.String())
 	}
 	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprintf(w, "<table border=\"1\"><tr><th>Tag</th><th>Value</th><th>Timestamp</th></tr>")
+	fmt.Fprintf(w, "<table border=\"1\"><tr><th>Tag</th><th>Value</th><th>Daily</th><th>Timestamp</th></tr>")
 	m := s.d.GetElements()
 	// Sort in key order.
 	var keys []string
@@ -141,6 +141,12 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 		v := m[k]
 		fmt.Fprintf(w, "<tr><td><bold>%s</bold></td>", k)
 		fmt.Fprintf(w, "<td style=\"text-align:right\">%f</td>", v.Get())
+		switch vt := v.(type) {
+		case db.Acc:
+			fmt.Fprintf(w, "<td style=\"text-align:right\">%f</td>", vt.Daily())
+		default:
+			fmt.Fprintf(w, "<td> </td>")
+		}
 		fmt.Fprintf(w, "<td>%s</td></tr>", v.Timestamp().Format(time.UnixDate))
 	}
 	fmt.Fprintf(w, "</table>")
