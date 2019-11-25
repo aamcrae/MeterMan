@@ -17,6 +17,7 @@
 package server
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -30,6 +31,20 @@ var port = flag.Int("port", 8080, "Port for API server")
 
 type apiServer struct {
 	d *db.DB
+}
+
+type Item struct {
+    Value float64	`json: "value"`
+	Timestamp int64	`json: "timestamp"`
+}
+
+type Data struct {
+	Power Item		`json: "power"`
+	Import Item		`json: "import"`
+	Export Item		`json: "export"`
+	Generated Item		`json: "generated"`
+	Consumption float64 `json: "consumption"`
+	Available float64 `json: "available"`
 }
 
 func init() {
@@ -64,7 +79,43 @@ func (s *apiServer) api(w http.ResponseWriter, req *http.Request) {
 	if s.d.Trace {
 		log.Printf("Request: %s", req.URL.String())
 	}
-	fmt.Fprintf(w, "Welcome to the API server page!")
+	var c Data
+	s.gauge(&c.Power, db.G_TP)
+	s.daily(&c.Import, db.A_IMPORT)
+	s.daily(&c.Export, db.A_EXPORT)
+	s.daily(&c.Generated, db.A_GEN_TOTAL)
+	c.Consumption = c.Generated.Value + c.Import.Value - c.Export.Value
+	if c.Power.Value < 0 {
+		c.Available = -c.Power.Value
+	}
+	m, err := json.Marshal(c)
+	if err != nil {
+		log.Printf("api: marshal: %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(m)
+}
+
+// Fill in item from the gauge
+func (s *apiServer) gauge(i *Item, n string) {
+	e := s.d.GetElement(n)
+	if e == nil {
+		return
+	}
+	i.Value = e.Get()
+	i.Timestamp = e.Timestamp().Unix()
+}
+
+// Fill in item from the daily value of the accumlator
+func (s *apiServer) daily(i *Item, n string) {
+	e := s.d.GetAccum(n)
+	if e == nil {
+		return
+	}
+	i.Value = e.Daily()
+	i.Timestamp = e.Timestamp().Unix()
 }
 
 // status provides a HTML status page.
