@@ -26,7 +26,7 @@ import (
 	"github.com/aamcrae/MeterMan/db"
 )
 
-var port = flag.Int("port", 6000, "Port for API server")
+var port = flag.Int("port", 8080, "Port for API server")
 
 type apiServer struct {
 	d *db.DB
