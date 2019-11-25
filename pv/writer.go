@@ -138,7 +138,7 @@ func (p *pvWriter) Update(last time.Time, now time.Time) {
 			log.Printf("v3 = %f, imp = %f, exp = %f", consumption, imp.Daily(), exp.Daily())
 			if pv_daily != nil {
 				log.Printf("daily = %f", pv_daily.Daily())
-				if isValid(pv_daily, last) {
+				if !isValid(pv_daily, last) {
 					log.Printf("Using old generation data")
 				}
 			} else {
