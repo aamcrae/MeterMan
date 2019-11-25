@@ -16,6 +16,7 @@ package db
 
 import (
 	"fmt"
+	"time"
 )
 
 // MultiGauge allows multiple gauges to be treated as a single gauge.
@@ -38,7 +39,7 @@ func (m *MultiGauge) Add(g *Gauge) {
 	m.gauges = append(m.gauges, g)
 }
 
-func (m *MultiGauge) Update(value float64) {
+func (m *MultiGauge) Update(value float64, ts time.Time) {
 	// Should never happen.
 	panic(fmt.Errorf("Update called on MultiGauge"))
 }
@@ -60,20 +61,16 @@ func (m *MultiGauge) Get() float64 {
 	return v
 }
 
-// Return true only if all sub elements have been updated.
-func (m *MultiGauge) Updated() bool {
+// Return the oldest timestamp.
+func (m *MultiGauge) Timestamp() time.Time {
+	var timestamp time.Time
 	for _, g := range m.gauges {
-		if !g.Updated() {
-			return false
+		ts := g.Timestamp()
+		if timestamp.IsZero() || timestamp.After(ts) {
+			timestamp = ts
 		}
 	}
-	return true
-}
-
-func (m *MultiGauge) ClearUpdate() {
-	for _, a := range m.gauges {
-		a.ClearUpdate()
-	}
+	return timestamp
 }
 
 func (m *MultiGauge) Checkpoint() string {

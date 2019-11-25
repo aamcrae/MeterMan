@@ -33,7 +33,7 @@ const darkskyUrl = "https://api.darksky.net/forecast/%s/%s,%s?exclude=minutely,h
 var weatherpoll = flag.Int("weather-poll", 120, "Weather poll time (seconds)")
 
 func init() {
-	db.RegisterReader(weatherReader)
+	db.RegisterInit(weatherReader)
 }
 
 func weatherReader(d *db.DB) error {
@@ -41,7 +41,6 @@ func weatherReader(d *db.DB) error {
 	if sect == nil {
 		return nil
 	}
-	log.Printf("Registered temperature reader\n")
 	service, err := sect.GetArg("tempservice")
 	if err != nil {
 		return err
@@ -89,6 +88,7 @@ func weatherReader(d *db.DB) error {
 			return Darksky(url)
 		}
 	}
+	log.Printf("Registered temperature reader using service %s\n", service)
 	d.AddGauge(db.G_TEMP)
 	go reader(d, get)
 	return nil

@@ -46,37 +46,36 @@ type csv struct {
 }
 
 func init() {
-	db.RegisterWriter(csvInit)
+	db.RegisterInit(csvInit)
 }
 
 // Returns a writer that writes daily CSV files in the form path/year/month/day
-func csvInit(d *db.DB) (func(*db.DB, time.Time), error) {
+func csvInit(d *db.DB) error {
 	var err error
 	s := d.Config.GetSection("csv")
 	if s == nil {
-		return nil, nil
+		return nil
 	}
 	p, err := s.GetArg("csv")
 	if err != nil {
-		return nil, err
+		return err
 	}
-	log.Printf("Registered CSV as writer\n")
 	c := &csv{d: d, fpath: p}
-	return func(db *db.DB, t time.Time) {
-		c.write(t)
-	}, nil
+	d.AddUpdate(c)
+	log.Printf("Registered CSV as writer\n")
+	return nil
 }
 
-func (c *csv) write(t time.Time) {
+func (c *csv) Update(last time.Time, now time.Time) {
 	// Check for new day.
-	if t.YearDay() != c.day {
+	if now.YearDay() != c.day {
 		if c.writer != nil {
 			c.writer.Close()
 			c.writer = nil
 		}
 		var err error
 		var created bool
-		c.writer, created, err = NewWriter(c.fpath, t)
+		c.writer, created, err = NewWriter(c.fpath, now)
 		if err != nil {
 			log.Printf("%s: %v", c.fpath, err)
 			return
@@ -91,24 +90,24 @@ func (c *csv) write(t time.Time) {
 			}
 			fmt.Fprint(c.writer, "\n")
 		}
-		c.day = t.YearDay()
+		c.day = now.YearDay()
 	}
 	// Write values into file.
 	if c.d.Trace {
 		log.Printf("Writing CSV data to %s\n", c.writer.name)
 	}
-	fmt.Fprint(c.writer, t.Format("2006-01-02,15:04"))
+	fmt.Fprint(c.writer, now.Format("2006-01-02,15:04"))
 	for _, s := range gauges {
 		g := c.d.GetElement(s)
 		fmt.Fprint(c.writer, ",")
-		if g != nil && g.Updated() {
+		if g != nil && !g.Timestamp().Before(last) {
 			fmt.Fprintf(c.writer, "%f", g.Get())
 		}
 	}
 	for _, s := range accums {
 		a := c.d.GetAccum(s)
 		fmt.Fprint(c.writer, ",")
-		if a != nil && a.Updated() {
+		if a != nil && !a.Timestamp().Before(last) {
 			fmt.Fprintf(c.writer, "%f,%f", a.Get(), a.Daily())
 		} else {
 			fmt.Fprint(c.writer, ",")

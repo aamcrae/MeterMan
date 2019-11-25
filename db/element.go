@@ -14,14 +14,17 @@
 
 package db
 
+import (
+	"time"
+)
+
 // Element represents a data item that is updated by the readers.
 type Element interface {
-	Update(v float64)   // Update element with new value.
-	Midnight()          // Called when it is midnight for end-of-day processing
-	Get() float64       // Get the element's value
-	Updated() bool      // Return true if value has been updated in this interval.
-	ClearUpdate()       // Reset the update flag.
-	Checkpoint() string // Return a checkpoint string.
+	Update(float64, time.Time) // Update element with new value.
+	Midnight()				   // Called when it is midnight for end-of-day processing
+	Get() float64			   // Get the element's value
+	Timestamp() time.Time	   // Return the timestamp of the last update.
+	Checkpoint() string		   // Return a checkpoint string.
 }
 
 // Acc is a common interface for accumulators.

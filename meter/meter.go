@@ -43,7 +43,7 @@ var tagMap map[string]string = map[string]string{
 }
 
 func init() {
-	db.RegisterReader(meterReader)
+	db.RegisterInit(meterReader)
 }
 
 func meterReader(d *db.DB) error {
@@ -74,7 +74,7 @@ func meterReader(d *db.DB) error {
 	d.AddSubAccum(db.A_IMPORT, false)
 	d.AddSubAccum(db.A_EXPORT, false)
 	d.AddSubAccum(db.A_EXPORT, false)
-	log.Printf("Registered LCD decoder as reader\n")
+	log.Printf("Registered LCD decoder\n")
 	go runReader(d, r, source, angle)
 	return nil
 }

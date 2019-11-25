@@ -41,132 +41,140 @@ import (
 var dryrun = flag.Bool("dryrun", false, "Do not upload data")
 var pvLog = flag.Bool("pvlog", true, "Log upload parameters")
 
-func init() {
-	db.RegisterWriter(pvoutputInit)
+type pvWriter struct {
+	d	   *db.DB
+	pvurl  string
+	id     string
+	key	   string
+	client *http.Client
 }
 
-func pvoutputInit(d *db.DB) (func(*db.DB, time.Time), error) {
+func init() {
+	db.RegisterInit(pvoutputInit)
+}
+
+func pvoutputInit(d *db.DB) error {
 	sect := d.Config.GetSection("pvoutput")
 	if sect == nil {
-		return nil, nil
+		return nil
 	}
 	key, err := sect.GetArg("apikey")
 	if err != nil {
-		return nil, err
+		return err
 	}
 	id, err := sect.GetArg("systemid")
 	if err != nil {
-		return nil, err
+		return err
 	}
 	pvurl, err := sect.GetArg("pvurl")
 	if err != nil {
-		return nil, err
+		return err
 	}
-	log.Printf("Registered pvoutput uploader as writer\n")
-	return func(d *db.DB, t time.Time) {
-		writer(d, t, pvurl, id, key)
-	}, nil
+	p := &pvWriter{d:d, pvurl:pvurl, id:id, key:key, client:&http.Client{}}
+	d.AddUpdate(p)
+	log.Printf("Registered pvoutput uploader\n")
+	return nil
 }
 
-// writer creates a post request to pvoutput.org to upload the current data.
-func writer(d *db.DB, t time.Time, pvurl, id, key string) {
-	tp := d.GetElement(db.G_TP)
-	pv_power := d.GetElement(db.G_GEN_P)
-	temp := d.GetElement(db.G_TEMP)
-	volts := d.GetElement(db.G_VOLTS)
-	pv_daily := d.GetAccum(db.A_GEN_TOTAL)
-	imp := d.GetAccum(db.A_IN_TOTAL)
-	exp := d.GetAccum(db.A_OUT_TOTAL)
-	hour := t.Hour()
-	daytime := hour >= d.StartHour && hour < d.EndHour
+// pvUpload creates a post request to pvoutput.org to upload the current data.
+func (p *pvWriter) Update(last time.Time, now time.Time) {
+	tp := p.d.GetElement(db.G_TP)
+	pv_power := p.d.GetElement(db.G_GEN_P)
+	temp := p.d.GetElement(db.G_TEMP)
+	volts := p.d.GetElement(db.G_VOLTS)
+	pv_daily := p.d.GetAccum(db.A_GEN_TOTAL)
+	imp := p.d.GetAccum(db.A_IN_TOTAL)
+	exp := p.d.GetAccum(db.A_OUT_TOTAL)
+	hour := now.Hour()
+	daytime := hour >= p.d.StartHour && hour < p.d.EndHour
 
 	val := url.Values{}
-	val.Add("d", t.Format("20060102"))
-	val.Add("t", t.Format("15:04"))
-	if pv_daily != nil && pv_daily.Updated() && daytime {
+	val.Add("d", now.Format("20060102"))
+	val.Add("t", now.Format("15:04"))
+	if isValid(pv_daily, last) && daytime {
 		val.Add("v1", fmt.Sprintf("%d", int(pv_daily.Daily()*1000)))
-		if d.Trace {
+		if p.d.Trace {
 			log.Printf("v1 = %f", pv_daily.Daily())
 		}
-	} else if d.Trace {
+	} else if p.d.Trace {
 		if pv_daily == nil {
 			log.Printf("No PV energy total, v1 not updated\n")
 		} else {
 			log.Printf("PV Energy not fresh, v1 not updated\n")
 		}
 	}
-	if pv_power != nil && pv_power.Updated() && pv_power.Get() != 0 {
+	if isValid(pv_power, last) && pv_power.Get() != 0 {
 		val.Add("v2", fmt.Sprintf("%d", int(pv_power.Get()*1000)))
-		if d.Trace {
+		if p.d.Trace {
 			log.Printf("v2 = %f", pv_power.Get())
 		}
-	} else if d.Trace {
+	} else if p.d.Trace {
 		log.Printf("No PV power, v2 not updated\n")
 	}
-	if temp != nil && temp.Updated() && temp.Get() != 0 {
+	if isValid(temp, last) && temp.Get() != 0 {
 		val.Add("v5", fmt.Sprintf("%.2f", temp.Get()))
-		if d.Trace {
+		if p.d.Trace {
 			log.Printf("v5 = %.2f", temp.Get())
 		}
-	} else if d.Trace {
+	} else if p.d.Trace {
 		log.Printf("No temperature, v5 not updated\n")
 	}
-	if volts != nil && volts.Updated() && volts.Get() != 0 {
+	if isValid(volts, last) && volts.Get() != 0 {
 		val.Add("v6", fmt.Sprintf("%.2f", volts.Get()))
-		if d.Trace {
+		if p.d.Trace {
 			log.Printf("v6 = %.2f", volts.Get())
 		}
-	} else if d.Trace {
+	} else if p.d.Trace {
 		log.Printf("No Voltage, v6 not updated\n")
 	}
-	if imp != nil && imp.Updated() && exp != nil && exp.Updated() {
+	if isValid(imp, last) && isValid(exp, last) {
 		consumption := imp.Daily() - exp.Daily()
 		// Daily PV generation may be out of date, but it is used regardless.
 		if pv_daily != nil {
 			consumption += pv_daily.Daily()
 		}
 		val.Add("v3", fmt.Sprintf("%d", int(consumption*1000)))
-		if d.Trace {
+		if p.d.Trace {
 			log.Printf("v3 = %f, imp = %f, exp = %f", consumption, imp.Daily(), exp.Daily())
 			if pv_daily != nil {
 				log.Printf("daily = %f", pv_daily.Daily())
-				if !pv_daily.Updated() {
+				if isValid(pv_daily, last) {
 					log.Printf("Using old generation data")
 				}
 			} else {
 				log.Printf("No PV energy data\n")
 			}
 		}
-	} else if *pvLog || d.Trace {
+	} else if *pvLog || p.d.Trace {
 		if exp == nil {
 			log.Printf("No export data\n")
-		} else if !exp.Updated() {
+		} else if !isValid(exp, last) {
 			log.Printf("Export data not fresh\n")
 		}
 		if imp == nil {
 			log.Printf("No import data\n")
-		} else if !imp.Updated() {
+		} else if !isValid(imp, last) {
 			log.Printf("Import data not fresh\n")
 		}
 		log.Printf("No consumption data, v3 not updated\n")
 	}
-	if tp != nil && tp.Updated() {
+	if isValid(tp, last) {
 		var g float64
-		if pv_power != nil && pv_power.Updated() {
+		if isValid(pv_power, last) {
 			g = pv_power.Get()
 		}
 		val.Add("v4", fmt.Sprintf("%d", int((g+tp.Get())*1000)))
-		if d.Trace {
+		if p.d.Trace {
 			log.Printf("v4 = %f", g+tp.Get())
 		}
-	} else if d.Trace {
+	} else if p.d.Trace {
 		if tp == nil {
 			log.Printf("No total power, v4 not updated\n")
-		} else if !tp.Updated() {
+		} else if !isValid(tp, last) {
 			log.Printf("Total not fresh, v4 not updated\n")
 		}
 	}
-	req, err := http.NewRequest("POST", pvurl, strings.NewReader(val.Encode()))
+	req, err := http.NewRequest("POST", p.pvurl, strings.NewReader(val.Encode()))
 	if err != nil {
 		log.Printf("NewRequest failed: %v", err)
 		return
@@ -174,26 +182,32 @@ func writer(d *db.DB, t time.Time, pvurl, id, key string) {
 	if *pvLog {
 		log.Printf("PV Uploading: %v", val)
 	}
-	req.Header.Add("X-Pvoutput-Apikey", key)
-	req.Header.Add("X-Pvoutput-SystemId", id)
+	req.Header.Add("X-Pvoutput-Apikey", p.key)
+	req.Header.Add("X-Pvoutput-SystemId", p.id)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if d.Trace || *dryrun {
+	if p.d.Trace || *dryrun {
 		log.Printf("req: %s (size %d)", val.Encode(), req.ContentLength)
 		if *dryrun {
 			return
 		}
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := p.client.Do(req)
 	if err != nil {
 		log.Printf("Request failed: %v", err)
 		return
 	}
 	defer resp.Body.Close()
-	if d.Trace {
+	if p.d.Trace {
 		log.Printf("Response is: %s", resp.Status)
 	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := ioutil.ReadAll(resp.Body)
 		log.Printf("Error: %s: %s", resp.Status, body)
 	}
+}
+
+// isValid will return true if the element is not nil and has been updated
+// in the last interval.
+func isValid(e db.Element, last time.Time) bool {
+	return e != nil && !e.Timestamp().Before(last)
 }

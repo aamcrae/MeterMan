@@ -16,6 +16,7 @@ package db
 
 import (
 	"math"
+	"time"
 
 	"testing"
 )
@@ -23,37 +24,28 @@ import (
 const tolerance = 0.001 // Floating point comparison to 0.1%
 
 func TestGauge(t *testing.T) {
-	g := NewGauge("100.0")
+	g := NewGauge("100.0 10")
 	v := g.Get()
 	if !cmp(v, 100) {
 		t.Errorf("NewGauge: got %v want %v\n", v, 100.0)
 	}
-	u := g.Updated()
-	if u {
-		t.Errorf("NewGauge: got %v want %v\n", u, false)
+	ts := g.Timestamp()
+	if ts != time.Unix(10, 0) {
+		t.Errorf("NewGauge: got %v want %v\n", ts, 10)
 	}
-	g.Update(200.0)
-	u = g.Updated()
-	if !u {
-		t.Errorf("NewGauge: got %v want %v\n", u, true)
+	g.Update(200.0, time.Unix(20, 0))
+	ts = g.Timestamp()
+	if ts != time.Unix(20, 0) {
+		t.Errorf("NewGauge: got %v want %v\n", ts, 20)
 	}
 	v = g.Get()
 	if !cmp(v, 200) {
 		t.Errorf("NewGauge: got %v want %v\n", v, 200.0)
 	}
-	g.Update(100.0)
+	g.Update(100.0, time.Unix(30, 0))
 	v = g.Get()
-	if !cmp(v, 150) {
-		t.Errorf("NewGauge: got %v want %v\n", v, 150.0)
-	}
-	g.ClearUpdate()
-	u = g.Updated()
-	if u {
-		t.Errorf("NewGauge: got %v want %v\n", u, false)
-	}
-	v = g.Get()
-	if !cmp(v, 150) {
-		t.Errorf("NewGauge: got %v want %v\n", v, 150.0)
+	if !cmp(v, 100) {
+		t.Errorf("NewGauge: got %v want %v\n", v, 100.0)
 	}
 }
 

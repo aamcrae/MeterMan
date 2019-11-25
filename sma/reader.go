@@ -39,7 +39,7 @@ type InverterReader struct {
 }
 
 func init() {
-	db.RegisterReader(inverterReader)
+	db.RegisterInit(inverterReader)
 }
 
 func inverterReader(d *db.DB) error {
@@ -47,7 +47,6 @@ func inverterReader(d *db.DB) error {
 	if sect == nil {
 		return nil
 	}
-	log.Printf("Registered SMA inverter reader\n")
 	// Inverter name is of the format [IP address|name]:port,password
 	for _, e := range sect.Get("inverter") {
 		if len(e.Tokens) != 2 {
@@ -62,6 +61,7 @@ func inverterReader(d *db.DB) error {
 		s.volts = d.AddSubGauge(db.G_VOLTS, true)
 		s.genDaily = d.AddSubAccum(db.A_GEN_DAILY, true)
 		s.genT = d.AddSubAccum(db.A_GEN_TOTAL, false)
+		log.Printf("Registered SMA inverter reader for %s\n", s.sma.Name())
 		go s.run()
 	}
 	return nil

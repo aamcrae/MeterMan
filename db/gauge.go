@@ -16,26 +16,27 @@ package db
 
 import (
 	"fmt"
+	"time"
 )
 
 // Gauge is a value representing a instantaneous measurement.
 // If multiple updates occur during an interval, an average is taken.
 type Gauge struct {
-	value   float64
-	total   float64
-	updated int
+	value float64
+	ts	  time.Time
 }
 
 func NewGauge(cp string) *Gauge {
 	g := new(Gauge)
-	fmt.Sscanf(cp, "%f", &g.value)
+	var sec int64
+	fmt.Sscanf(cp, "%f %d", &g.value, &sec)
+	g.ts = time.Unix(sec, 0)
 	return g
 }
 
-func (g *Gauge) Update(value float64) {
-	g.total += value
-	g.updated++
-	g.value = g.total / float64(g.updated)
+func (g *Gauge) Update(value float64, ts time.Time) {
+	g.value = value
+	g.ts = ts
 }
 
 func (g *Gauge) Midnight() {
@@ -45,15 +46,10 @@ func (g *Gauge) Get() float64 {
 	return g.value
 }
 
-func (g *Gauge) Updated() bool {
-	return g.updated != 0
-}
-
-func (g *Gauge) ClearUpdate() {
-	g.updated = 0
-	g.total = 0
+func (g *Gauge) Timestamp() time.Time {
+	return g.ts
 }
 
 func (g *Gauge) Checkpoint() string {
-	return fmt.Sprintf("%f", g.value)
+	return fmt.Sprintf("%f %d", g.value, g.ts.Unix())
 }

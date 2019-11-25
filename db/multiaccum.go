@@ -16,6 +16,7 @@ package db
 
 import (
 	"fmt"
+	"time"
 )
 
 // MultiAccum allows multiple accumulators to be treated as a single accumulator.
@@ -37,7 +38,7 @@ func (m *MultiAccum) Add(a Acc) {
 	m.accums = append(m.accums, a)
 }
 
-func (m *MultiAccum) Update(v float64) {
+func (m *MultiAccum) Update(v float64, ts time.Time) {
 	// No one should be updating a multi-accumulator.
 	panic(fmt.Errorf("Updated called on MultiAccum"))
 }
@@ -56,20 +57,16 @@ func (m *MultiAccum) Midnight() {
 	}
 }
 
-// Return true only if all sub elements have been updated.
-func (m *MultiAccum) Updated() bool {
+// Return the oldest timestamp.
+func (m *MultiAccum) Timestamp() time.Time {
+	var timestamp time.Time
 	for _, a := range m.accums {
-		if !a.Updated() {
-			return false
+		ts := a.Timestamp()
+		if timestamp.IsZero() || timestamp.After(ts) {
+			timestamp = ts
 		}
 	}
-	return true
-}
-
-func (m *MultiAccum) ClearUpdate() {
-	for _, a := range m.accums {
-		a.ClearUpdate()
-	}
+	return timestamp
 }
 
 func (m *MultiAccum) Checkpoint() string {

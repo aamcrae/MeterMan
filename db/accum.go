@@ -17,19 +17,22 @@ package db
 import (
 	"fmt"
 	"log"
+	"time"
 )
 
 // Accum represents an accumulating value i.e a value that continually increases.
 type Accum struct {
 	value      float64
-	midnight   float64 // Value at the start of the day.
-	updated    bool
-	resettable bool // If set, the value can be reset to a lower value.
+	midnight   float64	 // Value at the start of the day.
+	resettable bool		 // If set, the value can be reset to a lower value.
+	ts		   time.Time // Timestamp of last update.
 }
 
 func NewAccum(cp string, resettable bool) *Accum {
 	a := new(Accum)
-	n, err := fmt.Sscanf(cp, "%f %f", &a.midnight, &a.value)
+	var sec int64
+	n, err := fmt.Sscanf(cp, "%f %f %d", &a.midnight, &a.value, &sec)
+	a.ts = time.Unix(sec, 0)
 	if err != nil {
 		fmt.Printf("%d parsed, accum err: %v\n", n, err)
 	}
@@ -40,7 +43,7 @@ func NewAccum(cp string, resettable bool) *Accum {
 	return a
 }
 
-func (a *Accum) Update(v float64) {
+func (a *Accum) Update(v float64, ts time.Time) {
 	// Check whether the accumulator has been reset.
 	if v < a.value {
 		if !a.resettable {
@@ -50,7 +53,7 @@ func (a *Accum) Update(v float64) {
 		a.midnight = v
 	}
 	a.value = v
-	a.updated = true
+	a.ts = ts
 }
 
 func (a *Accum) Get() float64 {
@@ -61,17 +64,13 @@ func (a *Accum) Midnight() {
 	a.midnight = a.value
 }
 
-func (a *Accum) Updated() bool {
-	return a.updated
-}
-
-func (a *Accum) ClearUpdate() {
-	a.updated = false
+func (a *Accum) Timestamp() time.Time {
+	return a.ts
 }
 
 // Create a checkpoint string.
 func (a *Accum) Checkpoint() string {
-	return fmt.Sprintf("%f %f", a.midnight, a.value)
+	return fmt.Sprintf("%f %f %d", a.midnight, a.value, a.ts.Unix())
 }
 
 func (a *Accum) Daily() float64 {

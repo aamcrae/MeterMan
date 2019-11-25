@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// package db stores data sent over a channel from data providers ('readers') and
-// at the selected update interval, invokes 'writers' to process the data.
+// package db stores data sent over a channel from data providers and
+// at the selected update interval, invokes handlers to process the data.
 // Data can be stored as gauges or accumulators.
 // The stored data is checkpointed each update interval.
 
@@ -31,6 +31,11 @@ import (
 	"github.com/aamcrae/config"
 )
 
+// Interval update interface.
+type Update interface {
+	Update(time.Time, time.Time)
+}
+
 // DB contains the central database and variables.
 type DB struct {
 	Trace     bool
@@ -39,29 +44,25 @@ type DB struct {
 	StartHour int
 	EndHour   int
 
+	input         chan Input
 	elements      map[string]Element
 	outputs       []func(*DB, time.Time)
 	intv          time.Duration
 	checkpoint    string
 	checkpointMap map[string]string
+	updateList	  []Update
 }
 
-var writersInit []func(*DB) (func(*DB, time.Time), error)
-var readersInit []func(*DB) error
+// List of init functions to call after database is ready.
+var initHook []func(*DB) error
 
-// Register a 'writer' i.e a function that accesses the collated data and
-// processes it (e.g writes it to a file).
-func RegisterWriter(f func(*DB) (func(*DB, time.Time), error)) {
-	writersInit = append(writersInit, f)
+// Register an init function.
+func RegisterInit(f func(*DB) error) {
+	initHook = append(initHook, f)
 }
 
-// Register a 'reader', a module that reads outside data and sends to the
-// database via the input channel.
-func RegisterReader(f func(*DB) error) {
-	readersInit = append(readersInit, f)
-}
-
-// NewDatabase creates a new database with the updateRate (in minutes)
+// NewDatabase creates a new database with updateRate (in minutes)
+// defining the interval processing time.
 func NewDatabase(conf *config.Config, updateRate int) *DB {
 	d := new(DB)
 	d.Config = conf
@@ -70,26 +71,19 @@ func NewDatabase(conf *config.Config, updateRate int) *DB {
 	d.intv = time.Minute * time.Duration(updateRate)
 	d.StartHour = 6
 	d.EndHour = 20
+	d.input = make(chan Input, 200)
+	d.InChan = d.input
 	return d
 }
 
-// Start calls the init functions for the readers and writers,
-// and then goes into a service loop processing the inputs from the readers.
+// Start calls the init functions, and then enters a service loop processing the inputs.
 func (d *DB) Start() error {
-	input := make(chan Input, 200)
-	d.InChan = input
-	for _, wi := range writersInit {
-		if of, err := wi(d); err != nil {
-			return err
-		} else if of != nil {
-			d.outputs = append(d.outputs, of)
-		}
-	}
-	for _, ri := range readersInit {
-		if err := ri(d); err != nil {
+	for _, h := range initHook {
+		if err := h(d); err != nil {
 			return err
 		}
 	}
+	// Get the last processing time from the checkpoint file.
 	var last time.Time
 	lt, ok := d.checkpointMap[C_TIME]
 	if !ok {
@@ -105,11 +99,11 @@ func (d *DB) Start() error {
 	tick := ticker(d.intv)
 	for {
 		select {
-		case r := <-input:
+		case r := <-d.input:
 			// Input from reader.
 			h, ok := d.elements[r.Tag]
 			if ok {
-				h.Update(r.Value)
+				h.Update(r.Value, time.Now())
 			} else {
 				log.Printf("Unknown tag: %s\n", r.Tag)
 			}
@@ -133,6 +127,11 @@ func ticker(intv time.Duration) <-chan time.Time {
 		}
 	}()
 	return t
+}
+
+// AddUpdate adds a callback to be invoked during interval processing.
+func (d *DB) AddUpdate(upd Update) {
+	d.updateList = append(d.updateList, upd)
 }
 
 // AddSumGauge adds a gauge that is part of a master gauge.
@@ -213,7 +212,7 @@ func (d *DB) GetAccum(name string) Acc {
 
 // update performs the per-interval actions in the following order:
 // - If a new day, call Midnight().
-// - Invoke the output functions.
+// - Invoke the update functions.
 // - Write the checkpoint file.
 // - Clear the Updated flag.
 func (d *DB) update(last, now time.Time) {
@@ -230,16 +229,13 @@ func (d *DB) update(last, now time.Time) {
 			log.Printf("New day reset")
 		}
 		for tag, el := range d.elements {
-			log.Printf("Output: Tag: %5s, value: %f, updated: %v\n", tag, el.Get(), el.Updated())
+			log.Printf("Output: Tag: %5s, value: %f, timestamp: %s\n", tag, el.Get(), el.Timestamp().Format(time.UnixDate))
 		}
 	}
-	for _, wf := range d.outputs {
-		wf(d, now)
+	for _, uf := range d.updateList {
+		uf.Update(last, now)
 	}
 	d.writeCheckpoint(now)
-	for _, el := range d.elements {
-		el.ClearUpdate()
-	}
 }
 
 // writerCheckpoint will save the current values of the elements in the
