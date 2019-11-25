@@ -129,7 +129,6 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 		log.Printf("Request: %s", req.URL.String())
 	}
 	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprintf(w, "<h2>Current values of all the elements are:</h2>")
 	fmt.Fprintf(w, "<table border=\"1\"><tr><th>Tag</th><th>Value</th><th>Timestamp</th></tr>")
 	m := s.d.GetElements()
 	// Sort in key order.
@@ -140,7 +139,9 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 	sort.Strings(keys)
 	for _, k := range keys {
 		v := m[k]
-		fmt.Fprintf(w, "<tr><td><bold>%s</bold></td><td style=\"text-align:right\">%f</td><td>%s</td></tr>", k, v.Get(), v.Timestamp().Format(time.UnixDate))
+		fmt.Fprintf(w, "<tr><td><bold>%s</bold></td>", k)
+		fmt.Fprintf(w, "<td style=\"text-align:right\">%f</td>", v.Get())
+		fmt.Fprintf(w, "<td>%s</td></tr>", v.Timestamp().Format(time.UnixDate))
 	}
 	fmt.Fprintf(w, "</table>")
 }
