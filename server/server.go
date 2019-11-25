@@ -35,17 +35,17 @@ type apiServer struct {
 }
 
 type Item struct {
-    Value float64	`json: "value"`
-	Timestamp int64	`json: "timestamp"`
+	Value     float64 `json: "value"`
+	Timestamp int64   `json: "timestamp"`
 }
 
 type Data struct {
-	Power Item		`json: "power"`
-	Import Item		`json: "import"`
-	Export Item		`json: "export"`
-	Generated Item		`json: "generated"`
+	Power       Item    `json: "power"`
+	Import      Item    `json: "import"`
+	Export      Item    `json: "export"`
+	Generated   Item    `json: "generated"`
 	Consumption float64 `json: "consumption"`
-	Available float64 `json: "available"`
+	Available   float64 `json: "available"`
 }
 
 func init() {
