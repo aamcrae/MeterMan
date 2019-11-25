@@ -37,7 +37,7 @@ var port = flag.Int("profileport", 6060, "Port for profiling server")
 var verbose = flag.Bool("verbose", false, "Verbose tracing")
 var updateRate = flag.Int("update", 5, "Update rate (in minutes)")
 var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
-var startHour = flag.Int("starthour", 6, "Start hour for PV (e.g 6)")
+var startHour = flag.Int("starthour", 5, "Start hour for PV (e.g 6)")
 var endHour = flag.Int("endhour", 20, "End hour for PV (e.g 19)")
 
 func main() {
