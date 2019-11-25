@@ -190,6 +190,11 @@ func (d *DB) GetElement(name string) Element {
 	return d.elements[name]
 }
 
+// GetElements returns the map of elements.
+func (d *DB) GetElements() map[string]Element {
+	return d.elements
+}
+
 // GetAccum returns the named accumulator.
 func (d *DB) GetAccum(name string) Acc {
 	el, ok := d.elements[name]

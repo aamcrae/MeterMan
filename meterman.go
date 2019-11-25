@@ -25,6 +25,7 @@ import (
 	"github.com/aamcrae/MeterMan/db"
 	_ "github.com/aamcrae/MeterMan/meter"
 	_ "github.com/aamcrae/MeterMan/pv"
+	_ "github.com/aamcrae/MeterMan/server"
 	_ "github.com/aamcrae/MeterMan/sma"
 	_ "github.com/aamcrae/MeterMan/weather"
 	"github.com/aamcrae/config"
@@ -32,7 +33,7 @@ import (
 
 var configFile = flag.String("config", "", "Config file")
 var profile = flag.Bool("profile", false, "Enable profiling")
-var port = flag.Int("port", 6060, "Port for http server")
+var port = flag.Int("profileport", 6060, "Port for profiling server")
 var verbose = flag.Bool("verbose", false, "Verbose tracing")
 var updateRate = flag.Int("update", 5, "Update rate (in minutes)")
 var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
