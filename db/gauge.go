@@ -30,7 +30,9 @@ func NewGauge(cp string) *Gauge {
 	g := new(Gauge)
 	var sec int64
 	fmt.Sscanf(cp, "%f %d", &g.value, &sec)
-	g.ts = time.Unix(sec, 0)
+	if sec != 0 {
+		g.ts = time.Unix(sec, 0)
+	}
 	return g
 }
 

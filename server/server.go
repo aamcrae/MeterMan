@@ -35,17 +35,18 @@ type apiServer struct {
 }
 
 type Item struct {
-	Value     int   `json: "value"`
+	Total     int   `json: "daily"`
+	Daily     int   `json: "total"`
 	Timestamp int64 `json: "timestamp"`
 }
 
 type Data struct {
-	Power       Item `json: "power"`
+	Power		int  `json: "power"`
+	Available   int  `json: "available"`
 	Import      Item `json: "import"`
 	Export      Item `json: "export"`
 	Generated   Item `json: "generated"`
-	Consumption int  `json: "consumption"`
-	Available   int  `json: "available"`
+	Consumption Item `json: "consumption"`
 }
 
 func init() {
@@ -89,9 +90,10 @@ func (s *apiServer) api(w http.ResponseWriter, req *http.Request) {
 	s.daily(&c.Import, db.A_IMPORT, 1000)
 	s.daily(&c.Export, db.A_EXPORT, 1000)
 	s.daily(&c.Generated, db.A_GEN_TOTAL, 1000)
-	c.Consumption = c.Generated.Value + c.Import.Value - c.Export.Value
-	if c.Power.Value < 0 {
-		c.Available = -c.Power.Value
+	c.Consumption.Daily = c.Generated.Daily + c.Import.Daily - c.Export.Daily
+	c.Consumption.Total = c.Generated.Total + c.Import.Total - c.Export.Total
+	if c.Power < 0 {
+		c.Available = -c.Power
 	}
 	m, err := json.Marshal(c)
 	if err != nil {
@@ -104,13 +106,12 @@ func (s *apiServer) api(w http.ResponseWriter, req *http.Request) {
 }
 
 // Fill in item from the gauge
-func (s *apiServer) gauge(i *Item, n string, scale float64) {
+func (s *apiServer) gauge(i *int, n string, scale float64) {
 	e := s.d.GetElement(n)
 	if e == nil {
 		return
 	}
-	i.Value = int(e.Get() * scale)
-	i.Timestamp = e.Timestamp().Unix()
+	*i = int(e.Get() * scale)
 }
 
 // Fill in item from the daily value of the accumlator
@@ -119,7 +120,8 @@ func (s *apiServer) daily(i *Item, n string, scale float64) {
 	if e == nil {
 		return
 	}
-	i.Value = int(e.Daily() * scale)
+	i.Daily = int(e.Daily() * scale)
+	i.Total = int(e.Get() * scale)
 	i.Timestamp = e.Timestamp().Unix()
 }
 
@@ -147,7 +149,12 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 		default:
 			fmt.Fprintf(w, "<td> </td>")
 		}
-		fmt.Fprintf(w, "<td>%s</td></tr>", v.Timestamp().Format(time.UnixDate))
+		fmt.Fprintf(w, "<td>")
+		ts := v.Timestamp()
+		if !ts.IsZero() {
+			fmt.Fprintf(w, "%s", ts.Format(time.UnixDate))
+		}
+		fmt.Fprintf(w, "</td></tr>")
 	}
 	fmt.Fprintf(w, "</table>")
 }

@@ -32,7 +32,9 @@ func NewAccum(cp string, resettable bool) *Accum {
 	a := new(Accum)
 	var sec int64
 	n, err := fmt.Sscanf(cp, "%f %f %d", &a.midnight, &a.value, &sec)
-	a.ts = time.Unix(sec, 0)
+	if sec != 0 {
+		a.ts = time.Unix(sec, 0)
+	}
 	if err != nil {
 		fmt.Printf("%d parsed, accum err: %v\n", n, err)
 	}
