@@ -133,7 +133,7 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 		log.Printf("Request: %s", req.URL.String())
 	}
 	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprintf(w, "<table border=\"1\"><tr><th>Tag</th><th>Value</th><th>Daily</th><th>Timestamp</th></tr>")
+	fmt.Fprintf(w, "<table border=\"1\"><tr><th>Tag</th><th>Value</th><th>Daily</th><th>Timestamp</th><th>Age</tr>")
 	m := s.d.GetElements()
 	// Sort in key order.
 	var keys []string
@@ -141,6 +141,7 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
+	now := time.Now()
 	for _, k := range keys {
 		v := m[k]
 		fmt.Fprintf(w, "<tr><td><bold>%s</bold></td>", k)
@@ -151,12 +152,13 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 		default:
 			fmt.Fprintf(w, "<td> </td>")
 		}
-		fmt.Fprintf(w, "<td>")
 		ts := v.Timestamp()
 		if !ts.IsZero() {
-			fmt.Fprintf(w, "%s", ts.Format(time.UnixDate))
+			fmt.Fprintf(w, "<td>%s</td><td>%s</td>", ts.Format(time.UnixDate),
+						now.Sub(ts).Truncate(time.Second).String())
+		} else {
+			fmt.Fprintf(w, "<td></td><td></td></tr>")
 		}
-		fmt.Fprintf(w, "</td></tr>")
 	}
 	fmt.Fprintf(w, "</table>")
 }
