@@ -60,9 +60,11 @@ func serverInit(d *db.DB) error {
 	}
 	mux := http.NewServeMux()
 	s := &apiServer{d: d}
-	mux.HandleFunc("/api", func(w http.ResponseWriter, req *http.Request) {
+	apih := func(w http.ResponseWriter, req *http.Request) {
 		s.api(w, req)
-	})
+	}
+	mux.HandleFunc("/api", apih)
+	mux.HandleFunc("/api/", apih)
 	mux.HandleFunc("/status", func(w http.ResponseWriter, req *http.Request) {
 		s.status(w, req)
 	})
