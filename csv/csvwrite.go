@@ -18,6 +18,7 @@ package csv
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -26,6 +27,8 @@ import (
 
 	"github.com/aamcrae/MeterMan/db"
 )
+
+var csvUpdateRate = flag.Int("csvupdate", 5, "CSV update rate (in minutes)")
 
 type writer struct {
 	name string
@@ -61,8 +64,8 @@ func csvInit(d *db.DB) error {
 		return err
 	}
 	c := &csv{d: d, fpath: p}
-	d.AddUpdate(c)
-	log.Printf("Registered CSV as writer\n")
+	d.AddUpdate(c, time.Minute*time.Duration(*csvUpdateRate))
+	log.Printf("Registered CSV as writer (updated every %d minutes)\n", *csvUpdateRate)
 	return nil
 }
 

@@ -21,6 +21,7 @@ package db
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -31,9 +32,21 @@ import (
 	"github.com/aamcrae/config"
 )
 
+var verbose = flag.Bool("verbose", false, "Verbose tracing")
+var checkpointIntv = flag.Int("checkpointrate", 5, "Checkpoint interval (in minutes)")
+var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
+var startHour = flag.Int("starthour", 5, "Start hour for PV (e.g 6)")
+var endHour = flag.Int("endhour", 20, "End hour for PV (e.g 19)")
+
 // Interval update interface.
 type Update interface {
 	Update(time.Time, time.Time)
+}
+
+type interval struct {
+	intv       time.Duration
+	last       time.Time
+	updateList []Update
 }
 
 // DB contains the element database.
@@ -48,9 +61,15 @@ type DB struct {
 	elements      map[string]Element
 	outputs       []func(*DB, time.Time)
 	intv          time.Duration
-	checkpoint    string
 	checkpointMap map[string]string
-	updateList    []Update
+	intvMap       map[time.Duration]*interval
+	lastDay       int
+}
+
+// tickVal is sent from the ticker goroutine for each interval.
+type tickVal struct {
+	tick time.Time
+	ip   *interval
 }
 
 // List of init functions to call after database is ready.
@@ -61,16 +80,16 @@ func RegisterInit(f func(*DB) error) {
 	initHook = append(initHook, f)
 }
 
-// NewDatabase creates a new database with updateRate (in minutes)
-// defining the interval processing time.
-func NewDatabase(conf *config.Config, updateRate int) *DB {
+// NewDatabase creates a new database.
+func NewDatabase(conf *config.Config) *DB {
 	d := new(DB)
+	d.Trace = *verbose
 	d.Config = conf
 	d.elements = make(map[string]Element)
 	d.checkpointMap = make(map[string]string)
-	d.intv = time.Minute * time.Duration(updateRate)
-	d.StartHour = 6
-	d.EndHour = 20
+	d.intvMap = make(map[time.Duration]*interval)
+	d.StartHour = *startHour
+	d.EndHour = *endHour
 	d.input = make(chan Input, 200)
 	d.InChan = d.input
 	return d
@@ -78,11 +97,13 @@ func NewDatabase(conf *config.Config, updateRate int) *DB {
 
 // Start calls the init functions, and then enters a service loop processing the inputs.
 func (d *DB) Start() error {
+	d.Checkpoint()
 	for _, h := range initHook {
 		if err := h(d); err != nil {
 			return err
 		}
 	}
+	d.AddUpdate(d, time.Minute*time.Duration(*checkpointIntv))
 	// Get the last processing time from the checkpoint file.
 	var last time.Time
 	lt, ok := d.checkpointMap[C_TIME]
@@ -96,16 +117,24 @@ func (d *DB) Start() error {
 			log.Printf("Last interval was %s\n", last.Format(time.UnixDate))
 		}
 	}
-	tick := make(chan time.Time, 10)
+	// Set the last time in the interval map entries.
+	for _, ip := range d.intvMap {
+		ip.last = last
+	}
+	tick := make(chan tickVal, 10)
 	// Start a goroutine to send a tick every intv duration.
-	go func(ic chan<- time.Time, intv time.Duration) {
-		for {
-			now := time.Now()
-			next := now.Add(intv).Truncate(intv)
-			time.Sleep(next.Sub(now))
-			ic <- next
-		}
-	}(tick, d.intv)
+	for _, ip := range d.intvMap {
+		go func(ic chan<- tickVal, ip *interval) {
+			var t tickVal
+			t.ip = ip
+			for {
+				now := time.Now()
+				t.tick = now.Add(ip.intv).Truncate(ip.intv)
+				time.Sleep(t.tick.Sub(now))
+				ic <- t
+			}
+		}(tick, ip)
+	}
 	for {
 		select {
 		case r := <-d.input:
@@ -116,17 +145,21 @@ func (d *DB) Start() error {
 			} else {
 				log.Printf("Unknown tag: %s\n", r.Tag)
 			}
-		case now := <-tick:
-			// Update tick.
-			d.update(last, now)
-			last = now
+		case tVal := <-tick:
+			d.update(tVal)
 		}
 	}
 }
 
 // AddUpdate adds a callback to be invoked during interval processing.
-func (d *DB) AddUpdate(upd Update) {
-	d.updateList = append(d.updateList, upd)
+func (d *DB) AddUpdate(upd Update, intv time.Duration) {
+	ip, ok := d.intvMap[intv]
+	if !ok {
+		ip = new(interval)
+		ip.intv = intv
+		d.intvMap[intv] = ip
+	}
+	ip.updateList = append(ip.updateList, upd)
 }
 
 // AddSubGauge adds a sub-gauge to a master gauge.
@@ -215,17 +248,18 @@ func (d *DB) GetAccum(name string) Acc {
 // update performs the per-interval actions in the following order:
 // - If a new day, call Midnight().
 // - Invoke the update functions.
-// - Write the checkpoint file.
-func (d *DB) update(last, now time.Time) {
+func (d *DB) update(tVal tickVal) {
+	ip := tVal.ip
 	// Check for daily reset processing.
-	midnight := now.YearDay() != last.YearDay()
+	midnight := tVal.tick.YearDay() != d.lastDay
 	if midnight {
+		d.lastDay = tVal.tick.YearDay()
 		for _, el := range d.elements {
 			el.Midnight()
 		}
 	}
 	if d.Trace {
-		log.Printf("Updating for interval %s\n", now.Format("15:04"))
+		log.Printf("Updating at %s for interval %s\n", tVal.tick.Format("15:04"), ip.intv.String())
 		if midnight {
 			log.Printf("New day reset")
 		}
@@ -233,24 +267,24 @@ func (d *DB) update(last, now time.Time) {
 			log.Printf("Output: Tag: %5s, value: %f, timestamp: %s\n", tag, el.Get(), el.Timestamp().Format(time.UnixDate))
 		}
 	}
-	for _, uf := range d.updateList {
-		uf.Update(last, now)
+	for _, u := range ip.updateList {
+		u.Update(ip.last, tVal.tick)
 	}
-	d.writeCheckpoint(now)
+	ip.last = tVal.tick
 }
 
-// writerCheckpoint will save the current values of the elements in the
+// Update will save the current values of the elements in the
 // database to a file.
-func (d *DB) writeCheckpoint(now time.Time) {
-	if len(d.checkpoint) == 0 {
+func (d *DB) Update(last, now time.Time) {
+	if len(*checkpoint) == 0 {
 		return
 	}
 	if d.Trace {
-		log.Printf("Writing checkpoint data to %s\n", d.checkpoint)
+		log.Printf("Writing checkpoint data to %s\n", *checkpoint)
 	}
-	f, err := os.Create(d.checkpoint)
+	f, err := os.Create(*checkpoint)
 	if err != nil {
-		log.Printf("Checkpoint file create: %s %v\n", d.checkpoint, err)
+		log.Printf("Checkpoint file create: %s %v\n", *checkpoint, err)
 		return
 	}
 	defer f.Close()
@@ -265,17 +299,15 @@ func (d *DB) writeCheckpoint(now time.Time) {
 	fmt.Fprintf(wr, "%s:%d\n", C_TIME, now.Unix())
 }
 
-// Checkpoint sets the name of the checkpoint file, and
-// does an initial read of the checkpoint database.
-func (d *DB) Checkpoint(checkpoint string) error {
-	d.checkpoint = checkpoint
-	if len(d.checkpoint) == 0 {
+// Checkpoint reads the checkpoint database.
+func (d *DB) Checkpoint() error {
+	if len(*checkpoint) == 0 {
 		return nil
 	}
-	log.Printf("Reading checkpoint data from %s\n", d.checkpoint)
-	f, err := os.Open(d.checkpoint)
+	log.Printf("Reading checkpoint data from %s\n", *checkpoint)
+	f, err := os.Open(*checkpoint)
 	if err != nil {
-		return fmt.Errorf("checkpoint file %s: %v", d.checkpoint, err)
+		return fmt.Errorf("checkpoint file %s: %v", *checkpoint, err)
 	}
 	defer f.Close()
 	r := bufio.NewReader(f)
@@ -285,7 +317,7 @@ func (d *DB) Checkpoint(checkpoint string) error {
 		s, err := r.ReadString('\n')
 		if err != nil {
 			if err != io.EOF {
-				return fmt.Errorf("checkpoint read %s: line %d: %v", d.checkpoint, lineno, err)
+				return fmt.Errorf("checkpoint read %s: line %d: %v", *checkpoint, lineno, err)
 			}
 			return nil
 		}

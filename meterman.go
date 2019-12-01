@@ -34,11 +34,6 @@ import (
 var configFile = flag.String("config", "", "Config file")
 var profile = flag.Bool("profile", false, "Enable profiling")
 var port = flag.Int("profileport", 6060, "Port for profiling server")
-var verbose = flag.Bool("verbose", false, "Verbose tracing")
-var updateRate = flag.Int("update", 5, "Update rate (in minutes)")
-var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
-var startHour = flag.Int("starthour", 5, "Start hour for PV (e.g 6)")
-var endHour = flag.Int("endhour", 20, "End hour for PV (e.g 19)")
 
 func main() {
 	flag.Parse()
@@ -51,15 +46,7 @@ func main() {
 			log.Println(http.ListenAndServe(fmt.Sprintf("localhost:%d", *port), nil))
 		}()
 	}
-	d := db.NewDatabase(conf, *updateRate)
-	d.StartHour = *startHour
-	d.EndHour = *endHour
-	if *verbose {
-		d.Trace = true
-	}
-	if len(*checkpoint) > 0 {
-		d.Checkpoint(*checkpoint)
-	}
+	d := db.NewDatabase(conf)
 	err = d.Start()
 	log.Fatalf("Initialisation error: %v", err)
 }

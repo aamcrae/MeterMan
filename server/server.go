@@ -41,7 +41,7 @@ type Item struct {
 }
 
 type Data struct {
-	Power		int  `json: "power"`
+	Power       int  `json: "power"`
 	Available   int  `json: "available"`
 	Import      Item `json: "import"`
 	Export      Item `json: "export"`
@@ -155,7 +155,7 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 		ts := v.Timestamp()
 		if !ts.IsZero() {
 			fmt.Fprintf(w, "<td>%s</td><td>%s</td>", ts.Format(time.UnixDate),
-						now.Sub(ts).Truncate(time.Second).String())
+				now.Sub(ts).Truncate(time.Second).String())
 		} else {
 			fmt.Fprintf(w, "<td></td><td></td></tr>")
 		}

@@ -40,6 +40,7 @@ import (
 
 var dryrun = flag.Bool("dryrun", false, "Do not upload data")
 var pvLog = flag.Bool("pvlog", true, "Log upload parameters")
+var pvUpdateRate = flag.Int("pvupdate", 5, "pvoutput Update rate (in minutes)")
 
 type pvWriter struct {
 	d      *db.DB
@@ -71,7 +72,7 @@ func pvoutputInit(d *db.DB) error {
 		return err
 	}
 	p := &pvWriter{d: d, pvurl: pvurl, id: id, key: key, client: &http.Client{}}
-	d.AddUpdate(p)
+	d.AddUpdate(p, time.Minute*time.Duration(*pvUpdateRate))
 	log.Printf("Registered pvoutput uploader\n")
 	return nil
 }
