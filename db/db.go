@@ -33,7 +33,7 @@ import (
 )
 
 var verbose = flag.Bool("verbose", false, "Verbose tracing")
-var checkpointIntv = flag.Int("checkpointrate", 5, "Checkpoint interval (in minutes)")
+var checkpointIntv = flag.Int("checkpointrate", 1, "Checkpoint interval (in minutes)")
 var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
 var startHour = flag.Int("starthour", 5, "Start hour for PV (e.g 6)")
 var endHour = flag.Int("endhour", 20, "End hour for PV (e.g 19)")
@@ -97,14 +97,16 @@ func NewDatabase(conf *config.Config) *DB {
 
 // Start calls the init functions, and then enters a service loop processing the inputs.
 func (d *DB) Start() error {
-	d.Checkpoint()
+	err := d.Checkpoint()
+	if err != nil {
+		return err
+	}
 	for _, h := range initHook {
 		if err := h(d); err != nil {
 			return err
 		}
 	}
-	d.AddUpdate(d, time.Minute*time.Duration(*checkpointIntv))
-	// Get the last processing time from the checkpoint file.
+	// Get the last time from the checkpoint file.
 	var last time.Time
 	lt, ok := d.checkpointMap[C_TIME]
 	if !ok {
@@ -117,13 +119,15 @@ func (d *DB) Start() error {
 			log.Printf("Last interval was %s\n", last.Format(time.UnixDate))
 		}
 	}
+	d.lastDay = last.YearDay()
 	// Set the last time in the interval map entries.
 	for _, ip := range d.intvMap {
-		ip.last = last
+		ip.last = last.Truncate(ip.intv)
 	}
 	tick := make(chan tickVal, 10)
-	// Start a goroutine to send a tick every intv duration.
+	// Start goroutines to send a tick every intv duration.
 	for _, ip := range d.intvMap {
+		log.Printf("Initialising interval %s", ip.intv.String())
 		go func(ic chan<- tickVal, ip *interval) {
 			var t tickVal
 			t.ip = ip
@@ -304,6 +308,7 @@ func (d *DB) Checkpoint() error {
 	if len(*checkpoint) == 0 {
 		return nil
 	}
+	d.AddUpdate(d, time.Minute*time.Duration(*checkpointIntv))
 	log.Printf("Reading checkpoint data from %s\n", *checkpoint)
 	f, err := os.Open(*checkpoint)
 	if err != nil {
