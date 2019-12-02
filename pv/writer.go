@@ -19,7 +19,7 @@
 // v1 - PV daily generation (energy) (wH)
 // v2 - PV current power output (w)
 // v3 - Daily energy consumption (wH)
-// v4 - Import/export power, -ve is export (w)
+// v4 - Current power consumption (w)
 // v5 - Temperature (C)
 // v6 - AC voltage (V)
 
@@ -164,9 +164,16 @@ func (p *pvWriter) Update(last time.Time, now time.Time) {
 		if isValid(pv_power, last) {
 			g = pv_power.Get()
 		}
-		val.Add("v4", fmt.Sprintf("%d", int((g+tp.Get())*1000)))
+		cp := int((g+tp.Get())*1000)
+		if cp >= 0 {
+			val.Add("v4", fmt.Sprintf("%d", cp))
+		}
 		if p.d.Trace {
-			log.Printf("v4 = %f", g+tp.Get())
+			if cp >= 0 {
+				log.Printf("v4 = %d", cp)
+			} else {
+				log.Printf("power consumption = %d, not sent", cp)
+			}
 		}
 	} else if p.d.Trace {
 		if tp == nil {
