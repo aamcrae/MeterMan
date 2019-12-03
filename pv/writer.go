@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // package pv implements a writer that uploads the current data to pvoutput.org.
-// URL parameters:
+// The URL parameters that are uploaded are:
 // d  - Date in YYYYMMDD format
 // t  - Time in HH:MM format
 // v1 - PV daily generation (energy) (wH)
@@ -22,6 +22,13 @@
 // v4 - Current power consumption (w)
 // v5 - Temperature (C)
 // v6 - AC voltage (V)
+//
+// The package is configured as a section in the main config file
+// under the '[pvoutput]' section, and the parameters are:
+//  [pvoutput]
+//  apikey=<apikey from pvoutput.org>
+//  systemid=<systemid from pvoutput.org>
+//  pvurl=<URL API endpoint to use>
 
 package pv
 
@@ -164,7 +171,7 @@ func (p *pvWriter) Update(last time.Time, now time.Time) {
 		if isValid(pv_power, last) {
 			g = pv_power.Get()
 		}
-		cp := int((g+tp.Get())*1000)
+		cp := int((g + tp.Get()) * 1000)
 		if cp >= 0 {
 			val.Add("v4", fmt.Sprintf("%d", cp))
 		}

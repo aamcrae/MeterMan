@@ -13,6 +13,21 @@
 // limitations under the License.
 
 // package weather extracts current weather data from selected providers.
+// The package is configured as a section in the main config file
+// under the '[weather]' section, and the parameters are:
+//   [weather]
+//   tempservice={bom,openweather,darksky}  # Choose one
+//
+// if bom:
+//   bom=<URL of JSON output for location>
+// if openweather:
+//   tempid=<openweather id for locaton>
+//   tempkey=<openweather API key>
+// if darksky:
+//   darkskykey=<darksky API key>
+//   darkskylat=<location latitude>
+//   darkskylong=<location longitude>
+
 package weather
 
 import (

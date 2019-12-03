@@ -13,6 +13,12 @@
 // limitations under the License.
 
 // package csv writes the telemetered data to a daily CSV file.
+// Under the base directory, year and month directories are
+// created, and a daily file named as 'yyyy-mm-dd' is written.
+// The package is configured as a section in the main config file
+// under the '[csv]' section, and the parameters are:
+//  [csv]
+//  csv=<base directory>
 
 package csv
 

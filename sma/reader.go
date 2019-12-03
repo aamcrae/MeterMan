@@ -13,6 +13,10 @@
 // limitations under the License.
 
 // package sma implements reading telemetry data from a SMA solar inverter.
+// The package is configured as a section in the main config file
+// under the '[sma]' section, and the parameters are:
+//   [sma]
+//   inverter=<inverter-name>:<udp-port>,<password>
 
 package sma
 
