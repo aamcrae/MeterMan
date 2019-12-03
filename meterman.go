@@ -23,6 +23,7 @@ import (
 
 	_ "github.com/aamcrae/MeterMan/csv"
 	"github.com/aamcrae/MeterMan/db"
+	_ "github.com/aamcrae/MeterMan/hassi"
 	_ "github.com/aamcrae/MeterMan/meter"
 	_ "github.com/aamcrae/MeterMan/pv"
 	_ "github.com/aamcrae/MeterMan/server"
