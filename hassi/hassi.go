@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// package hassi implements a writer that uploads selected data
+// package hassi implements a writer that uploads data
 // to the Home Assistant API.
 //
 // The package is configured as a section in the main config file
@@ -20,8 +20,8 @@
 //  [hassi]
 //  apikey=<apikey from Home Assistant>
 //  url=<API endpoint>
-//  # An entity entry for each tag to upload.
-//  entity=<tag>,<Home Assistant entity ID>
+//
+// Values that are not stale are sent to Home assistant.
 
 package hassi
 
