@@ -39,16 +39,10 @@ import (
 
 var hassiRate = flag.Int("hassirate", 1, "Home Assistant update rate (in minutes)")
 
-type entity struct {
-	tag string
-	id  string
-}
-
 type hassi struct {
 	d        *db.DB
 	url      string
 	key      string
-	entities []entity
 	client   *http.Client
 }
 
@@ -71,65 +65,73 @@ func hassiInit(d *db.DB) error {
 	}
 	key = fmt.Sprintf("Bearer %s", key)
 	h := &hassi{d: d, url: url, key: key, client: &http.Client{}}
-	for _, e := range sect.Get("entity") {
-		if len(e.Tokens) != 2 {
-			return fmt.Errorf("hassiInit: bad entity config at %d", e.Lineno)
-		}
-		h.entities = append(h.entities, entity{e.Tokens[0], e.Tokens[1]})
-		if d.Trace {
-			log.Printf("hassi: tag %s: %s", e.Tokens[0], e.Tokens[1])
-		}
-	}
 	intv := time.Minute * time.Duration(*hassiRate)
 	d.AddUpdate(h, intv)
-	log.Printf("Registered Home Assistant uploader (%s interval, %d entities)\n", intv, len(h.entities))
+	log.Printf("Registered Home Assistant uploader (%s interval)\n", intv)
 	return nil
 }
 
 // Update uploads any updated tags to Home Assistant.
 func (h *hassi) Update(last time.Time, now time.Time) {
-	for _, e := range h.entities {
-		el := h.d.GetElement(e.tag)
-		if isValid(el, last) {
-			h.Send(el, e)
-		} else if h.d.Trace {
-			log.Printf("Not uploading tag %s (invalid or out of date)", e.tag)
-		}
-	}
-}
-
-// Send uploads one element to Home Assistant
-func (h *hassi) Send(el db.Element, e entity) {
 	type blk struct {
-		State float64 `json:"state"`
+		State string `json:"state"`
+		Attr map[string]float64  `json:"attributes"`
 	}
-	j := blk{State: el.Get()}
+	var b blk
+	tp := h.d.GetElement("TP")
+	if isFresh(tp, last) && tp.Get() < 0 {
+		b.State = "exporting"
+	} else {
+		b.State = "importing"
+	}
+	b.Attr = make(map[string]float64)
+	h.add(db.G_TP, "meter_power", last, b.Attr)
+	h.add(db.G_VOLTS, "volts", last, b.Attr)
+	h.add(db.G_GEN_P, "gen_power", last, b.Attr)
+	h.daily(db.A_OUT_TOTAL, "out", last, b.Attr)
+	h.daily(db.A_IN_TOTAL, "in", last, b.Attr)
+	h.daily(db.A_GEN_TOTAL, "gen_daily", last, b.Attr)
+	h.daily(db.A_IMPORT, "import", last, b.Attr)
+	h.daily(db.A_EXPORT, "export", last, b.Attr)
 	buf := new(bytes.Buffer)
-	json.NewEncoder(buf).Encode(&j)
-	u := fmt.Sprintf("%s/%s", h.url, e.id)
-	req, err := http.NewRequest("POST", u, buf)
+	json.NewEncoder(buf).Encode(&b)
+	req, err := http.NewRequest("POST", h.url, buf)
 	if err != nil {
-		log.Printf("NewRequest (%s) failed: %v", u, err)
+		log.Printf("NewRequest (%s) failed: %v", h.url, err)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", h.key)
 	res, err := h.client.Do(req)
-	defer res.Body.Close()
 	if err != nil {
-		log.Printf("Req (%s) failed: %v", u, err)
+		log.Printf("Req (%s) failed: %v", h.url, err)
 		return
 	}
+	defer res.Body.Close()
 	if res.StatusCode != 200 && res.StatusCode != 201 {
-		log.Printf("hassi: id %s, resp %s", e.id, res.Status)
+		log.Printf("hassi: req %s, resp %s", h.url, res.Status)
 	}
 	if h.d.Trace {
-		log.Printf("hassi: Sent element %s, value %f, url %s, resp %s", e.tag, el.Get(), u, res.Status)
+		log.Printf("hassi: Sent req %s, resp %s", h.url, res.Status)
 	}
 }
 
-// isValid will return true if the element is not nil and has been updated
+func (h *hassi) add(tag, attr string, last time.Time, m map[string]float64) {
+	e := h.d.GetElement(tag)
+	if isFresh(e, last) {
+		m[attr] = e.Get()
+	}
+}
+
+func (h *hassi) daily(tag, attr string, last time.Time, m map[string]float64) {
+	e := h.d.GetAccum(tag)
+	if isFresh(e, last) {
+		m[attr] = e.Daily()
+	}
+}
+
+// isFresh will return true if the element is not nil and has been updated
 // in the last interval.
-func isValid(e db.Element, last time.Time) bool {
+func isFresh(e db.Element, last time.Time) bool {
 	return e != nil && !e.Timestamp().Before(last)
 }
