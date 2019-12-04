@@ -40,10 +40,10 @@ import (
 var hassiRate = flag.Int("hassirate", 1, "Home Assistant update rate (in minutes)")
 
 type hassi struct {
-	d        *db.DB
-	url      string
-	key      string
-	client   *http.Client
+	d      *db.DB
+	url    string
+	key    string
+	client *http.Client
 }
 
 func init() {
@@ -74,8 +74,8 @@ func hassiInit(d *db.DB) error {
 // Update uploads any updated tags to Home Assistant.
 func (h *hassi) Update(last time.Time, now time.Time) {
 	type blk struct {
-		State string `json:"state"`
-		Attr map[string]float64  `json:"attributes"`
+		State string             `json:"state"`
+		Attr  map[string]float64 `json:"attributes"`
 	}
 	var b blk
 	tp := h.d.GetElement("TP")
