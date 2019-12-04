@@ -80,7 +80,7 @@ func hassiInit(d *db.DB) error {
 			log.Printf("hassi: tag %s: %s", e.Tokens[0], e.Tokens[1])
 		}
 	}
-	intv := time.Minute*time.Duration(*hassiRate)
+	intv := time.Minute * time.Duration(*hassiRate)
 	d.AddUpdate(h, intv)
 	log.Printf("Registered Home Assistant uploader (%s interval, %d entities)\n", intv, len(h.entities))
 	return nil
@@ -101,7 +101,7 @@ func (h *hassi) Update(last time.Time, now time.Time) {
 // Send uploads one element to Home Assistant
 func (h *hassi) Send(el db.Element, e entity) {
 	type blk struct {
-		State	float64 `json:"state"`
+		State float64 `json:"state"`
 	}
 	j := blk{State: el.Get()}
 	buf := new(bytes.Buffer)
