@@ -26,11 +26,12 @@
 package hassi
 
 import (
+	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
-	_ "net/url"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
@@ -68,6 +69,7 @@ func hassiInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
+	key = fmt.Sprintf("Bearer %s", key)
 	h := &hassi{d: d, url: url, key: key, client: &http.Client{}}
 	for _, e := range sect.Get("entity") {
 		if len(e.Tokens) != 2 {
@@ -89,9 +91,40 @@ func (h *hassi) Update(last time.Time, now time.Time) {
 	for _, e := range h.entities {
 		el := h.d.GetElement(e.tag)
 		if isValid(el, last) {
-			u := fmt.Sprintf("%s/%s", h.url, e.id)
-			log.Printf("hassi: Sending element %s, value %f, url %s", e.tag, el.Get(), u)
+			h.Send(el, e)
+		} else if h.d.Trace {
+			log.Printf("Not uploading tag %s (invalid or out of date)", e.tag)
 		}
+	}
+}
+
+// Send uploads one element to Home Assistant
+func (h *hassi) Send(el db.Element, e entity) {
+	type blk struct {
+		State	float64 `json:"state"`
+	}
+	j := blk{State: el.Get()}
+	buf := new(bytes.Buffer)
+	json.NewEncoder(buf).Encode(&j)
+	u := fmt.Sprintf("%s/%s", h.url, e.id)
+	req, err := http.NewRequest("POST", u, buf)
+	if err != nil {
+		log.Printf("NewRequest (%s) failed: %v", u, err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", h.key)
+	res, err := h.client.Do(req)
+	defer res.Body.Close()
+	if err != nil {
+		log.Printf("Req (%s) failed: %v", u, err)
+		return
+	}
+	if res.StatusCode != 200 && res.StatusCode != 201 {
+		log.Printf("hassi: id %s, resp %s", e.id, res.Status)
+	}
+	if h.d.Trace {
+		log.Printf("hassi: Sent element %s, value %f, url %s, resp %s", e.tag, el.Get(), u, res.Status)
 	}
 }
 
