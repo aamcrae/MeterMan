@@ -3,18 +3,18 @@
 MeterMan allows upload of data via REST to Home Assistant.
 This is configured in the MeterMan configuration as:
 
-'''
+```
 #
 # Home Assistant integration
 #
 [hassi]
 url=http://my-home-assistant.com:8123/api/states/sensor.meterman
 apikey=<long term api key>
-'''
+```
 
 The template platform can be used to wrap the data so that it can be stored and graphed:
 
-'''yaml
+```yaml
 sensor:
   - platform: template
     sensors:
@@ -54,4 +54,4 @@ sensor:
         friendly_name: "Voltage"
         unit_of_measurement: 'Volts'
         value_template: "{{ state_attr('sensor.meterman', 'volts') }}"
-'''
+```
