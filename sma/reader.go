@@ -29,7 +29,7 @@ import (
 	"github.com/aamcrae/MeterMan/db"
 )
 
-var smaPoll = flag.Int("inverter-poll", 55, "Inverter poll time (seconds)")
+var smaPoll = flag.Int("inverter-poll", 90, "Inverter poll time (seconds)")
 var smaRetry = flag.Int("inverter-retry", 10, "Inverter poll retry time (seconds)")
 
 // InverterReader polls the inverter(s)

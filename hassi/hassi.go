@@ -37,7 +37,7 @@ import (
 	"github.com/aamcrae/MeterMan/db"
 )
 
-var hassiRate = flag.Int("hassirate", 1, "Home Assistant update rate (in minutes)")
+var hassiRate = flag.Int("hassirate", 2, "Home Assistant update rate (in minutes)")
 
 type hassi struct {
 	d      *db.DB
