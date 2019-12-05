@@ -150,7 +150,7 @@ func (d *DB) Start() error {
 				log.Printf("Unknown tag: %s\n", r.Tag)
 			}
 		case tVal := <-tick:
-			d.update(tVal)
+			d.interval(tVal)
 		}
 	}
 }
@@ -249,10 +249,10 @@ func (d *DB) GetAccum(name string) Acc {
 	}
 }
 
-// update performs the per-interval actions in the following order:
-// - If a new day, call Midnight().
+// interval performs the per-interval actions in the following order:
+// - If a new day, call Midnight() on all the elements.
 // - Invoke the update functions.
-func (d *DB) update(tVal tickVal) {
+func (d *DB) interval(tVal tickVal) {
 	ip := tVal.ip
 	// Check for daily reset processing.
 	midnight := tVal.tick.YearDay() != d.lastDay
