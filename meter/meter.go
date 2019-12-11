@@ -89,12 +89,12 @@ func meterReader(d *db.DB) error {
 		return err
 	}
 	d.AddGauge(db.G_TP)
-	d.AddAccum(db.A_IN_TOTAL, false)
-	d.AddAccum(db.A_OUT_TOTAL, false)
-	d.AddSubAccum(db.A_IMPORT, false)
-	d.AddSubAccum(db.A_IMPORT, false)
-	d.AddSubAccum(db.A_EXPORT, false)
-	d.AddSubAccum(db.A_EXPORT, false)
+	d.AddAccum(db.A_IN_TOTAL, true)
+	d.AddAccum(db.A_OUT_TOTAL, true)
+	d.AddSubAccum(db.A_IMPORT, true)
+	d.AddSubAccum(db.A_IMPORT, true)
+	d.AddSubAccum(db.A_EXPORT, true)
+	d.AddSubAccum(db.A_EXPORT, true)
 	log.Printf("Registered LCD decoder\n")
 	go runReader(d, r, source, angle)
 	return nil
