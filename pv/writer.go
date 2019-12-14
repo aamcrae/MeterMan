@@ -86,7 +86,7 @@ func pvoutputInit(d *db.DB) error {
 
 // pvUpload creates a post request to pvoutput.org to upload the current data.
 func (p *pvWriter) Update(last time.Time, now time.Time) {
-	tp := p.d.GetElement(db.G_TP)
+	tp := p.d.GetElement(db.G_POWER)
 	pv_power := p.d.GetElement(db.G_GEN_P)
 	temp := p.d.GetElement(db.G_TEMP)
 	volts := p.d.GetElement(db.G_VOLTS)

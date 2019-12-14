@@ -29,7 +29,7 @@ const (
 	A_OUT_TOTAL = "OUT" // Total energy from PV to grid (KwH)
 	A_IMPORT    = "IMP" // Sum of separate phases, energy from grid (KwH)
 	A_EXPORT    = "EXP" // Sum of separate phases, energy to grid (KwH)
-	G_TP        = "TP"  // Current import/export power (-ve is export to grid) (Kw)
+	G_POWER     = "TP"  // Current import/export power (-ve is export to grid) (Kw)
 	// Values read from inverter,
 	A_GEN_TOTAL = "GEN-T" // Total energy generated from PV (KwH)
 	A_GEN_DAILY = "GEN-D" // Daily energy generated from PV (KWH)

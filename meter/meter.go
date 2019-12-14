@@ -55,7 +55,7 @@ var sourceTimeout = flag.Int("source_timeout", 20, "Source timeout in seconds")
 // Maps meter label to tag.
 var tagMap map[string]string = map[string]string{
 	"1NtL": db.A_OUT_TOTAL,
-	"tP  ": db.G_TP,
+	"tP  ": db.G_POWER,
 	"EHtL": db.A_IN_TOTAL,
 	"EHL1": db.A_IMPORT + "/0",
 	"EHL2": db.A_IMPORT + "/1",
@@ -88,7 +88,7 @@ func meterReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	d.AddGauge(db.G_TP)
+	d.AddGauge(db.G_POWER)
 	d.AddAccum(db.A_IN_TOTAL, true)
 	d.AddAccum(db.A_OUT_TOTAL, true)
 	d.AddSubAccum(db.A_IMPORT, true)
