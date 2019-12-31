@@ -17,13 +17,17 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/aamcrae/MeterMan/lcd"
-	"github.com/aamcrae/config"
+	"net/http"
 	"image"
 	"image/color"
 	"log"
 	"os"
 	"strconv"
+	"strings"
+	"time"
+
+	"github.com/aamcrae/MeterMan/lcd"
+	"github.com/aamcrae/config"
 )
 
 var output = flag.String("output", "output.jpg", "output jpeg file")
@@ -65,14 +69,31 @@ func main() {
 	if err != nil {
 		log.Fatalf("LCD config failed %v", err)
 	}
-	inf, err := os.Open(*input)
-	if err != nil {
-		log.Fatalf("Failed to open %s: %v", *input, err)
-	}
-	defer inf.Close()
-	in, _, err := image.Decode(inf)
-	if err != nil {
-		log.Fatalf("Failed to read %s: %v", *input, err)
+	var in image.Image
+	if len(*input) == 0 {
+		client := http.Client{
+			Timeout: time.Duration(10) * time.Second,
+		}
+		source, _ := sect.GetArg("source")
+		res, err := client.Get(source)
+		if err != nil {
+			log.Fatalf("Failed to retrieve source image from %s: %v", source, err)
+		}
+		in, _, err = image.Decode(res.Body)
+		res.Body.Close()
+		if err != nil {
+			log.Fatalf("Failed to decode image from %s: %v", source, err)
+		}
+	} else {
+		inf, err := os.Open(*input)
+		if err != nil {
+			log.Fatalf("Failed to open %s: %v", *input, err)
+		}
+		defer inf.Close()
+		in, _, err = image.Decode(inf)
+		if err != nil {
+			log.Fatalf("Failed to read %s: %v", *input, err)
+		}
 	}
 	if angle != 0 {
 		in = lcd.RotateImage(in, angle)
@@ -89,16 +110,31 @@ func main() {
 		}
 	}
 	if *process {
+		cf, _ := sect.GetArg("calibration")
+		if len(cf) != 0 {
+			if f, err := os.Open(cf); err != nil {
+				log.Fatalf("%s: %v\n", cf, err)
+			} else {
+				l.RestoreCalibration(f)
+				f.Close()
+				l.PickCalibration()
+			}
+		}
 		res := l.Decode(img)
+		var str strings.Builder
 		for i := range res.Digits {
 			d := &res.Digits[i]
-			fmt.Printf("segment %d = '%s', ok = %v, bits = %02x\n", i, d.Str, d.Valid, d.Mask)
+			if d.Valid {
+				str.WriteString(d.Str)
+			} else {
+				str.WriteRune('X')
+			}
 		}
+		fmt.Printf("Segments = <%s>\n", str.String())
 	}
 	l.MarkSamples(img, *fill)
 	err = lcd.SaveImage(*output, img)
 	if err != nil {
 		log.Fatalf("%s encode error: %v", *output, err)
 	}
-	fmt.Printf("Wrote %s successfully\n", *output)
 }
