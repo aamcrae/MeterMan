@@ -36,7 +36,7 @@ var section = flag.String("section", "meter", "Configuration section")
 var input = flag.String("input", "", "Input file")
 var process = flag.Bool("process", true, "Decode digits in image")
 var fill = flag.Bool("fill", true, "Fill in segments")
-var calibrate = flag.Bool("calibrate", true, "Calibrate using image")
+var calibrate = flag.Bool("calibrate", false, "Calibrate using image")
 var digits = flag.String("digits", "888888888888", "Digits for calibration")
 
 func init() {

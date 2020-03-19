@@ -65,6 +65,7 @@ var measures map[string]*measure = map[string]*measure{
 	"1NL1": &measure{handlerAccum, 100.0, 0, 0},    // KwH
 	"1NL2": &measure{handlerAccum, 100.0, 0, 0},    // KwH
 	"8888": &measure{handlerCalibrate, 1.0, 0, 0},
+	"4613": &measure{handlerUpdate, 1.0, 0, 0},
 }
 
 func NewReader(c *config.Section, trace bool) (*Reader, error) {
@@ -245,6 +246,13 @@ func handlerAccum(r *Reader, m *measure, key, value string) (string, float64, er
 func handlerCalibrate(r *Reader, m *measure, key, value string) (string, float64, error) {
 	if value != "88888888" {
 		return "", 0.0, fmt.Errorf("Wrong calibration value (%s)", value)
+	}
+	return "", 0.0, nil
+}
+
+func handlerUpdate(r *Reader, m *measure, key, value string) (string, float64, error) {
+	if value != "CoNPLEtE" {
+		return "", 0.0, fmt.Errorf("Wrong update value (%s)", value)
 	}
 	return "", 0.0, nil
 }
