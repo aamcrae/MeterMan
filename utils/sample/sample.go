@@ -17,10 +17,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"net/http"
 	"image"
 	"image/color"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"

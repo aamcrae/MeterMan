@@ -49,10 +49,15 @@ func (a *Accum) Update(v float64, ts time.Time) {
 	// Check whether the accumulator has been reset.
 	if v < a.value {
 		if !a.resettable {
-			log.Printf("Non-resettable accumulator going backwards, value = %f, current = %f\n", v, a.value)
+			log.Printf("Non-resettable accumulator change ignored, value = %f, current = %f, midnight = %f\n", v, a.value, a.midnight)
 			return
 		}
-		a.midnight = v
+		if v < a.midnight {
+			log.Printf("Accumulator reset, new value = %f, current = %f, midnight = %f\n", v, a.value, a.midnight)
+			a.midnight = v
+		} else {
+			log.Printf("Accumulator going backwards, ignored, value = %f, current = %f, midnight = %f\n", v, a.value, a.midnight)
+		}
 	}
 	a.value = v
 	a.ts = ts

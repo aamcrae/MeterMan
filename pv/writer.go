@@ -174,6 +174,8 @@ func (p *pvWriter) Update(last time.Time, now time.Time) {
 		cp := int((g + tp.Get()) * 1000)
 		if cp >= 0 {
 			val.Add("v4", fmt.Sprintf("%d", cp))
+		} else {
+			log.Printf("Negative power consumption (%d), v4 not updated, gen = %d, meter = %d\n", cp, int(g*1000), int(tp.Get()*1000))
 		}
 		if p.d.Trace {
 			if cp >= 0 {
