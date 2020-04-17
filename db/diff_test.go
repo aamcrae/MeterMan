@@ -21,33 +21,36 @@ import (
 	"testing"
 )
 
-func TestGauge(t *testing.T) {
-	g := NewGauge("100.0 10")
+func TestDiff(t *testing.T) {
+	g := NewDiff("10.0 100.0 10")
 	v := g.Get()
-	if !cmp(v, 100) {
-		t.Errorf("NewGauge: got %v want %v\n", v, 100.0)
+	if !diffCmp(v, 10) {
+		t.Errorf("Diff: got %v want %v\n", v, 10.0)
 	}
 	ts := g.Timestamp()
 	if ts != time.Unix(10, 0) {
-		t.Errorf("NewGauge: got %v want %v\n", ts, 10)
+		t.Errorf("Diff: got %v want %v\n", ts, 10)
 	}
-	g.Update(200.0, time.Unix(20, 0))
+    // Add 1KwH in 1 minute.
+	g.Update(101.0, time.Unix(10+60, 0))
 	ts = g.Timestamp()
-	if ts != time.Unix(20, 0) {
-		t.Errorf("NewGauge: got %v want %v\n", ts, 20)
+	if ts != time.Unix(70, 0) {
+		t.Errorf("Diff: got %v want %v\n", ts, 70)
 	}
+	// Should have 60 KwH
 	v = g.Get()
-	if !cmp(v, 200) {
-		t.Errorf("NewGauge: got %v want %v\n", v, 200.0)
+	if !diffCmp(v, 60) {
+		t.Errorf("Diff: got %v want %v\n", v, 60.0)
 	}
-	g.Update(100.0, time.Unix(30, 0))
+	// Add 4KwH in 2 minutes
+	g.Update(105.0, time.Unix(70+120, 0))
 	v = g.Get()
-	if !cmp(v, 100) {
-		t.Errorf("NewGauge: got %v want %v\n", v, 100.0)
+	if !diffCmp(v, 120) {
+		t.Errorf("Diff: got %v want %v\n", v, 120.0)
 	}
 }
 
-func cmp(f1, f2 float64) bool {
+func diffCmp(f1, f2 float64) bool {
 	const tolerance = 0.001 // Floating point comparison to 0.1%
 	if f1 == f2 {
 		return true
