@@ -53,14 +53,14 @@ var sampleTime = flag.Int("sample", 4900, "Image sample rate (milliseconds)")
 var sourceTimeout = flag.Int("source_timeout", 20, "Source timeout in seconds")
 
 // Maps meter label to tag.
-var tagMap map[string]string = map[string]string{
-	"1NtL": db.A_OUT_TOTAL,
-	"tP  ": db.G_POWER,
-	"EHtL": db.A_IN_TOTAL,
-	"EHL1": db.A_IMPORT + "/0",
-	"EHL2": db.A_IMPORT + "/1",
-	"1NL1": db.A_EXPORT + "/0",
-	"1NL2": db.A_EXPORT + "/1",
+var tagMap map[string][]string = map[string][]string{
+	"1NtL": {db.A_OUT_TOTAL, db.D_OUT_POWER},
+	"tP  ": {db.G_POWER},
+	"EHtL": {db.A_IN_TOTAL, db.D_IN_POWER},
+	"EHL1": {db.A_IMPORT + "/0"},
+	"EHL2": {db.A_IMPORT + "/1"},
+	"1NL1": {db.A_EXPORT + "/0"},
+	"1NL2": {db.A_EXPORT + "/1"},
 }
 
 func init() {
@@ -89,6 +89,8 @@ func meterReader(d *db.DB) error {
 		return err
 	}
 	d.AddGauge(db.G_POWER)
+	d.AddDiff(db.D_IN_POWER)
+	d.AddDiff(db.D_OUT_POWER)
 	d.AddAccum(db.A_IN_TOTAL, true)
 	d.AddAccum(db.A_OUT_TOTAL, true)
 	d.AddSubAccum(db.A_IMPORT, true)
@@ -133,11 +135,13 @@ func runReader(d *db.DB, r *Reader, source string, angle float64) {
 				lcd.SaveImage(*badFile, img)
 			}
 		} else if len(label) > 0 {
-			tag, ok := tagMap[label]
+			tags, ok := tagMap[label]
 			if !ok {
 				log.Printf("Unknown meter label: %s\n", label)
 			} else {
-				d.InChan <- db.Input{Tag: tag, Value: val}
+				for _, tag := range tags {
+					d.InChan <- db.Input{Tag: tag, Value: val}
+				}
 			}
 		}
 		r.Recalibrate()

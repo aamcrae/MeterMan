@@ -214,6 +214,14 @@ func (d *DB) AddGauge(name string) {
 	}
 }
 
+// AddDiff adds a new Diff element to the database.
+func (d *DB) AddDiff(name string) {
+	d.elements[name] = NewDiff(d.checkpointMap[name])
+	if d.Trace {
+		log.Printf("Adding diff %s\n", name)
+	}
+}
+
 // AddAccum adds a new accumulator to the database.
 func (d *DB) AddAccum(name string, resettable bool) {
 	d.elements[name] = NewAccum(d.checkpointMap[name], resettable)

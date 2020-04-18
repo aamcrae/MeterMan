@@ -86,6 +86,8 @@ func (h *hassi) Update(last time.Time, now time.Time) {
 	}
 	b.Attr = make(map[string]float64)
 	h.add(db.G_POWER, "meter_power", last, b.Attr)
+	h.add(db.D_IN_POWER, "in_power", last, b.Attr)
+	h.add(db.D_OUT_POWER, "out_power", last, b.Attr)
 	h.add(db.G_VOLTS, "volts", last, b.Attr)
 	h.add(db.G_GEN_P, "gen_power", last, b.Attr)
 	h.daily(db.A_OUT_TOTAL, "out", last, b.Attr)

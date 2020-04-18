@@ -86,7 +86,6 @@ func pvoutputInit(d *db.DB) error {
 
 // pvUpload creates a post request to pvoutput.org to upload the current data.
 func (p *pvWriter) Update(last time.Time, now time.Time) {
-	tp := p.d.GetElement(db.G_POWER)
 	pv_power := p.d.GetElement(db.G_GEN_P)
 	temp := p.d.GetElement(db.G_TEMP)
 	volts := p.d.GetElement(db.G_VOLTS)
@@ -166,16 +165,17 @@ func (p *pvWriter) Update(last time.Time, now time.Time) {
 		}
 		log.Printf("No consumption data, v3 not updated\n")
 	}
-	if isValid(tp, last) {
+	tp, err := p.getPower(last)
+	if err == nil {
 		var g float64
 		if isValid(pv_power, last) {
 			g = pv_power.Get()
 		}
-		cp := int((g + tp.Get()) * 1000)
+		cp := int(g + tp)
 		if cp >= 0 {
 			val.Add("v4", fmt.Sprintf("%d", cp))
 		} else {
-			log.Printf("Negative power consumption (%d), v4 not updated, gen = %d, meter = %d\n", cp, int(g*1000), int(tp.Get()*1000))
+			log.Printf("Negative power consumption (%d), v4 not updated, gen = %d, meter = %d\n", cp, int(g*1000), int(tp))
 		}
 		if p.d.Trace {
 			if cp >= 0 {
@@ -184,12 +184,8 @@ func (p *pvWriter) Update(last time.Time, now time.Time) {
 				log.Printf("power consumption = %d, not sent", cp)
 			}
 		}
-	} else if p.d.Trace {
-		if tp == nil {
-			log.Printf("No total power, v4 not updated\n")
-		} else if !isValid(tp, last) {
-			log.Printf("Total not fresh, v4 not updated\n")
-		}
+	} else {
+		log.Printf("Invalid total power, v4 not sent: %v\n", err)
 	}
 	req, err := http.NewRequest("POST", p.pvurl, strings.NewReader(val.Encode()))
 	if err != nil {
@@ -221,6 +217,25 @@ func (p *pvWriter) Update(last time.Time, now time.Time) {
 		body, _ := ioutil.ReadAll(resp.Body)
 		log.Printf("Error: %s: %s", resp.Status, body)
 	}
+}
+
+// getPower returns the current import/export power (as Watts)
+func (p *pvWriter) getPower(last time.Time) (float64, error) {
+	return 0, fmt.Errorf("not used")
+	tp := p.d.GetElement(db.G_POWER)
+	if isValid(tp, last) {
+		return tp.Get() * 1000.0, nil
+	}
+	// Total power is not available, try the derived power.
+	d_in := p.d.GetElement(db.D_IN_POWER)
+	if isValid(d_in, last) && d_in.Get() > 0 {
+		return d_in.Get() * 1000.0, nil
+	}
+	d_out := p.d.GetElement(db.D_OUT_POWER)
+	if isValid(d_out, last) {
+		return d_out.Get() * -1000.0, nil
+	}
+	return 0.0, fmt.Errorf("no valid power reading")
 }
 
 // isValid will return true if the element is not nil and has been updated
