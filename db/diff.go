@@ -19,33 +19,44 @@ import (
 	"time"
 )
 
-const kThreshold = 500		// Milliseconds minimum update time
+type diffValue struct {
+	value float64
+	ts time.Time
+}
 
 // Diff is a value representing a value derived from an accumulator.
 // Typical use would be deriving current Kw from KwH accumulators.
 type Diff struct {
-	value float64
-	previous float64
-	ts    time.Time
+	value float64		// Current calculated value
+	window time.Duration
+	previous []diffValue
 }
 
-func NewDiff(cp string) *Diff {
+func NewDiff(cp string, window time.Duration) *Diff {
 	d := new(Diff)
+	d.window = window
+	var p diffValue
 	var sec int64
-	fmt.Sscanf(cp, "%f %f %d", &d.value, &d.previous, &sec)
+	fmt.Sscanf(cp, "%f %f %d", &d.value, &p.value, &sec)
 	if sec != 0 {
-		d.ts = time.Unix(sec, 0)
+		p.ts = time.Unix(sec, 0)
 	}
+	d.previous = append(d.previous, p)
 	return d
 }
 
 func (d *Diff) Update(current float64, ts time.Time) {
-	t := ts.Sub(d.ts)
-	if t.Milliseconds() >= kThreshold {
-		d.value = (current - d.previous) / t.Hours()
+	t := ts.Add(-d.window)
+	// Remove elements that are outside the time window.
+	for len(d.previous) > 0 && !d.previous[0].ts.After(t) {
+		d.previous = d.previous[1:]
 	}
-	d.previous = current
-	d.ts = ts
+	d.previous = append(d.previous,  diffValue{current, ts})
+	// Calculate value if there are at least 2 items.
+	if len(d.previous) >= 2 {
+		td := ts.Sub(d.previous[0].ts)
+		d.value = (current - d.previous[0].value) / td.Hours()
+	}
 }
 
 func (d *Diff) Midnight() {
@@ -56,9 +67,9 @@ func (d *Diff) Get() float64 {
 }
 
 func (d *Diff) Timestamp() time.Time {
-	return d.ts
+	return d.previous[len(d.previous)-1].ts
 }
 
 func (d *Diff) Checkpoint() string {
-	return fmt.Sprintf("%f %f %d", d.value, d.previous, d.ts.Unix())
+	return fmt.Sprintf("%f %f %d", d.value, d.previous[0].value, d.previous[0].ts.Unix())
 }

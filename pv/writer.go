@@ -171,7 +171,7 @@ func (p *pvWriter) Update(last time.Time, now time.Time) {
 		if isValid(pv_power, last) {
 			g = pv_power.Get()
 		}
-		cp := int(g + tp)
+		cp := int(g*1000 + tp)
 		if cp >= 0 {
 			val.Add("v4", fmt.Sprintf("%d", cp))
 		} else {
@@ -221,19 +221,20 @@ func (p *pvWriter) Update(last time.Time, now time.Time) {
 
 // getPower returns the current import/export power (as Watts)
 func (p *pvWriter) getPower(last time.Time) (float64, error) {
-	return 0, fmt.Errorf("not used")
 	tp := p.d.GetElement(db.G_POWER)
+	d_in := p.d.GetElement(db.D_IN_POWER)
+	d_out := p.d.GetElement(db.D_OUT_POWER)
+	if p.d.Trace {
+		log.Printf("TP    = %f, valid = %v", tp.Get(), isValid(tp, last))
+		log.Printf("IN-P  = %f, valid = %v", d_in.Get(), isValid(d_in, last))
+		log.Printf("OUT-P = %f, valid = %v", d_out.Get(), isValid(d_out, last))
+	}
 	if isValid(tp, last) {
 		return tp.Get() * 1000.0, nil
 	}
 	// Total power is not available, try the derived power.
-	d_in := p.d.GetElement(db.D_IN_POWER)
-	if isValid(d_in, last) && d_in.Get() > 0 {
-		return d_in.Get() * 1000.0, nil
-	}
-	d_out := p.d.GetElement(db.D_OUT_POWER)
-	if isValid(d_out, last) {
-		return d_out.Get() * -1000.0, nil
+	if isValid(d_in, last) && isValid(d_out, last) {
+		return (d_in.Get() - d_out.Get()) * 1000.0, nil
 	}
 	return 0.0, fmt.Errorf("no valid power reading")
 }

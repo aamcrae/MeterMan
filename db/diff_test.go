@@ -22,7 +22,7 @@ import (
 )
 
 func TestDiff(t *testing.T) {
-	g := NewDiff("10.0 100.0 10")
+	g := NewDiff("10.0 100.0 10", time.Minute * 5))
 	v := g.Get()
 	if !diffCmp(v, 10) {
 		t.Errorf("Diff: got %v want %v\n", v, 10.0)
