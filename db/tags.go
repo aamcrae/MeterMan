@@ -25,13 +25,13 @@ package db
 // sum of the 2 inputs.
 const (
 	// Values read from meter.
-	A_IN_TOTAL  = "IN"  // Total energy from grid to house (KwH)
-	A_OUT_TOTAL = "OUT" // Total energy from PV to grid (KwH)
-	A_IMPORT    = "IMP" // Sum of separate phases, energy from grid (KwH)
-	A_EXPORT    = "EXP" // Sum of separate phases, energy to grid (KwH)
-	G_POWER     = "TP"  // Current import/export power (-ve is export to grid) (Kw)
-	D_IN_POWER	= "IN-P" // Derived In power
-	D_OUT_POWER	= "OUT-P" // Derived Out power
+	A_IN_TOTAL  = "IN"    // Total energy from grid to house (KwH)
+	A_OUT_TOTAL = "OUT"   // Total energy from PV to grid (KwH)
+	A_IMPORT    = "IMP"   // Sum of separate phases, energy from grid (KwH)
+	A_EXPORT    = "EXP"   // Sum of separate phases, energy to grid (KwH)
+	G_POWER     = "TP"    // Current import/export power (-ve is export to grid) (Kw)
+	D_IN_POWER  = "IN-P"  // Derived In power
+	D_OUT_POWER = "OUT-P" // Derived Out power
 	// Values read from inverter,
 	A_GEN_TOTAL = "GEN-T" // Total energy generated from PV (KwH)
 	A_GEN_DAILY = "GEN-D" // Daily energy generated from PV (KWH)

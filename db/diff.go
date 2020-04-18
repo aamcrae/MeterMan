@@ -21,14 +21,14 @@ import (
 
 type diffValue struct {
 	value float64
-	ts time.Time
+	ts    time.Time
 }
 
 // Diff is a value representing a value derived from an accumulator.
 // Typical use would be deriving current Kw from KwH accumulators.
 type Diff struct {
-	value float64		// Current calculated value
-	window time.Duration
+	value    float64 // Current calculated value
+	window   time.Duration
 	previous []diffValue
 }
 
@@ -51,7 +51,7 @@ func (d *Diff) Update(current float64, ts time.Time) {
 	for len(d.previous) > 0 && !d.previous[0].ts.After(t) {
 		d.previous = d.previous[1:]
 	}
-	d.previous = append(d.previous,  diffValue{current, ts})
+	d.previous = append(d.previous, diffValue{current, ts})
 	// Calculate value if there are at least 2 items.
 	if len(d.previous) >= 2 {
 		td := ts.Sub(d.previous[0].ts)
