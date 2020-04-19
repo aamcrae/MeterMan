@@ -78,12 +78,6 @@ func (h *hassi) Update(last time.Time, now time.Time) {
 		Attr  map[string]float64 `json:"attributes"`
 	}
 	var b blk
-	tp := h.d.GetElement("TP")
-	if isFresh(tp, last) && tp.Get() < 0 {
-		b.State = "exporting"
-	} else {
-		b.State = "importing"
-	}
 	b.Attr = make(map[string]float64)
 	h.add(db.D_IN_POWER, "in_power", last, b.Attr)
 	h.add(db.D_OUT_POWER, "out_power", last, b.Attr)
@@ -92,6 +86,18 @@ func (h *hassi) Update(last time.Time, now time.Time) {
 		out_p := h.d.GetElement(db.D_OUT_POWER)
 		if isFresh(in_p, last) && isFresh(out_p, last) {
 			b.Attr["meter_power"] = in_p.Get() - out_p.Get()
+			if in_p.Get() <= out_p.Get() {
+				b.State = "exporting"
+			} else {
+				b.State = "importing"
+			}
+		}
+	} else {
+		tp := h.d.GetElement("TP")
+		if isFresh(tp, last) && tp.Get() < 0 {
+			b.State = "exporting"
+		} else {
+			b.State = "importing"
 		}
 	}
 	h.add(db.G_VOLTS, "volts", last, b.Attr)
