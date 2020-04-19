@@ -85,9 +85,15 @@ func (h *hassi) Update(last time.Time, now time.Time) {
 		b.State = "importing"
 	}
 	b.Attr = make(map[string]float64)
-	h.add(db.G_POWER, "meter_power", last, b.Attr)
 	h.add(db.D_IN_POWER, "in_power", last, b.Attr)
 	h.add(db.D_OUT_POWER, "out_power", last, b.Attr)
+	if !h.add(db.G_POWER, "meter_power", last, b.Attr) {
+		in_p := h.d.GetElement(db.D_IN_POWER)
+		out_p := h.d.GetElement(db.D_OUT_POWER)
+		if isFresh(in_p, last) && isFresh(out_p, last) {
+			b.Attr["meter_power"] = in_p.Get() - out_p.Get()
+		}
+	}
 	h.add(db.G_VOLTS, "volts", last, b.Attr)
 	h.add(db.G_GEN_P, "gen_power", last, b.Attr)
 	h.daily(db.A_OUT_TOTAL, "out", last, b.Attr)
@@ -118,11 +124,13 @@ func (h *hassi) Update(last time.Time, now time.Time) {
 	}
 }
 
-func (h *hassi) add(tag, attr string, last time.Time, m map[string]float64) {
+func (h *hassi) add(tag, attr string, last time.Time, m map[string]float64) bool {
 	e := h.d.GetElement(tag)
 	if isFresh(e, last) {
 		m[attr] = e.Get()
+		return true
 	}
+	return false
 }
 
 func (h *hassi) daily(tag, attr string, last time.Time, m map[string]float64) {
