@@ -88,7 +88,7 @@ func (s *apiServer) api(w http.ResponseWriter, req *http.Request) {
 		log.Printf("Request: %s", req.URL.String())
 	}
 	var c Data
-	s.gauge(&c.Power, db.G_POWER, 1000)
+	c.Power = int((s.d.GetElement(db.D_IN_POWER).Get() - s.d.GetElement(db.D_OUT_POWER).Get()) * 1000.0)
 	s.daily(&c.Import, db.A_IMPORT, 1000)
 	s.daily(&c.Export, db.A_EXPORT, 1000)
 	s.daily(&c.Generated, db.A_GEN_TOTAL, 1000)
@@ -105,15 +105,6 @@ func (s *apiServer) api(w http.ResponseWriter, req *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(m)
-}
-
-// Fill in item from the gauge
-func (s *apiServer) gauge(i *int, n string, scale float64) {
-	e := s.d.GetElement(n)
-	if e == nil {
-		return
-	}
-	*i = int(e.Get() * scale)
 }
 
 // Fill in item from the daily value of the accumlator

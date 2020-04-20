@@ -81,20 +81,11 @@ func (h *hassi) Update(last time.Time, now time.Time) {
 	b.Attr = make(map[string]float64)
 	h.add(db.D_IN_POWER, "in_power", last, b.Attr)
 	h.add(db.D_OUT_POWER, "out_power", last, b.Attr)
-	if !h.add(db.G_POWER, "meter_power", last, b.Attr) {
-		in_p := h.d.GetElement(db.D_IN_POWER)
-		out_p := h.d.GetElement(db.D_OUT_POWER)
-		if isFresh(in_p, last) && isFresh(out_p, last) {
-			b.Attr["meter_power"] = in_p.Get() - out_p.Get()
-			if in_p.Get() <= out_p.Get() {
-				b.State = "exporting"
-			} else {
-				b.State = "importing"
-			}
-		}
-	} else {
-		tp := h.d.GetElement("TP")
-		if isFresh(tp, last) && tp.Get() < 0 {
+	in_p := h.d.GetElement(db.D_IN_POWER)
+	out_p := h.d.GetElement(db.D_OUT_POWER)
+	if isFresh(in_p, last) && isFresh(out_p, last) {
+		b.Attr["meter_power"] = in_p.Get() - out_p.Get()
+		if in_p.Get() <= out_p.Get() {
 			b.State = "exporting"
 		} else {
 			b.State = "importing"

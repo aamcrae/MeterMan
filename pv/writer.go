@@ -86,7 +86,7 @@ func pvoutputInit(d *db.DB) error {
 
 // pvUpload creates a post request to pvoutput.org to upload the current data.
 func (p *pvWriter) Update(last time.Time, now time.Time) {
-	pv_power := p.d.GetElement(db.G_GEN_P)
+	pv_power := p.d.GetElement(db.D_GEN_P)
 	temp := p.d.GetElement(db.G_TEMP)
 	volts := p.d.GetElement(db.G_VOLTS)
 	pv_daily := p.d.GetAccum(db.A_GEN_TOTAL)
@@ -221,18 +221,12 @@ func (p *pvWriter) Update(last time.Time, now time.Time) {
 
 // getPower returns the current import/export power (as Watts)
 func (p *pvWriter) getPower(last time.Time) (float64, error) {
-	tp := p.d.GetElement(db.G_POWER)
 	d_in := p.d.GetElement(db.D_IN_POWER)
 	d_out := p.d.GetElement(db.D_OUT_POWER)
 	if p.d.Trace {
-		log.Printf("TP    = %f, valid = %v", tp.Get(), isValid(tp, last))
 		log.Printf("IN-P  = %f, valid = %v", d_in.Get(), isValid(d_in, last))
 		log.Printf("OUT-P = %f, valid = %v", d_out.Get(), isValid(d_out, last))
 	}
-	if isValid(tp, last) {
-		return tp.Get() * 1000.0, nil
-	}
-	// Total power is not available, try the derived power.
 	if isValid(d_in, last) && isValid(d_out, last) {
 		return (d_in.Get() - d_out.Get()) * 1000.0, nil
 	}
