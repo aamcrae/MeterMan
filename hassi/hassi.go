@@ -101,7 +101,7 @@ func (h *hassi) Update(last time.Time, now time.Time) {
 		}
 	}
 	h.add(db.G_VOLTS, "volts", last, b.Attr)
-	h.add(db.G_GEN_P, "gen_power", last, b.Attr)
+	h.add(db.D_GEN_P, "gen_power", last, b.Attr)
 	h.daily(db.A_OUT_TOTAL, "out", last, b.Attr)
 	h.daily(db.A_IN_TOTAL, "in", last, b.Attr)
 	h.daily(db.A_GEN_TOTAL, "gen_daily", last, b.Attr)
