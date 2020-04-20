@@ -19,52 +19,52 @@ import (
 	"time"
 )
 
-// MultiGauge allows multiple gauges to be treated as a single gauge.
+// MultiElement allows multiple elements to be treated as a single elements.
 // The values are summed or averaged depending on the flag.
-type MultiGauge struct {
+type MultiElement struct {
 	name    string
 	average bool
-	gauges  []*Gauge
+	elements  []Element
 }
 
-func NewMultiGauge(base string, average bool) *MultiGauge {
-	return &MultiGauge{name: base, average: average}
+func NewMultiElement(base string, average bool) *MultiElement {
+	return &MultiElement{name: base, average: average}
 }
 
-func (m *MultiGauge) NextTag() string {
-	return fmt.Sprintf("%s/%d", m.name, len(m.gauges))
+func (m *MultiElement) NextTag() string {
+	return fmt.Sprintf("%s/%d", m.name, len(m.elements))
 }
 
-func (m *MultiGauge) Add(g *Gauge) {
-	m.gauges = append(m.gauges, g)
+func (m *MultiElement) Add(g Element) {
+	m.elements = append(m.elements, g)
 }
 
-func (m *MultiGauge) Update(value float64, ts time.Time) {
+func (m *MultiElement) Update(value float64, ts time.Time) {
 	// Should never happen.
-	panic(fmt.Errorf("Update called on MultiGauge"))
+	panic(fmt.Errorf("Update called on MultiElement"))
 }
 
-func (m *MultiGauge) Midnight() {
-	for _, g := range m.gauges {
+func (m *MultiElement) Midnight() {
+	for _, g := range m.elements {
 		g.Midnight()
 	}
 }
 
-func (m *MultiGauge) Get() float64 {
+func (m *MultiElement) Get() float64 {
 	var v float64
-	for _, g := range m.gauges {
+	for _, g := range m.elements {
 		v += g.Get()
 	}
 	if m.average {
-		v = v / float64(len(m.gauges))
+		v = v / float64(len(m.elements))
 	}
 	return v
 }
 
 // Return the oldest timestamp.
-func (m *MultiGauge) Timestamp() time.Time {
+func (m *MultiElement) Timestamp() time.Time {
 	var timestamp time.Time
-	for _, g := range m.gauges {
+	for _, g := range m.elements {
 		ts := g.Timestamp()
 		if timestamp.IsZero() || timestamp.After(ts) {
 			timestamp = ts
@@ -73,6 +73,6 @@ func (m *MultiGauge) Timestamp() time.Time {
 	return timestamp
 }
 
-func (m *MultiGauge) Checkpoint() string {
+func (m *MultiElement) Checkpoint() string {
 	return ""
 }

@@ -172,10 +172,10 @@ func (d *DB) AddUpdate(upd Update, intv time.Duration) {
 func (d *DB) AddSubGauge(base string, average bool) string {
 	el, ok := d.elements[base]
 	if !ok {
-		el = NewMultiGauge(base, average)
+		el = NewMultiElement(base, average)
 		d.elements[base] = el
 	}
-	m := el.(*MultiGauge)
+	m := el.(*MultiElement)
 	tag := m.NextTag()
 	g := NewGauge(d.checkpointMap[tag])
 	m.Add(g)
