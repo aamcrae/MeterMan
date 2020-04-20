@@ -22,9 +22,9 @@ import (
 // MultiElement allows multiple elements to be treated as a single elements.
 // The values are summed or averaged depending on the flag.
 type MultiElement struct {
-	name    string
-	average bool
-	elements  []Element
+	name     string
+	average  bool
+	elements []Element
 }
 
 func NewMultiElement(base string, average bool) *MultiElement {
