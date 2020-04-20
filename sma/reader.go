@@ -37,6 +37,7 @@ type InverterReader struct {
 	d        *db.DB
 	sma      *SMA
 	genP     string
+	genDP    string
 	volts    string
 	genDaily string
 	genT     string
@@ -65,6 +66,7 @@ func inverterReader(d *db.DB) error {
 		s.volts = d.AddSubGauge(db.G_VOLTS, true)
 		s.genDaily = d.AddSubAccum(db.A_GEN_DAILY, true)
 		s.genT = d.AddSubAccum(db.A_GEN_TOTAL, false)
+		s.genDP = d.AddSubDiff(db.D_GEN_P, false)
 		log.Printf("Registered SMA inverter reader for %s\n", s.sma.Name())
 		go s.run()
 	}
@@ -115,6 +117,7 @@ func (s *InverterReader) poll(daytime bool) error {
 			log.Printf("Tag %s Total yield = %f", s.genT, t)
 		}
 		s.d.InChan <- db.Input{Tag: s.genT, Value: t}
+		s.d.InChan <- db.Input{Tag: s.genDP, Value: t}
 	}
 	if daytime {
 		v, err := s.sma.Voltage()

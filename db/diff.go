@@ -26,6 +26,8 @@ type diffValue struct {
 
 // Diff is a value representing a value derived from an accumulator.
 // Typical use would be deriving current Kw from KwH accumulators.
+// The window duration defines how long to hold the values before calculating
+// the difference.
 type Diff struct {
 	value    float64 // Current calculated value
 	window   time.Duration

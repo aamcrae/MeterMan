@@ -186,6 +186,26 @@ func (d *DB) AddSubGauge(base string, average bool) string {
 	return tag
 }
 
+// AddSubDiff adds a sub-diff to a holding element.
+// If average is true, values are averaged, otherwise they are summed.
+// The tag of the new Diff is returned.
+func (d *DB) AddSubDiff(base string, average bool) string {
+	el, ok := d.elements[base]
+	if !ok {
+		el = NewMultiElement(base, average)
+		d.elements[base] = el
+	}
+	m := el.(*MultiElement)
+	tag := m.NextTag()
+	nd := NewDiff(d.checkpointMap[tag], time.Minute*5)
+	m.Add(nd)
+	d.elements[tag] = nd
+	if d.Trace {
+		log.Printf("Adding subdiff %s to %s\n", tag, base)
+	}
+	return tag
+}
+
 // AddSubAccum adds an sub-accumulator to a master accumulator.
 // The tag of the new accumulator is returned.
 func (d *DB) AddSubAccum(base string, resettable bool) string {

@@ -37,6 +37,7 @@ const (
 	A_GEN_DAILY = "GEN-D" // Daily energy generated from PV (KWH)
 	G_GEN_P     = "GEN-P" // Current PV power (Kw)
 	G_VOLTS     = "VOLTS" // Current AC voltage (V)
+	D_GEN_P     = "D-GEN-P" // Derived PV power.
 	// Values read from weather service.
 	G_TEMP = "TEMP" // Current temperature
 	// Special values.
