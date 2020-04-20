@@ -37,6 +37,7 @@ type apiServer struct {
 type Item struct {
 	Total     int   `json: "daily"`
 	Daily     int   `json: "total"`
+	Power     int   `json: "power"`
 	Timestamp int64 `json: "timestamp"`
 }
 
@@ -89,11 +90,14 @@ func (s *apiServer) api(w http.ResponseWriter, req *http.Request) {
 	}
 	var c Data
 	c.Power = int((s.d.GetElement(db.D_IN_POWER).Get() - s.d.GetElement(db.D_OUT_POWER).Get()) * 1000.0)
-	s.daily(&c.Import, db.A_IMPORT, 1000)
-	s.daily(&c.Export, db.A_EXPORT, 1000)
-	s.daily(&c.Generated, db.A_GEN_TOTAL, 1000)
+	s.daily(&c.Import, db.A_IMPORT, db.D_IN_POWER, 1000)
+	s.daily(&c.Export, db.A_EXPORT, db.D_OUT_POWER, 1000)
+	s.daily(&c.Generated, db.A_GEN_TOTAL, db.D_GEN_P, 1000)
 	c.Consumption.Daily = c.Generated.Daily + c.Import.Daily - c.Export.Daily
 	c.Consumption.Total = c.Generated.Total + c.Import.Total - c.Export.Total
+	c.Power = c.Import.Power - c.Export.Power
+	c.Consumption.Power = c.Generated.Power + c.Power
+	c.Consumption.Timestamp = c.Import.Timestamp
 	if c.Power < 0 {
 		c.Available = -c.Power
 	}
@@ -108,13 +112,17 @@ func (s *apiServer) api(w http.ResponseWriter, req *http.Request) {
 }
 
 // Fill in item from the daily value of the accumlator
-func (s *apiServer) daily(i *Item, n string, scale float64) {
+func (s *apiServer) daily(i *Item, n, p string, scale float64) {
 	e := s.d.GetAccum(n)
 	if e == nil {
 		return
 	}
 	i.Daily = int(e.Daily() * scale)
 	i.Total = int(e.Get() * scale)
+	ep := s.d.GetElement(p)
+	if ep != nil {
+		i.Power = int(ep.Get() * scale)
+	}
 	i.Timestamp = e.Timestamp().Unix()
 }
 
