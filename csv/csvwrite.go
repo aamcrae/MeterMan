@@ -44,9 +44,8 @@ type writer struct {
 
 const header = "#date,time"
 
-var gauges []string = []string{"TP", "GEN-P", "VOLTS", "TEMP"}
+var elements []string = []string{"GEN-P", "VOLTS", "TEMP", "IN-P", "OUT-P", "D-GEN-P"}
 var accums []string = []string{"IMP", "EXP", "GEN-T", "GEN-D", "IN", "OUT"}
-var diffs []string = []string{"IN-P", "OUT-P"}
 
 type csv struct {
 	d      *db.DB
@@ -92,14 +91,11 @@ func (c *csv) Update(last time.Time, now time.Time) {
 		}
 		if created {
 			fmt.Fprint(c.writer, header)
-			for _, s := range gauges {
+			for _, s := range elements {
 				fmt.Fprintf(c.writer, ",%s", s)
 			}
 			for _, s := range accums {
 				fmt.Fprintf(c.writer, ",%s,%s-DAILY", s, s)
-			}
-			for _, s := range diffs {
-				fmt.Fprintf(c.writer, ",%s", s)
 			}
 			fmt.Fprint(c.writer, "\n")
 		}
@@ -110,7 +106,7 @@ func (c *csv) Update(last time.Time, now time.Time) {
 		log.Printf("Writing CSV data to %s\n", c.writer.name)
 	}
 	fmt.Fprint(c.writer, now.Format("2006-01-02,15:04"))
-	for _, s := range gauges {
+	for _, s := range elements {
 		g := c.d.GetElement(s)
 		fmt.Fprint(c.writer, ",")
 		if g != nil && !g.Timestamp().Before(last) {
@@ -124,13 +120,6 @@ func (c *csv) Update(last time.Time, now time.Time) {
 			fmt.Fprintf(c.writer, "%f,%f", a.Get(), a.Daily())
 		} else {
 			fmt.Fprint(c.writer, ",")
-		}
-	}
-	for _, s := range diffs {
-		d := c.d.GetElement(s)
-		fmt.Fprint(c.writer, ",")
-		if d != nil && !d.Timestamp().Before(last) {
-			fmt.Fprintf(c.writer, "%f", d.Get())
 		}
 	}
 	fmt.Fprint(c.writer, "\n")
