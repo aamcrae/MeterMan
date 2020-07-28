@@ -35,19 +35,19 @@ type apiServer struct {
 }
 
 type Item struct {
-	Total     int   `json: "daily"`
-	Daily     int   `json: "total"`
-	Power     int   `json: "power"`
-	Timestamp int64 `json: "timestamp"`
+	Total     int   `json:"daily"`
+	Daily     int   `json:"total"`
+	Power     int   `json:"power"`
+	Timestamp int64 `json:"timestamp"`
 }
 
 type Data struct {
-	Power       int  `json: "power"`
-	Available   int  `json: "available"`
-	Import      Item `json: "import"`
-	Export      Item `json: "export"`
-	Generated   Item `json: "generated"`
-	Consumption Item `json: "consumption"`
+	Power       int  `json:"power"`
+	Available   int  `json:"available"`
+	Import      Item `json:"import"`
+	Export      Item `json:"export"`
+	Generated   Item `json:"generated"`
+	Consumption Item `json:"consumption"`
 }
 
 func init() {
