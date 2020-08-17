@@ -86,10 +86,10 @@ func pvoutputInit(d *db.DB) error {
 
 // pvUpload creates a post request to pvoutput.org to upload the current data.
 func (p *pvWriter) Update(last time.Time, now time.Time) {
-	pv_power := p.d.GetElement(db.D_GEN_P)
+	pv_power, pv_power_ok := p.getPVPower(last)
+	pv_daily, pv_daily_ok := p.getPVDaily(last)
 	temp := p.d.GetElement(db.G_TEMP)
 	volts := p.d.GetElement(db.G_VOLTS)
-	pv_daily := p.d.GetAccum(db.A_GEN_TOTAL)
 	imp := p.d.GetAccum(db.A_IN_TOTAL)
 	exp := p.d.GetAccum(db.A_OUT_TOTAL)
 	hour := now.Hour()
@@ -98,22 +98,20 @@ func (p *pvWriter) Update(last time.Time, now time.Time) {
 	val := url.Values{}
 	val.Add("d", now.Format("20060102"))
 	val.Add("t", now.Format("15:04"))
-	if isValid(pv_daily, last) && daytime {
-		val.Add("v1", fmt.Sprintf("%d", int(pv_daily.Daily()*1000)))
+	if pv_daily_ok && daytime {
+		val.Add("v1", fmt.Sprintf("%d", int(pv_daily*1000)))
 		if p.d.Trace {
-			log.Printf("v1 = %f", pv_daily.Daily())
+			log.Printf("v1 = %f", pv_daily)
 		}
 	} else if p.d.Trace {
-		if pv_daily == nil {
-			log.Printf("No PV energy total, v1 not updated\n")
-		} else {
-			log.Printf("PV Energy not fresh, v1 not updated\n")
+		if !pv_daily_ok {
+			log.Printf("PV Energy not valid, v1 not updated\n")
 		}
 	}
-	if isValid(pv_power, last) && pv_power.Get() != 0 {
-		val.Add("v2", fmt.Sprintf("%d", int(pv_power.Get()*1000)))
+	if pv_power_ok && pv_power != 0 {
+		val.Add("v2", fmt.Sprintf("%d", int(pv_power*1000)))
 		if p.d.Trace {
-			log.Printf("v2 = %f", pv_power.Get())
+			log.Printf("v2 = %f", pv_power)
 		}
 	} else if p.d.Trace {
 		log.Printf("No PV power, v2 not updated\n")
@@ -137,19 +135,13 @@ func (p *pvWriter) Update(last time.Time, now time.Time) {
 	if isValid(imp, last) && isValid(exp, last) {
 		consumption := imp.Daily() - exp.Daily()
 		// Daily PV generation may be out of date, but it is used regardless.
-		if pv_daily != nil {
-			consumption += pv_daily.Daily()
-		}
+		consumption += pv_daily
 		val.Add("v3", fmt.Sprintf("%d", int(consumption*1000)))
 		if p.d.Trace {
 			log.Printf("v3 = %f, imp = %f, exp = %f", consumption, imp.Daily(), exp.Daily())
-			if pv_daily != nil {
-				log.Printf("daily = %f", pv_daily.Daily())
-				if !isValid(pv_daily, last) {
-					log.Printf("Using old generation data")
-				}
-			} else {
-				log.Printf("No PV energy data\n")
+			log.Printf("daily = %f", pv_daily)
+			if !pv_daily_ok {
+				log.Printf("Using old generation data")
 			}
 		}
 	} else if *pvLog || p.d.Trace {
@@ -168,8 +160,8 @@ func (p *pvWriter) Update(last time.Time, now time.Time) {
 	tp, err := p.getPower(last)
 	if err == nil {
 		var g float64
-		if isValid(pv_power, last) {
-			g = pv_power.Get()
+		if pv_power_ok {
+			g = pv_power
 		}
 		cp := int(g*1000 + tp)
 		if cp < 0 {
@@ -213,6 +205,64 @@ func (p *pvWriter) Update(last time.Time, now time.Time) {
 		body, _ := ioutil.ReadAll(resp.Body)
 		log.Printf("Error: %s: %s", resp.Status, body)
 	}
+}
+
+// getPVPower returns the current PV power.
+// If it is not valid, an attempt is made to derive it from any
+// valid sub-values.
+func (p *pvWriter) getPVPower(last time.Time) (float64, bool) {
+	pwr := p.d.GetElement(db.D_GEN_P)
+	if isValid(pwr, last) {
+		return pwr.Get(), true
+	}
+	if p.d.Trace {
+		log.Printf("%s not valid, trying sub-values", db.A_GEN_TOTAL)
+	}
+	for i := 0; i < 2; i++ {
+		pe := p.d.GetElement(fmt.Sprintf("%s/%d", db.D_GEN_P, i))
+		if pe == nil {
+			break
+		}
+		if isValid(pe, last) {
+			if p.d.Trace {
+				log.Printf("Using 2 x %s/%d (value %f)", db.D_GEN_P, i, pe.Get())
+			}
+			return pe.Get() * 2, true
+		}
+	}
+	if pwr != nil {
+		return pwr.Get(), false
+	}
+	return 0, false
+}
+
+// getPVDaily returns the PV daily generation.
+// If it is not valid, an attempt is made to derive it from any
+// valid sub-values.
+func (p *pvWriter) getPVDaily(last time.Time) (float64, bool) {
+	pd := p.d.GetAccum(db.A_GEN_TOTAL)
+	if isValid(pd, last) {
+		return pd.Daily(), true
+	}
+	if p.d.Trace {
+		log.Printf("%s not valid, trying sub-values", db.A_GEN_TOTAL)
+	}
+	for i := 0; i < 2; i++ {
+		pe := p.d.GetAccum(fmt.Sprintf("%s/%d", db.A_GEN_TOTAL, i))
+		if pe == nil {
+			break
+		}
+		if isValid(pe, last) {
+			if p.d.Trace {
+				log.Printf("Using 2 x %s/%d (value %f)", db.A_GEN_TOTAL, i, pe.Daily())
+			}
+			return pe.Daily() * 2, true
+		}
+	}
+	if pd != nil {
+		return pd.Daily(), false
+	}
+	return 0, false
 }
 
 // getPower returns the current import/export power (as Watts)
