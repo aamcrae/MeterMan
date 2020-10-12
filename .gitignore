@@ -9,6 +9,7 @@ utils/sample/sample
 utils/scandump/scandump
 utils/readtemp/readtemp
 utils/smaping/smaping
+utils/calibrate/calibrate
 
 # Test binary, build with `go test -c`
 *.test
