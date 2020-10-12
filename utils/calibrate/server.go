@@ -31,8 +31,9 @@ var port = flag.Int("port", 8100, "Port for image server")
 var refresh = flag.Int("refresh", 4, "Number of seconds before image refresh")
 
 type server struct {
-	l *lcd.LcdDecoder
+	l   *lcd.LcdDecoder
 	img image.Image
+	str string
 }
 
 // Initialise a http server.
@@ -70,8 +71,9 @@ func serverInit() (*server, error) {
 }
 
 // Update image
-func (s *server) updateImage(img image.Image) {
+func (s *server) updateImage(img image.Image, str string) {
 	s.img = img
+	s.str = str
 }
 
 // Update decoder
@@ -82,25 +84,29 @@ func (s *server) updateDecoder(l *lcd.LcdDecoder) {
 func (s *server) page(w http.ResponseWriter, filled bool) {
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprintf(w, "<html><head><meta http-equiv=\"refresh\" content=\"%d\"></head><body>", *refresh)
+	if len(s.str) != 0 {
+		fmt.Fprintf(w, "Decoded segments = %s<br>", s.str)
+	}
 	if filled {
 		fmt.Fprintf(w, "<a href=\"outline.html\">Outline image</a>")
-		fmt.Fprintf(w, "<p><img src=\"filled.jpg\"><br>")
+		fmt.Fprintf(w, "<p><img src=\"filled.jpg\">")
 	} else {
 		fmt.Fprintf(w, "<a href=\"filled.html\">Filled image</a>")
-		fmt.Fprintf(w, "<p><img src=\"outline.jpg\"><br>")
+		fmt.Fprintf(w, "<p><img src=\"outline.jpg\">")
 	}
 	fmt.Fprintf(w, "</body>")
 }
 
 func (s *server) sendImage(w http.ResponseWriter, fill bool) {
-	if s.l == nil || s.img == nil {
+	img := s.img
+	if s.l == nil || img == nil {
 		http.Error(w, "No image yet", http.StatusInternalServerError)
 		return
 	}
 	// Copy the image first.
-	b := s.img.Bounds()
+	b := img.Bounds()
 	dst := image.NewRGBA(b)
-	draw.Draw(dst, b, s.img, b.Min, draw.Src)
+	draw.Draw(dst, b, img, b.Min, draw.Src)
 	s.l.MarkSamples(dst, fill)
 	w.Header().Set("Content-Type", "image/jpeg")
 	err := jpeg.Encode(w, dst, nil)

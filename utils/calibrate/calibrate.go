@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aamcrae/MeterMan/lcd"
@@ -28,6 +29,7 @@ import (
 )
 
 var configFile = flag.String("config", "config", "Configuration file")
+var read = flag.Bool("read", true, "If set, attempt to decode the digits.")
 
 func init() {
 	flag.Parse()
@@ -44,6 +46,7 @@ func main() {
 	var fileMod time.Time
 	var angle float64
 	var source string
+	var decoder *lcd.LcdDecoder
 	for {
 		var in image.Image
 		// Check whether config file has changed.
@@ -67,11 +70,23 @@ func main() {
 				}
 			}
 			source, _ = sect.GetArg("source")
-			l, err := lcd.CreateLcdDecoder(sect)
+			decoder, err = lcd.CreateLcdDecoder(sect)
 			if err != nil {
 				log.Fatalf("LCD config failed %v", err)
 			}
-			server.updateDecoder(l)
+			if *read {
+				cf, _ := sect.GetArg("calibration")
+				if len(cf) != 0 {
+					if f, err := os.Open(cf); err != nil {
+						log.Fatalf("%s: %v\n", cf, err)
+					} else {
+						decoder.RestoreCalibration(f)
+						f.Close()
+						decoder.PickCalibration()
+					}
+				}
+			}
+			server.updateDecoder(decoder)
 			log.Printf("Config file %s updated", *configFile)
 		}
 		res, err := client.Get(source)
@@ -86,6 +101,19 @@ func main() {
 		if angle != 0 {
 			in = lcd.RotateImage(in, angle)
 		}
-		server.updateImage(in)
+		var str strings.Builder
+		if *read && decoder != nil {
+			digits := decoder.Decode(in)
+			for i := range digits.Digits {
+				d := &digits.Digits[i]
+				if d.Valid {
+					str.WriteString(d.Str)
+				} else {
+					str.WriteRune('X')
+				}
+			}
+			log.Printf("Segments = <%s>\n", str.String())
+		}
+		server.updateImage(in, str.String())
 	}
 }
