@@ -132,6 +132,7 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 		log.Printf("Request: %s", req.URL.String())
 	}
 	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprintf(w, "<html><head></head><body>")
 	fmt.Fprintf(w, "<table border=\"1\"><tr><th>Tag</th><th>Value</th><th>Daily</th><th>Timestamp</th><th>Age</tr>")
 	m := s.d.GetElements()
 	// Sort in key order.
@@ -159,5 +160,5 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 			fmt.Fprintf(w, "<td></td><td></td></tr>")
 		}
 	}
-	fmt.Fprintf(w, "</table>")
+	fmt.Fprintf(w, "</table></body>")
 }
