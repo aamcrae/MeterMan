@@ -15,7 +15,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"image"
 	"image/draw"
@@ -27,46 +26,57 @@ import (
 	"github.com/aamcrae/MeterMan/lcd"
 )
 
-var port = flag.Int("port", 8100, "Port for image server")
-var refresh = flag.Int("refresh", 4, "Number of seconds before image refresh")
+const (
+	plain   = iota
+	filled  = iota
+	outline = iota
+)
 
 type server struct {
-	l   *lcd.LcdDecoder
-	img image.Image
-	str string
+	port    int
+	refresh int
+	l       *lcd.LcdDecoder
+	img     image.Image
+	str     string
 }
 
 // Initialise a http server.
-func serverInit() (*server, error) {
+func serverInit(port, refresh int) (*server, error) {
 	h, err := os.Hostname()
 	if err != nil {
 		return nil, fmt.Errorf("hostname error: %v", err)
 	}
 	mux := http.NewServeMux()
-	s := &server{}
+	s := &server{port: port, refresh: refresh}
+	mux.HandleFunc("/plain.jpg", func(w http.ResponseWriter, req *http.Request) {
+		s.sendImage(w, plain)
+	})
 	mux.HandleFunc("/filled.jpg", func(w http.ResponseWriter, req *http.Request) {
-		s.sendImage(w, true)
+		s.sendImage(w, filled)
 	})
 	mux.HandleFunc("/outline.jpg", func(w http.ResponseWriter, req *http.Request) {
-		s.sendImage(w, false)
+		s.sendImage(w, outline)
+	})
+	mux.HandleFunc("/plain.html", func(w http.ResponseWriter, req *http.Request) {
+		s.page(w, plain)
 	})
 	mux.HandleFunc("/outline.html", func(w http.ResponseWriter, req *http.Request) {
-		s.page(w, false)
+		s.page(w, outline)
 	})
 	mux.HandleFunc("/filled.html", func(w http.ResponseWriter, req *http.Request) {
-		s.page(w, true)
+		s.page(w, filled)
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Path != "/" {
 			http.NotFound(w, req)
 			return
 		}
-		s.page(w, false)
+		s.page(w, filled)
 	})
 	go func() {
-		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *port), mux))
+		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", s.port), mux))
 	}()
-	log.Printf("Server on http:%s:%d/outline.html\n", h, *port)
+	log.Printf("Server on http:%s:%d/outline.html\n", h, s.port)
 	return s, nil
 }
 
@@ -81,35 +91,48 @@ func (s *server) updateDecoder(l *lcd.LcdDecoder) {
 	s.l = l
 }
 
-func (s *server) page(w http.ResponseWriter, filled bool) {
+func (s *server) page(w http.ResponseWriter, req int) {
 	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprintf(w, "<html><head><meta http-equiv=\"refresh\" content=\"%d\"></head><body>", *refresh)
+	fmt.Fprintf(w, "<html><head>")
+	if s.refresh > 0 {
+		fmt.Fprintf(w, "<meta http-equiv=\"refresh\" content=\"%d\">", s.refresh)
+	}
+	fmt.Fprintf(w, "</head><body>")
 	if len(s.str) != 0 {
 		fmt.Fprintf(w, "Decoded segments = %s<br>", s.str)
 	}
-	if filled {
-		fmt.Fprintf(w, "<a href=\"outline.html\">Outline image</a>")
-		fmt.Fprintf(w, "<p><img src=\"filled.jpg\">")
-	} else {
-		fmt.Fprintf(w, "<a href=\"filled.html\">Filled image</a>")
-		fmt.Fprintf(w, "<p><img src=\"outline.jpg\">")
+	fmt.Fprintf(w, "<a href=\"plain.html\">Untouched image</a><br>")
+	fmt.Fprintf(w, "<a href=\"outline.html\">Outlined image</a><br>")
+	fmt.Fprintf(w, "<a href=\"filled.html\">Filled image</a><p>")
+	switch req {
+	case plain:
+		fmt.Fprintf(w, "<img src=\"plain.jpg\">")
+	case filled:
+		fmt.Fprintf(w, "<img src=\"filled.jpg\">")
+	case outline:
+		fmt.Fprintf(w, "<img src=\"outline.jpg\">")
 	}
 	fmt.Fprintf(w, "</body>")
 }
 
-func (s *server) sendImage(w http.ResponseWriter, fill bool) {
-	img := s.img
-	if s.l == nil || img == nil {
+func (s *server) sendImage(w http.ResponseWriter, req int) {
+	if s.l == nil || s.img == nil {
 		http.Error(w, "No image yet", http.StatusInternalServerError)
 		return
 	}
-	// Copy the image first.
-	b := img.Bounds()
-	dst := image.NewRGBA(b)
-	draw.Draw(dst, b, img, b.Min, draw.Src)
-	s.l.MarkSamples(dst, fill)
 	w.Header().Set("Content-Type", "image/jpeg")
-	err := jpeg.Encode(w, dst, nil)
+	var img image.Image
+	if req == plain {
+		img = s.img
+	} else {
+		// Copy the image first.
+		b := s.img.Bounds()
+		dst := image.NewRGBA(b)
+		draw.Draw(dst, b, s.img, b.Min, draw.Src)
+		s.l.MarkSamples(dst, req == filled)
+		img = dst
+	}
+	err := jpeg.Encode(w, img, nil)
 	if err != nil {
 		http.Error(w, "JPEG encode error", http.StatusInternalServerError)
 	}

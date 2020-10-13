@@ -30,13 +30,15 @@ import (
 
 var configFile = flag.String("config", "config", "Configuration file")
 var read = flag.Bool("read", true, "If set, attempt to decode the digits.")
+var port = flag.Int("port", 8100, "Port for image server")
+var refresh = flag.Int("refresh", 4, "Number of seconds before image refresh")
 
 func init() {
 	flag.Parse()
 }
 
 func main() {
-	server, err := serverInit()
+	server, err := serverInit(*port, *refresh)
 	if err != nil {
 		log.Fatalf("Server init failed %v", err)
 	}
