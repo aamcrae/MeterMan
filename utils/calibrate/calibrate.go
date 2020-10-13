@@ -32,6 +32,7 @@ var configFile = flag.String("config", "config", "Configuration file")
 var read = flag.Bool("read", true, "If set, attempt to decode the digits.")
 var port = flag.Int("port", 8100, "Port for image server")
 var refresh = flag.Int("refresh", 4, "Number of seconds before image refresh")
+var delay = flag.Int("delay", 1, "Number of seconds between each image read")
 
 func init() {
 	flag.Parse()
@@ -117,5 +118,8 @@ func main() {
 			log.Printf("Segments = <%s>\n", str.String())
 		}
 		server.updateImage(in, str.String())
+		if *delay >= 0 {
+			time.Sleep(time.Duration(*delay) * time.Second)
+		}
 	}
 }
