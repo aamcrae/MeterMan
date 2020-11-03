@@ -30,6 +30,7 @@ import (
 
 var configFile = flag.String("config", "config", "Configuration file")
 var read = flag.Bool("read", true, "If set, attempt to decode the digits.")
+var train = flag.Bool("train", true, "Enable training mode")
 var port = flag.Int("port", 8100, "Port for image server")
 var refresh = flag.Int("refresh", 4, "Number of seconds before image refresh")
 var delay = flag.Int("delay", 1, "Number of seconds between each image read")
@@ -65,6 +66,9 @@ func main() {
 				log.Fatalf("Failed to read config %s: %v", *configFile, err)
 			}
 			sect := c.GetSection("meter")
+			// If training, save any existing calibration.
+			if *train && decoder != nil {
+			}
 			a, err := sect.GetArg("rotate")
 			if err == nil {
 				angle, err = strconv.ParseFloat(a, 64)
@@ -77,11 +81,11 @@ func main() {
 			if err != nil {
 				log.Fatalf("LCD config failed %v", err)
 			}
-			if *read {
+			if *read || *train {
 				cf, _ := sect.GetArg("calibration")
 				if len(cf) != 0 {
 					if f, err := os.Open(cf); err != nil {
-						log.Fatalf("%s: %v\n", cf, err)
+						log.Printf("%s: %v\n", cf, err)
 					} else {
 						decoder.RestoreCalibration(f)
 						f.Close()
