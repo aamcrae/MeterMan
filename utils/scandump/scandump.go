@@ -17,12 +17,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/aamcrae/MeterMan/lcd"
-	"github.com/aamcrae/config"
 	"image"
 	"log"
 	"os"
 	"strconv"
+
+	"github.com/aamcrae/MeterMan/lcd"
+	"github.com/aamcrae/MeterMan/lib"
+	"github.com/aamcrae/config"
 )
 
 var configFile = flag.String("config", "config", "Configuration file")
@@ -64,7 +66,7 @@ func main() {
 		}
 	}
 	if len(*calImage) > 0 {
-		img, err := lcd.ReadImage(*calImage)
+		img, err := lib.ReadImage(*calImage)
 		if err != nil {
 			log.Fatalf("%v", err)
 		}
@@ -80,7 +82,7 @@ func main() {
 		log.Fatalf("Failed to read %s: %v", *input, err)
 	}
 	if angle != 0 {
-		img = lcd.RotateImage(img, angle)
+		img = lib.RotateImage(img, angle)
 	}
 	res := l.Decode(img)
 	for i := range res.Digits {

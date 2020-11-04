@@ -44,7 +44,7 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
-	"github.com/aamcrae/MeterMan/lcd"
+	"github.com/aamcrae/MeterMan/lib"
 )
 
 var saveBad = flag.Bool("savebad", false, "Save each bad image")
@@ -124,13 +124,13 @@ func runReader(d *db.DB, r *Reader, source string, angle float64) {
 			log.Printf("Successful image read from %s, delay %s", source, time.Now().Sub(lastTime).String())
 		}
 		if angle != 0 {
-			img = lcd.RotateImage(img, angle)
+			img = lib.RotateImage(img, angle)
 		}
 		label, val, err := r.Read(img)
 		if err != nil {
 			log.Printf("Read error: %v", err)
 			if *saveBad {
-				lcd.SaveImage(*badFile, img)
+				lib.SaveImage(*badFile, img)
 			}
 		} else if len(label) > 0 {
 			tags, ok := tagMap[label]

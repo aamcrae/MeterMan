@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/lcd"
+	"github.com/aamcrae/MeterMan/lib"
 	"github.com/aamcrae/config"
 )
 
@@ -101,7 +102,7 @@ func NewReader(c *config.Section, trace bool) (*Reader, error) {
 	r.lastCalibration = time.Now()
 	s, err := c.GetArg("calibrate")
 	if err == nil {
-		img, err := lcd.ReadImage(s)
+		img, err := lib.ReadImage(s)
 		if err != nil {
 			return nil, err
 		}

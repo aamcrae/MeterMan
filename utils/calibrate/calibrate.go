@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/lcd"
+	"github.com/aamcrae/MeterMan/lib"
 	"github.com/aamcrae/config"
 )
 
@@ -106,7 +107,7 @@ func main() {
 			log.Fatalf("Failed to decode image from %s: %v", source, err)
 		}
 		if angle != 0 {
-			in = lcd.RotateImage(in, angle)
+			in = lib.RotateImage(in, angle)
 		}
 		var str strings.Builder
 		if *read && decoder != nil {
