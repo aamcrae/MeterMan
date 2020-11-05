@@ -29,6 +29,9 @@ import (
 	"github.com/aamcrae/config"
 )
 
+var levelSize = flag.Int("level_size", 0, "Size of calibration level map")
+var savedLevels = flag.Int("level_saved", 50, "Number of levels saved")
+var history = flag.Int("history", 0, "Size of moving average cache")
 var recalInterval = flag.Int("recal_interval", 120, "Recalibrate interval (seconds)")
 var recalibrate = flag.Bool("recalibrate", false, "Recalibrate with new image")
 var saveCalibration = flag.Bool("save_calibration", false, "Save calibration data")
@@ -71,6 +74,12 @@ var measures map[string]*measure = map[string]*measure{
 
 func NewReader(c *config.Section, trace bool) (*Reader, error) {
 	d, err := lcd.CreateLcdDecoder(c)
+	if *history > 0 {
+		d.History = *history
+	}
+	if *levelSize > 0 {
+		d.MaxLevels = *levelSize
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +142,7 @@ func (r *Reader) Save() {
 		if f, err := os.Create(r.calFile); err != nil {
 			log.Printf("Calibration file %s: %v\n", r.calFile, err)
 		} else {
-			r.decoder.SaveCalibration(f)
+			r.decoder.SaveCalibration(f, *savedLevels)
 			err := f.Close()
 			if err != nil {
 				log.Printf("Save calibration: %s: %v\n", r.calFile, err)
