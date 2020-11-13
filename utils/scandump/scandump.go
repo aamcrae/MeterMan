@@ -92,7 +92,7 @@ func main() {
 	fmt.Printf("Digit |  Off |  TL  |  TM  |  TR  |  BR  |  BM  |  BL  |  MM  |\n")
 	for i, d := range l.Digits {
 		min := d.Min()
-		off := d.Off(img)
+		off := 0 // d.Off(img)
 		max := d.Max()
 		fmt.Printf("  %-2d  | %-5d|", i, off)
 		for _, v := range res.Digits[i].Segments {
