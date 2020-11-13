@@ -36,11 +36,14 @@ var recalInterval = flag.Int("recal_interval", 120, "Recalibrate interval (secon
 var recalibrate = flag.Bool("recalibrate", false, "Recalibrate with new image")
 var saveCalibration = flag.Bool("save_calibration", false, "Save calibration data")
 
+// limit holds the last value read, along with the time.
+// Used to sanity check accumulator values.
 type limit struct {
 	last  time.Time
 	value float64
 }
 
+// Reader is a meter specific reader.
 type Reader struct {
 	trace           bool
 	decoder         *lcd.LcdDecoder
@@ -50,6 +53,7 @@ type Reader struct {
 	calFile         string
 }
 
+// measure represents one type of value decoded from the meter.
 type measure struct {
 	handler func(*Reader, *measure, string, string) (string, float64, error)
 	scale   float64
@@ -57,6 +61,8 @@ type measure struct {
 	max     float64 // Valid maximum (or hourly max increase)
 }
 
+// The label string decoded from the meter maps the data
+// to a label specific handler.
 var measures map[string]*measure = map[string]*measure{
 	"1nP1": &measure{handlerIgnore, 1.0, 0, 0},
 	"1nP2": &measure{handlerIgnore, 1.0, 0, 0},
@@ -68,10 +74,11 @@ var measures map[string]*measure = map[string]*measure{
 	"EHL2": &measure{handlerAccum, 100.0, 0, 0},    // KwH
 	"1NL1": &measure{handlerAccum, 100.0, 0, 0},    // KwH
 	"1NL2": &measure{handlerAccum, 100.0, 0, 0},    // KwH
-	"8888": &measure{handlerCalibrate, 1.0, 0, 0},
+	"8888": &measure{handlerCalibrate, 1.0, 0, 0},  // all segments on
 	"4613": &measure{handlerUpdate, 1.0, 0, 0},
 }
 
+// Creates a new reader.
 func NewReader(c *config.Section, trace bool) (*Reader, error) {
 	d, err := lcd.CreateLcdDecoder(c)
 	if *history > 0 {
@@ -120,7 +127,7 @@ func NewReader(c *config.Section, trace bool) (*Reader, error) {
 	return r, nil
 }
 
-// Restore any saved calibration.
+// Restore saved calibration.
 func (r *Reader) Restore() {
 	if len(r.calFile) != 0 {
 		if f, err := os.Open(r.calFile); err != nil {
@@ -151,7 +158,14 @@ func (r *Reader) Save() {
 	}
 }
 
-// A successful scan is used to adjust the scan levels.
+// The image was successfully scanned and decoded, at least
+// within the heuristics that are possible. There is no guarantee
+// that the decode was completely correct e.g it is possible to
+// misread one or more digits such as mistaking a 1 for a 7.
+// Given that this is considered a successful decode, use the
+// levels that were sampled in this image to adjust the calibration
+// levels being used in the decoder. This allows the decoder to
+// dynamically adjust to changing image conditions.
 func (r *Reader) GoodScan(res *lcd.ScanResult) {
 	r.decoder.Good()
 	if *recalibrate {
@@ -175,9 +189,11 @@ func (r *Reader) Recalibrate() {
 	}
 }
 
+// Scan and decode the digits in the image.
 func (r *Reader) Read(img image.Image) (string, float64, error) {
 	r.current = img
 	res := r.decoder.Decode(img)
+	// Check for invalid digits.
 	if res.Invalid > 0 {
 		var badSeg []string
 		for s := range res.Digits {
@@ -188,6 +204,8 @@ func (r *Reader) Read(img image.Image) (string, float64, error) {
 		r.decoder.Bad()
 		return "", 0.0, fmt.Errorf("Bad read on segment[s] %s", strings.Join(badSeg, ","))
 	}
+	// Valid characters were obtained from the image. Check these against
+	// the expected labels and digits.
 	if r.trace {
 		log.Printf("LCD image processed: text=<%s>", res.Text)
 	}
@@ -195,6 +213,9 @@ func (r *Reader) Read(img image.Image) (string, float64, error) {
 	value := res.Text[4:]
 	m, ok := measures[key]
 	if !ok {
+		// Even though characters were successfully decoded from the image,
+		// the label does not match any expected strings, so this is
+		// marked as a misread.
 		r.decoder.Bad()
 		return "", 0.0, fmt.Errorf("Unknown key (%s) value %s", key, value)
 	}
@@ -207,6 +228,7 @@ func (r *Reader) Read(img image.Image) (string, float64, error) {
 	return str, num, err
 }
 
+// A valid label, but we are not interested in the value.
 func handlerIgnore(r *Reader, m *measure, key, value string) (string, float64, error) {
 	if r.trace {
 		log.Printf("Meter read: ignoring key %s, value %s", key, value)
@@ -214,6 +236,8 @@ func handlerIgnore(r *Reader, m *measure, key, value string) (string, float64, e
 	return "", 0.0, nil
 }
 
+// The label identifies a number we are interested in.
+// Scan for a number and sanity check it.
 func handlerNumber(r *Reader, m *measure, key, value string) (string, float64, error) {
 	v, err := r.getNumber(m, value)
 	if err != nil {
@@ -228,6 +252,9 @@ func handlerNumber(r *Reader, m *measure, key, value string) (string, float64, e
 	return key, v, nil
 }
 
+// The label identifies a number that is an accumulator i.e
+// a value that is increasing. Check that the value is only increasing, and that
+// the increment is not more than the maximum defined.
 func handlerAccum(r *Reader, m *measure, key, value string) (string, float64, error) {
 	v, err := r.getNumber(m, value)
 	if err != nil {
@@ -253,6 +280,7 @@ func handlerAccum(r *Reader, m *measure, key, value string) (string, float64, er
 	return key, v, nil
 }
 
+// All segments are set.
 func handlerCalibrate(r *Reader, m *measure, key, value string) (string, float64, error) {
 	if value != "88888888" {
 		return "", 0.0, fmt.Errorf("Wrong calibration value (%s)", value)
@@ -267,6 +295,9 @@ func handlerUpdate(r *Reader, m *measure, key, value string) (string, float64, e
 	return "", 0.0, nil
 }
 
+// Decode the latter part of the scanned string as a number.
+// The value may be negative ('-' as the first character).
+// A scale is applied to convert the number.
 func (r *Reader) getNumber(m *measure, value string) (float64, error) {
 	sv := value
 	scale := m.scale

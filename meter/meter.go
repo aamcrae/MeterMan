@@ -52,7 +52,7 @@ var badFile = flag.String("bad", "/tmp/bad.jpg", "Bad images")
 var sampleTime = flag.Int("sample", 4900, "Image sample rate (milliseconds)")
 var sourceTimeout = flag.Int("source_timeout", 20, "Source timeout in seconds")
 
-// Maps meter label to tag.
+// Maps meter label to database tag.
 var tagMap map[string][]string = map[string][]string{
 	"1NtL": {db.A_OUT_TOTAL, db.D_OUT_POWER},
 	"EHtL": {db.A_IN_TOTAL, db.D_IN_POWER},
@@ -62,10 +62,13 @@ var tagMap map[string][]string = map[string][]string{
 	"1NL2": {db.A_EXPORT + "/1"},
 }
 
+// Register meterReader as a data source.
 func init() {
 	db.RegisterInit(meterReader)
 }
 
+// Create an instance of a meter reader, if there is
+// a config section declared for it.
 func meterReader(d *db.DB) error {
 	sect := d.Config.GetSection("meter")
 	if sect == nil {
@@ -95,11 +98,13 @@ func meterReader(d *db.DB) error {
 	d.AddSubAccum(db.A_IMPORT, true)
 	d.AddSubAccum(db.A_EXPORT, true)
 	d.AddSubAccum(db.A_EXPORT, true)
-	log.Printf("Registered LCD decoder\n")
+	log.Printf("Registered meter LCD reader\n")
 	go runReader(d, r, source, angle)
 	return nil
 }
 
+// runReader is a loop that reads the image of the meter panel
+// from an image source, and decodes the LCD digits.
 func runReader(d *db.DB, r *Reader, source string, angle float64) {
 	delay := time.Duration(*sampleTime) * time.Millisecond
 	lastTime := time.Now()
@@ -126,6 +131,7 @@ func runReader(d *db.DB, r *Reader, source string, angle float64) {
 		if angle != 0 {
 			img = lib.RotateImage(img, angle)
 		}
+		// Decode the digits and get the label and value.
 		label, val, err := r.Read(img)
 		if err != nil {
 			log.Printf("Read error: %v", err)
@@ -142,6 +148,7 @@ func runReader(d *db.DB, r *Reader, source string, angle float64) {
 				}
 			}
 		}
+		// If required, recalibrate the reader.
 		r.Recalibrate()
 	}
 }
