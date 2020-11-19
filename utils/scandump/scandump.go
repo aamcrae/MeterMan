@@ -58,11 +58,8 @@ func main() {
 		log.Fatalf("LCD config failed %v", err)
 	}
 	if len(*calibration) > 0 {
-		if f, err := os.Open(*calibration); err != nil {
+		if _, err := l.RestoreFromFile(*calibration); err != nil {
 			log.Fatalf("%s: %v\n", *calibration, err)
-		} else {
-			l.RestoreCalibration(f)
-			f.Close()
 		}
 	}
 	if len(*calImage) > 0 {

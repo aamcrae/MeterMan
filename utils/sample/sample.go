@@ -113,12 +113,8 @@ func main() {
 	if *process {
 		cf, _ := sect.GetArg("calibration")
 		if len(cf) != 0 {
-			if f, err := os.Open(cf); err != nil {
+			if _, err := l.RestoreFromFile(cf); err != nil {
 				log.Fatalf("%s: %v\n", cf, err)
-			} else {
-				l.RestoreCalibration(f)
-				f.Close()
-				l.PickCalibration()
 			}
 		}
 		res := l.Decode(img)

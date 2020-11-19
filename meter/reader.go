@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"image"
 	"log"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -114,7 +113,15 @@ func NewReader(c *config.Section, trace bool) (*Reader, error) {
 	}
 	cf, err := c.GetArg("calibration")
 	r := &Reader{trace: trace, decoder: d, limits: map[string]limit{}, calFile: cf}
-	r.Restore()
+	if len(r.calFile) != 0 {
+		n, err := r.decoder.RestoreFromFile(r.calFile)
+		if err != nil {
+			return nil, err
+		}
+		if r.trace {
+			log.Printf("Restored %d calibration entries from %s", n, r.calFile)
+		}
+	}
 	r.lastCalibration = time.Now()
 	s, err := c.GetArg("calibrate")
 	if err == nil {
@@ -125,37 +132,6 @@ func NewReader(c *config.Section, trace bool) (*Reader, error) {
 		r.decoder.CalibrateImage(img, "888888888888")
 	}
 	return r, nil
-}
-
-// Restore saved calibration.
-func (r *Reader) Restore() {
-	if len(r.calFile) != 0 {
-		if f, err := os.Open(r.calFile); err != nil {
-			log.Printf("%s: %v\n", r.calFile, err)
-		} else {
-			r.decoder.RestoreCalibration(f)
-			f.Close()
-			r.decoder.PickCalibration()
-		}
-	}
-}
-
-// Save the current calibration.
-func (r *Reader) Save() {
-	if *saveCalibration && len(r.calFile) != 0 {
-		if r.trace {
-			log.Printf("Saving calibration data")
-		}
-		if f, err := os.Create(r.calFile); err != nil {
-			log.Printf("Calibration file %s: %v\n", r.calFile, err)
-		} else {
-			r.decoder.SaveCalibration(f, *savedLevels)
-			err := f.Close()
-			if err != nil {
-				log.Printf("Save calibration: %s: %v\n", r.calFile, err)
-			}
-		}
-	}
 }
 
 // The image was successfully scanned and decoded, at least
@@ -182,9 +158,20 @@ func (r *Reader) Recalibrate() {
 		// Regularly, save the calibration data.
 		now := time.Now()
 		if time.Now().Sub(r.lastCalibration) >= time.Duration(*recalInterval)*time.Second {
+			l := r.decoder
 			r.lastCalibration = now
-			r.decoder.Recalibrate()
-			r.Save()
+			l.Recalibrate()
+			log.Printf("Recalibration: last %3d (good %2d, bad %2d), new %3d, worst %3d, count %d, avg %5.1f",
+				l.LastQuality, l.LastGood, l.LastBad, l.Best, l.Worst, l.Count, float32(l.Total)/float32(l.Count))
+			if *saveCalibration && len(r.calFile) != 0 {
+				if r.trace {
+					log.Printf("Saving calibration data to %s", r.calFile)
+				}
+				err := l.SaveToFile(r.calFile, *savedLevels)
+				if err != nil {
+					log.Printf("%s: %v\n", r.calFile, err)
+				}
+			}
 		}
 	}
 }
