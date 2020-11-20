@@ -108,8 +108,8 @@ func main() {
 		var str strings.Builder
 		if *read && decoder != nil {
 			digits := decoder.Decode(in)
-			for i := range digits.Digits {
-				d := &digits.Digits[i]
+			for i := range digits.Decodes {
+				d := digits.Decodes[i]
 				if d.Valid {
 					str.WriteString(d.Str)
 				} else {

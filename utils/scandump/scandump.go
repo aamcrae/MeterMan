@@ -67,7 +67,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("%v", err)
 		}
-		l.CalibrateImage(img, *digits)
+		l.Preset(img, *digits)
 	}
 	inf, err := os.Open(*input)
 	if err != nil {
@@ -82,17 +82,17 @@ func main() {
 		img = lib.RotateImage(img, angle)
 	}
 	res := l.Decode(img)
-	for i := range res.Digits {
-		d := &res.Digits[i]
-		fmt.Printf("segment %d = '%s', ok = %v, bits = %02x\n", i, d.Str, d.Valid, d.Mask)
+	for i := range res.Decodes {
+		d := res.Decodes[i]
+		fmt.Printf("segment %d = '%s', ok = %v, bits = %02x\n", i, d.Str, d.Valid, res.Scans[i].Mask)
 	}
 	fmt.Printf("Digit |  Off |  TL  |  TM  |  TR  |  BR  |  BM  |  BL  |  MM  |\n")
-	for i, d := range l.Digits {
-		min := d.Min()
-		off := 0 // d.Off(img)
-		max := d.Max()
+	for i, _ := range l.Digits {
+		min := []int{} // d.Min()
+		off := 0       // d.Off(img)
+		max := []int{} // d.Max()
 		fmt.Printf("  %-2d  | %-5d|", i, off)
-		for _, v := range res.Digits[i].Segments {
+		for _, v := range res.Scans[i].Segments {
 			fmt.Printf(" %-5d|", v)
 		}
 		fmt.Printf("\n")
@@ -107,7 +107,7 @@ func main() {
 		}
 		fmt.Printf("\n")
 		fmt.Printf("        Perc |")
-		for i, v := range res.Digits[i].Segments {
+		for i, v := range res.Scans[i].Segments {
 			fmt.Printf(" %-5d|", perc(max[i], min[i], v))
 		}
 		fmt.Printf("\n")
@@ -125,10 +125,10 @@ func main() {
 		if len(b) != len(l.Digits) {
 			log.Fatalf("Wrong digit count (%d), expected (%d)", len(b), len(l.Digits))
 		}
-		for i, d := range l.Digits {
-			min := d.Min()
-			max := d.Max()
-			for j, s := range res.Digits[i].Segments {
+		for i, _ := range l.Digits {
+			min := []int{} // d.Min()
+			max := []int{} // d.Max()
+			for j, s := range res.Scans[i].Segments {
 				if ((1 << uint(j)) & b[i]) != 0 {
 					fmt.Fprintf(out, "%d,%d,%d,%d\n", i, j, min[j], s)
 				} else {

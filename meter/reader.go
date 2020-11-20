@@ -129,7 +129,7 @@ func NewReader(c *config.Section, trace bool) (*Reader, error) {
 		if err != nil {
 			return nil, err
 		}
-		r.decoder.CalibrateImage(img, "888888888888")
+		r.decoder.Preset(img, "888888888888")
 	}
 	return r, nil
 }
@@ -142,12 +142,12 @@ func NewReader(c *config.Section, trace bool) (*Reader, error) {
 // levels that were sampled in this image to adjust the calibration
 // levels being used in the decoder. This allows the decoder to
 // dynamically adjust to changing image conditions.
-func (r *Reader) GoodScan(res *lcd.ScanResult) {
+func (r *Reader) GoodScan(res *lcd.DecodeResult) {
 	r.decoder.Good()
 	if *recalibrate {
-		err := r.decoder.CalibrateScan(res)
+		err := r.decoder.CalibrateUsingScan(res.Img, res.Scans)
 		if err != nil {
-			log.Printf("CalibrateScan error: %v\n", err)
+			log.Printf("CalibrateUsingScan: %v\n", err)
 		}
 	}
 }
@@ -183,9 +183,9 @@ func (r *Reader) Read(img image.Image) (string, float64, error) {
 	// Check for invalid digits.
 	if res.Invalid > 0 {
 		var badSeg []string
-		for s := range res.Digits {
-			if !res.Digits[s].Valid {
-				badSeg = append(badSeg, fmt.Sprintf("%d[%02x]", s, res.Digits[s].Mask))
+		for s := range res.Decodes {
+			if !res.Decodes[s].Valid {
+				badSeg = append(badSeg, fmt.Sprintf("%d[%02x]", s, res.Scans[s].Mask))
 			}
 		}
 		r.decoder.Bad()
