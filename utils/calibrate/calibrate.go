@@ -15,7 +15,9 @@
 package main
 
 import (
+	"bufio"
 	"flag"
+	"fmt"
 	"image"
 	"log"
 	"net/http"
@@ -51,7 +53,9 @@ func main() {
 	var fileMod time.Time
 	var angle float64
 	var source string
+	var calFile string
 	var decoder *lcd.LcdDecoder
+	reader := bufio.NewReader(os.Stdin)
 	for {
 		var in image.Image
 		// Check whether config file has changed.
@@ -67,9 +71,6 @@ func main() {
 				log.Fatalf("Failed to read config %s: %v", *configFile, err)
 			}
 			sect := c.GetSection("meter")
-			// If training, save any existing calibration.
-			if *train && decoder != nil {
-			}
 			a, err := sect.GetArg("rotate")
 			if err == nil {
 				angle, err = strconv.ParseFloat(a, 64)
@@ -83,10 +84,12 @@ func main() {
 				log.Fatalf("LCD config failed %v", err)
 			}
 			if *read || *train {
-				cf, _ := sect.GetArg("calibration")
-				if len(cf) != 0 {
-					if _, err := decoder.RestoreFromFile(cf); err != nil {
-						log.Printf("%s: %v\n", cf, err)
+				calFile, _ = sect.GetArg("calibration")
+				if len(calFile) != 0 {
+					if _, err := decoder.RestoreFromFile(calFile); err != nil {
+						log.Printf("%s: %v\n", calFile, err)
+					} else {
+						fmt.Printf("Calibration read from %s\n", calFile)
 					}
 				}
 			}
@@ -119,7 +122,31 @@ func main() {
 			log.Printf("Segments = <%s>\n", str.String())
 		}
 		server.updateImage(in, str.String())
-		if *delay >= 0 {
+		if *train && decoder != nil {
+			dec := decoder.Decode(in)
+			fmt.Print("Enter string:")
+			str, _ := reader.ReadString('\n')
+			str = strings.TrimSuffix(str, "\n")
+			if len(str) == 0 {
+				decoder.CalibrateUsingScan(in, dec.Scans)
+				decoder.Good()
+			} else if len(str) == len(dec.Scans) {
+				decoder.Preset(in, str)
+				decoder.Good()
+			} else {
+				fmt.Printf("String length mismatch (should be %d chars, was %d) - string ignore\n", len(dec.Scans), len(str))
+				decoder.Bad()
+			}
+			// Write updated calibration.
+			if len(calFile) > 0 {
+				decoder.Recalibrate()
+				if err := decoder.SaveToFile(calFile, 0); err != nil {
+					log.Printf("%s: %v\n", calFile, err)
+				} else {
+					fmt.Printf("Wrote calibration to %s\n", calFile)
+				}
+			}
+		} else if *delay >= 0 {
 			time.Sleep(time.Duration(*delay) * time.Second)
 		}
 	}
