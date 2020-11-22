@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/lcd"
-	"github.com/aamcrae/MeterMan/lib"
 	"github.com/aamcrae/config"
 )
 
@@ -61,7 +60,7 @@ func main() {
 	l, err := lcd.CreateLcdDecoder(sect)
 	s := sect.Get("calibrate")
 	if len(s) == 1 && len(s[0].Tokens) == 1 {
-		img, err := lib.ReadImage(s[0].Tokens[0])
+		img, err := lcd.ReadImage(s[0].Tokens[0])
 		if err != nil {
 			log.Fatalf("%v", err)
 		}
@@ -97,7 +96,7 @@ func main() {
 		}
 	}
 	if angle != 0 {
-		in = lib.RotateImage(in, angle)
+		in = lcd.RotateImage(in, angle)
 	}
 	if *calibrate && *process {
 		l.Preset(in, *digits)
@@ -129,7 +128,7 @@ func main() {
 		fmt.Printf("Segments = <%s>\n", str.String())
 	}
 	l.MarkSamples(img, *fill)
-	err = lib.SaveImage(*output, img)
+	err = lcd.SaveImage(*output, img)
 	if err != nil {
 		log.Fatalf("%s encode error: %v", *output, err)
 	}
