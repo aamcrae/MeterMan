@@ -70,16 +70,15 @@ func main() {
 			if err != nil {
 				log.Fatalf("Failed to read config %s: %v", *configFile, err)
 			}
-			sect := c.GetSection("meter")
-			a, err := sect.GetArg("rotate")
+			a, err := c.GetArg("rotate")
 			if err == nil {
 				angle, err = strconv.ParseFloat(a, 64)
 				if err != nil {
 					angle = 0.0
 				}
 			}
-			source, _ = sect.GetArg("source")
-			decoder, err = lcd.CreateLcdDecoder(sect)
+			source, _ = c.GetArg("source")
+			decoder, err = lcd.CreateLcdDecoder(c)
 			if err != nil {
 				log.Fatalf("LCD config failed %v", err)
 			}

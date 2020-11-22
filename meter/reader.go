@@ -77,7 +77,7 @@ var measures map[string]*measure = map[string]*measure{
 }
 
 // Creates a new reader.
-func NewReader(c *config.Section, trace bool) (*Reader, error) {
+func NewReader(c config.Conf, trace bool) (*Reader, error) {
 	d, err := lcd.CreateLcdDecoder(c)
 	if *history > 0 {
 		d.History = *history
