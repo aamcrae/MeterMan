@@ -48,12 +48,17 @@ func init() {
 }
 
 func inverterReader(d *db.DB) error {
-	sect := d.Config.GetSection("sma")
-	if sect == nil {
+	sl := d.Config.GetSections("sma")
+	if len(sl) == 0 {
 		return nil
 	}
-	// Inverter name is of the format [IP address|name]:port,password
-	for _, e := range sect.Get("inverter") {
+	for _, sect := range sl {
+		// Inverter name is of the format [IP address|name]:port,password
+		le := sect.Get("inverter")
+		if len(le) != 1 {
+			return fmt.Errorf("Missing or duplicate inverter configuration")
+		}
+		e := le[0]
 		if len(e.Tokens) != 2 {
 			return fmt.Errorf("Inverter config error at line %d", e.Lineno)
 		}

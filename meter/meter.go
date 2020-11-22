@@ -43,8 +43,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aamcrae/lcd"
 	"github.com/aamcrae/MeterMan/db"
+	"github.com/aamcrae/lcd"
 )
 
 var saveBad = flag.Bool("savebad", false, "Save each bad image")
