@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/lcd"
-	"github.com/aamcrae/MeterMan/lib"
 	"github.com/aamcrae/config"
 )
 
