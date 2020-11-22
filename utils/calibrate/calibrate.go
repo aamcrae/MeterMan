@@ -32,6 +32,7 @@ import (
 )
 
 var configFile = flag.String("config", "config", "Configuration file")
+var calFile = flag.String("calibration", "", "Calibration file")
 var read = flag.Bool("read", true, "If set, attempt to decode the digits.")
 var train = flag.Bool("train", true, "Enable training mode")
 var port = flag.Int("port", 8100, "Port for image server")
@@ -53,7 +54,6 @@ func main() {
 	var fileMod time.Time
 	var angle float64
 	var source string
-	var calFile string
 	var decoder *lcd.LcdDecoder
 	reader := bufio.NewReader(os.Stdin)
 	for {
@@ -84,12 +84,11 @@ func main() {
 				log.Fatalf("LCD config failed %v", err)
 			}
 			if *read || *train {
-				calFile, _ = sect.GetArg("calibration")
-				if len(calFile) != 0 {
-					if _, err := decoder.RestoreFromFile(calFile); err != nil {
-						log.Printf("%s: %v\n", calFile, err)
+				if len(*calFile) != 0 {
+					if _, err := decoder.RestoreFromFile(*calFile); err != nil {
+						log.Printf("%s: %v\n", *calFile, err)
 					} else {
-						fmt.Printf("Calibration read from %s\n", calFile)
+						fmt.Printf("Calibration read from %s\n", *calFile)
 					}
 				}
 			}
@@ -138,12 +137,12 @@ func main() {
 				decoder.Bad()
 			}
 			// Write updated calibration.
-			if len(calFile) > 0 {
+			if len(*calFile) > 0 {
 				decoder.Recalibrate()
-				if err := decoder.SaveToFile(calFile, 0); err != nil {
-					log.Printf("%s: %v\n", calFile, err)
+				if err := decoder.SaveToFile(*calFile, 0); err != nil {
+					log.Printf("%s: %v\n", *calFile, err)
 				} else {
-					fmt.Printf("Wrote calibration to %s\n", calFile)
+					fmt.Printf("Wrote calibration to %s\n", *calFile)
 				}
 			}
 		} else if *delay >= 0 {
