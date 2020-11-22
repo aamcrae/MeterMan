@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aamcrae/MeterMan/lcd"
 	"github.com/aamcrae/config"
+	"github.com/aamcrae/lcd"
 )
 
 var levelSize = flag.Int("level_size", 0, "Size of calibration level map")

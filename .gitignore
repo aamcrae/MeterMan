@@ -4,10 +4,6 @@
 *.so
 *.dylib
 MeterMan
-lcd/utils/rotate/rotate
-lcd/utils/sample/sample
-lcd/utils/scandump/scandump
-lcd/utils/calibrate/calibrate
 utils/readtemp/readtemp
 utils/smaping/smaping
 
