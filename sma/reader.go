@@ -107,7 +107,7 @@ func (s *InverterReader) poll(daytime bool) error {
 		if s.d.Trace {
 			log.Printf("Tag %s Daily yield = %f", s.genDaily, d)
 		}
-		s.d.In <- db.Input{Tag: s.genDaily, Value: d}
+		s.d.Input(s.genDaily, d)
 	}
 	t, err := s.sma.TotalEnergy()
 	if err != nil {
@@ -118,8 +118,8 @@ func (s *InverterReader) poll(daytime bool) error {
 		if s.d.Trace {
 			log.Printf("Tag %s Total yield = %f", s.genT, t)
 		}
-		s.d.In <- db.Input{Tag: s.genT, Value: t}
-		s.d.In <- db.Input{Tag: s.genDP, Value: t}
+		s.d.Input(s.genT, t)
+		s.d.Input(s.genDP, t)
 	}
 	if daytime {
 		v, err := s.sma.Voltage()
@@ -130,7 +130,7 @@ func (s *InverterReader) poll(daytime bool) error {
 			if s.d.Trace {
 				log.Printf("Tag %s volts = %f", s.volts, v)
 			}
-			s.d.In <- db.Input{Tag: s.volts, Value: v}
+			s.d.Input(s.volts, v)
 		}
 		p, err := s.sma.Power()
 		if err != nil {
@@ -140,7 +140,7 @@ func (s *InverterReader) poll(daytime bool) error {
 		if s.d.Trace {
 			log.Printf("Tag %s power = %f", s.genP, pf)
 		}
-		s.d.In <- db.Input{Tag: s.genP, Value: pf}
+		s.d.Input(s.genP, pf)
 	}
 	return nil
 }

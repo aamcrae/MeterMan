@@ -39,7 +39,7 @@
 //                   -> db.AddCallback(interval, MyConsumer)  [to register consumer]
 //     ...
 //  <processing loop>
-//                                  <- MyProducer sends tagged data updates via channel
+//                                  <- MyProducer db.Input()
 //    <receives tagged data>
 //          <updates elements>
 //    <each-interval>
@@ -74,18 +74,22 @@ var endHour = flag.Int("endhour", 20, "End hour for PV (e.g 19)")
 // DB contains the element database.
 type DB struct {
 	Config *config.Config // Parsed configuration
-	In     chan<- Input   // Write-only channel to receive tagged data
 	Trace  bool           // If true, provide tracing
 	// StartHour and EndHour define the hours of daylight.
 	StartHour int
 	EndHour   int
 
-	input      chan Input                // Channel for tagged data
+	input      chan input                // Channel for tagged data
 	run        chan func()               // Channel for callbacks
 	elements   map[string]Element        // Map of tags to elements
 	checkpoint map[string]string         // Initial checkpoint data
 	tickers    map[time.Duration]*ticker // Map of tickers
 	lastDay    int                       // Current day, to check for midnight processing
+}
+
+type input struct {
+	tag   string  // The name of the tag.
+	value float64 // The value.
 }
 
 type callback func(time.Time, time.Time)
@@ -123,8 +127,7 @@ func NewDatabase(conf *config.Config) *DB {
 	d.tickers = make(map[time.Duration]*ticker)
 	d.StartHour = *startHour
 	d.EndHour = *endHour
-	d.input = make(chan Input, 200)
-	d.In = d.input // Exported write-only input channel
+	d.input = make(chan input, 200)
 	d.run = make(chan func(), 100)
 	return d
 }
@@ -165,11 +168,11 @@ func (d *DB) Start() error {
 		select {
 		case r := <-d.input:
 			// Received tagged data from producer.
-			h, ok := d.elements[r.Tag]
+			h, ok := d.elements[r.tag]
 			if ok {
-				h.Update(r.Value, time.Now())
+				h.Update(r.value, time.Now())
 			} else {
-				log.Printf("Unknown tag: %s\n", r.Tag)
+				log.Printf("Unknown tag: %s\n", r.tag)
 			}
 		case ev := <-ec:
 			// Event from ticker
@@ -179,6 +182,11 @@ func (d *DB) Start() error {
 			f()
 		}
 	}
+}
+
+// Input sends tagged input data to database
+func (d *DB) Input(tag string, value float64) {
+	d.input <- input{tag, value}
 }
 
 // AddCallback adds a callback to be invoked at the interval specified.
