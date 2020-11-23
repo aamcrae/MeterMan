@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// package db stores data sent over a channel from data providers and
-// at the selected update interval, invokes handlers to process the data.
+// package db stores tagged data sent over a channel from data providers,
+// and at specified intervals, invokes handlers to process the data.
 // Data can be stored as gauges or accumulators.
-// The stored data is checkpointed each update interval.
+// The stored data is checkpointed at selected intervals.
 
 package db
 
@@ -33,71 +33,74 @@ import (
 )
 
 var verbose = flag.Bool("verbose", false, "Verbose tracing")
-var checkpointIntv = flag.Int("checkpointrate", 1, "Checkpoint interval (in minutes)")
+var checkpointTock = flag.Int("checkpointrate", 1, "Checkpoint interval (in minutes)")
 var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
 var startHour = flag.Int("starthour", 5, "Start hour for PV (e.g 6)")
 var endHour = flag.Int("endhour", 20, "End hour for PV (e.g 19)")
 
-// Interval update interface.
+// DB contains the element database.
+type DB struct {
+	Config *config.Config // Parsed configuration
+	InChan chan<- Input   // Write-only channel to receive tagged data
+	Trace  bool           // If true, provide tracing
+	// StartHour and EndHour define the hours of daylight.
+	StartHour int
+	EndHour   int
+
+	input      chan Input                // Channel for tagged data
+	elements   map[string]Element        // Map of tags to elements
+	checkpoint map[string]string         // Initial checkpoint data
+	tickers    map[time.Duration]*ticker // Map of tickers
+	lastDay    int                       // Current day, to check for midnight processing
+}
+
+// Ticker callback interface.
 type Update interface {
 	Update(time.Time, time.Time)
 }
 
-type interval struct {
-	intv       time.Duration
-	last       time.Time
-	updateList []Update
+// ticker holds callbacks to be invoked at the specified period (e.g every 5 minutes)
+type ticker struct {
+	tick    time.Duration // Interval time
+	last    time.Time     // Last time callbacks were invoked.
+	updates []Update      // List of callbacks
 }
 
-// DB contains the element database.
-type DB struct {
-	Trace     bool
-	Config    *config.Config
-	InChan    chan<- Input
-	StartHour int
-	EndHour   int
-
-	input         chan Input
-	elements      map[string]Element
-	outputs       []func(*DB, time.Time)
-	intv          time.Duration
-	checkpointMap map[string]string
-	intvMap       map[time.Duration]*interval
-	lastDay       int
+// event is sent from the goroutine when each interval ticks over
+type event struct {
+	now    time.Time
+	ticker *ticker
 }
 
-// tickVal is sent from the ticker goroutine for each interval.
-type tickVal struct {
-	tick time.Time
-	ip   *interval
-}
-
-// List of init functions to call after database is ready.
+// List of init functions to call after database is ready and
+// input data can be received.
 var initHook []func(*DB) error
 
 // Register an init function.
+// These will be called once the database is initialiased from the checkpoint data.
 func RegisterInit(f func(*DB) error) {
 	initHook = append(initHook, f)
 }
 
-// NewDatabase creates a new database.
+// NewDatabase creates a new database handler.
 func NewDatabase(conf *config.Config) *DB {
 	d := new(DB)
 	d.Trace = *verbose
 	d.Config = conf
 	d.elements = make(map[string]Element)
-	d.checkpointMap = make(map[string]string)
-	d.intvMap = make(map[time.Duration]*interval)
+	d.checkpoint = make(map[string]string)
+	d.tickers = make(map[time.Duration]*ticker)
 	d.StartHour = *startHour
 	d.EndHour = *endHour
 	d.input = make(chan Input, 200)
-	d.InChan = d.input
+	d.InChan = d.input // Exported write-only input channel
 	return d
 }
 
-// Start calls the init functions, and then enters a service loop processing the inputs.
+// Start reads the checkpoint data, calls the init functions,
+// and then enters a service loop processing the tag data inputs and tick events.
 func (d *DB) Start() error {
-	err := d.Checkpoint()
+	err := d.readCheckpoint()
 	if err != nil {
 		return err
 	}
@@ -106,38 +109,40 @@ func (d *DB) Start() error {
 			return err
 		}
 	}
-	// Get the last time from the checkpoint file.
+	// Get the last saved time from the checkpoint file.
 	var last time.Time
-	lt, ok := d.checkpointMap[C_TIME]
+	lt, ok := d.checkpoint[C_TIME]
 	if !ok {
-		last = time.Now().Truncate(d.intv)
+		last = time.Now()
 	} else {
 		var sec int64
 		fmt.Sscanf(lt, "%d", &sec)
 		last = time.Unix(sec, 0)
 		if d.Trace {
-			log.Printf("Last interval was %s\n", last.Format(time.UnixDate))
+			log.Printf("Last time saved was %s\n", last.Format(time.UnixDate))
 		}
 	}
 	d.lastDay = last.YearDay()
-	// Set the last time in the interval map entries.
-	for _, ip := range d.intvMap {
-		ip.last = last.Truncate(ip.intv)
+	// Initialise the tickers with the previous saved tick.
+	for _, t := range d.tickers {
+		t.last = last.Truncate(t.tick)
 	}
-	tick := make(chan tickVal, 10)
-	// Start goroutines to send a tick every intv duration.
-	for _, ip := range d.intvMap {
-		log.Printf("Initialising interval %s", ip.intv.String())
-		go func(ic chan<- tickVal, ip *interval) {
-			var t tickVal
-			t.ip = ip
+	// Start goroutines that send events for each ticker interval.
+	ec := make(chan event, 10)
+	for _, t := range d.tickers {
+		log.Printf("Initialising ticker interval %s", t.tick.String())
+		go func(ec chan<- event, t *ticker) {
+			var tv event
+			tv.ticker = t
 			for {
+				// Calculate the next time an event should be sent, and
+				// sleep until then.
 				now := time.Now()
-				t.tick = now.Add(ip.intv).Truncate(ip.intv)
-				time.Sleep(t.tick.Sub(now))
-				ic <- t
+				tv.now = now.Add(t.tick).Truncate(t.tick)
+				time.Sleep(tv.now.Sub(now))
+				ec <- tv
 			}
-		}(tick, ip)
+		}(ec, t)
 	}
 	for {
 		select {
@@ -149,21 +154,21 @@ func (d *DB) Start() error {
 			} else {
 				log.Printf("Unknown tag: %s\n", r.Tag)
 			}
-		case tVal := <-tick:
-			d.interval(tVal)
+		case ev := <-ec:
+			d.tick(ev)
 		}
 	}
 }
 
 // AddUpdate adds a callback to be invoked during interval processing.
-func (d *DB) AddUpdate(upd Update, intv time.Duration) {
-	ip, ok := d.intvMap[intv]
+func (d *DB) AddUpdate(cb Update, tick time.Duration) {
+	t, ok := d.tickers[tick]
 	if !ok {
-		ip = new(interval)
-		ip.intv = intv
-		d.intvMap[intv] = ip
+		t = new(ticker)
+		t.tick = tick
+		d.tickers[tick] = t
 	}
-	ip.updateList = append(ip.updateList, upd)
+	t.updates = append(t.updates, cb)
 }
 
 // AddSubGauge adds a sub-gauge to a master gauge.
@@ -177,7 +182,7 @@ func (d *DB) AddSubGauge(base string, average bool) string {
 	}
 	m := el.(*MultiElement)
 	tag := m.NextTag()
-	g := NewGauge(d.checkpointMap[tag])
+	g := NewGauge(d.checkpoint[tag])
 	m.Add(g)
 	d.elements[tag] = g
 	if d.Trace {
@@ -197,7 +202,7 @@ func (d *DB) AddSubDiff(base string, average bool) string {
 	}
 	m := el.(*MultiElement)
 	tag := m.NextTag()
-	nd := NewDiff(d.checkpointMap[tag], time.Minute*5)
+	nd := NewDiff(d.checkpoint[tag], time.Minute*5)
 	m.Add(nd)
 	d.elements[tag] = nd
 	if d.Trace {
@@ -217,7 +222,7 @@ func (d *DB) AddSubAccum(base string, resettable bool) string {
 	}
 	m := el.(*MultiAccum)
 	tag := m.NextTag()
-	a := NewAccum(d.checkpointMap[tag], resettable)
+	a := NewAccum(d.checkpoint[tag], resettable)
 	m.Add(a)
 	d.elements[tag] = a
 	if d.Trace {
@@ -228,7 +233,7 @@ func (d *DB) AddSubAccum(base string, resettable bool) string {
 
 // AddGauge adds a new gauge to the database.
 func (d *DB) AddGauge(name string) {
-	d.elements[name] = NewGauge(d.checkpointMap[name])
+	d.elements[name] = NewGauge(d.checkpoint[name])
 	if d.Trace {
 		log.Printf("Adding gauge %s\n", name)
 	}
@@ -236,7 +241,7 @@ func (d *DB) AddGauge(name string) {
 
 // AddDiff adds a new Diff element to the database.
 func (d *DB) AddDiff(name string) {
-	d.elements[name] = NewDiff(d.checkpointMap[name], time.Minute*5)
+	d.elements[name] = NewDiff(d.checkpoint[name], time.Minute*5)
 	if d.Trace {
 		log.Printf("Adding diff %s\n", name)
 	}
@@ -244,7 +249,7 @@ func (d *DB) AddDiff(name string) {
 
 // AddAccum adds a new accumulator to the database.
 func (d *DB) AddAccum(name string, resettable bool) {
-	d.elements[name] = NewAccum(d.checkpointMap[name], resettable)
+	d.elements[name] = NewAccum(d.checkpoint[name], resettable)
 	if d.Trace {
 		log.Printf("Adding accumulator %s\n", name)
 	}
@@ -277,21 +282,21 @@ func (d *DB) GetAccum(name string) Acc {
 	}
 }
 
-// interval performs the per-interval actions in the following order:
+// tick performs the ticker processing in the following order:
 // - If a new day, call Midnight() on all the elements.
 // - Invoke the update functions.
-func (d *DB) interval(tVal tickVal) {
-	ip := tVal.ip
-	// Check for daily reset processing.
-	midnight := tVal.tick.YearDay() != d.lastDay
+func (d *DB) tick(ev event) {
+	t := ev.ticker
+	// Check for daily reset processing which occurs at midnight.
+	midnight := ev.now.YearDay() != d.lastDay
 	if midnight {
-		d.lastDay = tVal.tick.YearDay()
+		d.lastDay = ev.now.YearDay()
 		for _, el := range d.elements {
 			el.Midnight()
 		}
 	}
 	if d.Trace {
-		log.Printf("Updating at %s for interval %s\n", tVal.tick.Format("15:04"), ip.intv.String())
+		log.Printf("Updating at %s for interval %s\n", ev.now.Format("15:04"), t.tick.String())
 		if midnight {
 			log.Printf("New day reset")
 		}
@@ -299,10 +304,11 @@ func (d *DB) interval(tVal tickVal) {
 			log.Printf("Output: Tag: %5s, value: %f, timestamp: %s\n", tag, el.Get(), el.Timestamp().Format(time.UnixDate))
 		}
 	}
-	for _, u := range ip.updateList {
-		u.Update(ip.last, tVal.tick)
+	// Invoke the list of callbacks, passing the previous tick time and the current tick time.
+	for _, cb := range t.updates {
+		cb.Update(t.last, ev.now)
 	}
-	ip.last = tVal.tick
+	t.last = ev.now
 }
 
 // Update will save the current values of the elements in the
@@ -331,12 +337,19 @@ func (d *DB) Update(last, now time.Time) {
 	fmt.Fprintf(wr, "%s:%d\n", C_TIME, now.Unix())
 }
 
-// Checkpoint reads the checkpoint database.
-func (d *DB) Checkpoint() error {
+// Checkpoint reads the checkpoint data into a map.
+// The checkpoint file contains lines of the form:
+//
+//    <tag>:<checkpoint string>
+//
+// When a new element is created, the tag is used to find the checkpoint string
+// to be passed to the element's init function so that the element's value can be restored.
+func (d *DB) readCheckpoint() error {
 	if len(*checkpoint) == 0 {
 		return nil
 	}
-	d.AddUpdate(d, time.Minute*time.Duration(*checkpointIntv))
+	// Add a callback to checkpoint the database at the specified interval.
+	d.AddUpdate(d, time.Minute*time.Duration(*checkpointTock))
 	log.Printf("Reading checkpoint data from %s\n", *checkpoint)
 	f, err := os.Open(*checkpoint)
 	if err != nil {
@@ -357,7 +370,7 @@ func (d *DB) Checkpoint() error {
 		s = strings.TrimSuffix(s, "\n")
 		i := strings.IndexRune(s, ':')
 		if i > 0 {
-			d.checkpointMap[s[:i]] = s[i+1:]
+			d.checkpoint[s[:i]] = s[i+1:]
 			if d.Trace {
 				log.Printf("Checkpoint entry %s = %s\n", s[:i], s[i+1:])
 			}
