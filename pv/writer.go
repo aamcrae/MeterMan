@@ -85,8 +85,6 @@ func pvoutputInit(d *db.DB) error {
 }
 
 // Run creates a post request to pvoutput.org to upload the current data.
-// TODO: this shouldn't block at all, so possibly capture the necessary
-// upload data from the database and then upload via a goroutine.
 func (p *pvWriter) Run(last time.Time, now time.Time) {
 	pv_power, pv_power_ok := p.getPVPower(last)
 	pv_daily, pv_daily_ok := p.getPVDaily(last)
@@ -194,6 +192,12 @@ func (p *pvWriter) Run(last time.Time, now time.Time) {
 			return
 		}
 	}
+	// Asynchronously send request to avoid blocking.
+	go p.send(req)
+}
+
+// Send request to server.
+func (p *pvWriter) send(req *http.Request) {
 	resp, err := p.client.Do(req)
 	if err != nil {
 		log.Printf("Request failed: %v", err)
