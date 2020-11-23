@@ -72,14 +72,16 @@ var endHour = flag.Int("endhour", 20, "End hour for PV (e.g 19)")
 
 // DB contains the element database.
 type DB struct {
-	Config *config.Config // Parsed configuration
-	InChan chan<- Input   // Write-only channel to receive tagged data
-	Trace  bool           // If true, provide tracing
+	Config  *config.Config // Parsed configuration
+	InChan  chan<- Input   // Write-only channel to receive tagged data
+	RunChan chan<- func()  // Callback within database context
+	Trace   bool           // If true, provide tracing
 	// StartHour and EndHour define the hours of daylight.
 	StartHour int
 	EndHour   int
 
 	input      chan Input                // Channel for tagged data
+	run        chan func()               // Channel for callbacks
 	elements   map[string]Element        // Map of tags to elements
 	checkpoint map[string]string         // Initial checkpoint data
 	tickers    map[time.Duration]*ticker // Map of tickers
@@ -104,12 +106,12 @@ type event struct {
 	ticker *ticker
 }
 
-// List of init functions to call after database is ready and
-// input data can be received.
+// List of functions to call after checkpoint data is available.
+// Used to initialise database elements.
 var initHook []func(*DB) error
 
 // Register an init function.
-// These will be called once the database is initialiased from the checkpoint data.
+// These will be called once the checkpoint data is read.
 func RegisterInit(f func(*DB) error) {
 	initHook = append(initHook, f)
 }
@@ -126,6 +128,8 @@ func NewDatabase(conf *config.Config) *DB {
 	d.EndHour = *endHour
 	d.input = make(chan Input, 200)
 	d.InChan = d.input // Exported write-only input channel
+	d.run = make(chan func(), 100)
+	d.RunChan = d.run
 	return d
 }
 
@@ -142,7 +146,6 @@ func (d *DB) Start() error {
 			return err
 		}
 	}
-	// At this point, all setup for the modules must be complete.
 	// Get the last saved time from the checkpoint file.
 	var last time.Time
 	lt, ok := d.checkpoint[C_TIME]
@@ -174,6 +177,8 @@ func (d *DB) Start() error {
 			}
 		case ev := <-ec:
 			d.tick_event(ev)
+		case f := <-d.run:
+			f()
 		}
 	}
 }
