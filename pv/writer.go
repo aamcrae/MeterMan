@@ -79,13 +79,15 @@ func pvoutputInit(d *db.DB) error {
 		return err
 	}
 	p := &pvWriter{d: d, pvurl: pvurl, id: id, key: key, client: &http.Client{}}
-	d.AddUpdate(p, time.Minute*time.Duration(*pvUpdateRate))
+	d.AddCallback(p, time.Minute*time.Duration(*pvUpdateRate))
 	log.Printf("Registered pvoutput uploader\n")
 	return nil
 }
 
-// pvUpload creates a post request to pvoutput.org to upload the current data.
-func (p *pvWriter) Update(last time.Time, now time.Time) {
+// Run creates a post request to pvoutput.org to upload the current data.
+// TODO: this shouldn't block at all, so possibly capture the necessary
+// upload data from the database and then upload via a goroutine.
+func (p *pvWriter) Run(last time.Time, now time.Time) {
 	pv_power, pv_power_ok := p.getPVPower(last)
 	pv_daily, pv_daily_ok := p.getPVDaily(last)
 	temp := p.d.GetElement(db.G_TEMP)

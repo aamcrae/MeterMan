@@ -16,6 +16,37 @@
 // and at specified intervals, invokes handlers to process the data.
 // Data can be stored as gauges or accumulators.
 // The stored data is checkpointed at selected intervals.
+//
+// Data processing uses a provider/consumer model. Providers send
+// tagged values via a common input channel. Consumers register themselves
+// to be invoked at intervals (such as 1 minute, 5 minutes etc).
+//
+// Access to the elements database should only be done in the context of the
+// thread that calls Start(). This thread processes the received tagged
+// data sent via the input channel, updating the database as required.
+// Interval callbacks (for consumers) are invoked as part of this same
+// thread, so callbacks can freely access the element database.
+//
+// Initialisation is handled as a set-up phase, where modules register an init hook
+// (via an init() function) by calling RegisterInit().
+//
+//                 (MyModule) init()
+//                            -> RegisterInit(MyInit)
+//  db.Start()
+//             -> MyInit(db)
+//                   -> Initialise module, save input channel, start producer goroutine
+//                   -> db.AddCallback(MyConsumer, interval)  [to register consumer]
+//     ...
+//  <processing loop>
+//                                  <- MyProducer sends tagged data updates via channel
+//    <receives tagged data>
+//          <updates elements>
+//    <each-interval>
+//          <invokes interval callbacks>
+//                      -> MyConsumer  reads and processes elements
+//
+// All setup (registering callbacks, creating database elements etc) must be completed
+// as part of the Start() initialisation, before the processing loop is entered.
 
 package db
 
@@ -55,15 +86,15 @@ type DB struct {
 }
 
 // Ticker callback interface.
-type Update interface {
-	Update(time.Time, time.Time)
+type Callback interface {
+	Run(time.Time, time.Time)
 }
 
 // ticker holds callbacks to be invoked at the specified period (e.g every 5 minutes)
 type ticker struct {
-	tick    time.Duration // Interval time
-	last    time.Time     // Last time callbacks were invoked.
-	updates []Update      // List of callbacks
+	tick      time.Duration // Interval time
+	last      time.Time     // Last time callbacks were invoked.
+	callbacks []Callback    // List of callbacks
 }
 
 // event is sent from the goroutine when each interval ticks over
@@ -104,11 +135,13 @@ func (d *DB) Start() error {
 	if err != nil {
 		return err
 	}
+	// Call the init hooks, which initialises all the registered modules.
 	for _, h := range initHook {
 		if err := h(d); err != nil {
 			return err
 		}
 	}
+	// At this point, all setup for the modules must be complete.
 	// Get the last saved time from the checkpoint file.
 	var last time.Time
 	lt, ok := d.checkpoint[C_TIME]
@@ -123,6 +156,7 @@ func (d *DB) Start() error {
 		}
 	}
 	d.lastDay = last.YearDay()
+	// Start the tickers.
 	ec := make(chan event, 10)
 	for _, t := range d.tickers {
 		t.Start(ec, last)
@@ -143,15 +177,15 @@ func (d *DB) Start() error {
 	}
 }
 
-// AddUpdate adds a callback to be invoked during interval processing.
-func (d *DB) AddUpdate(cb Update, tick time.Duration) {
+// AddCallback adds a callback to be invoked at the interval specified.
+func (d *DB) AddCallback(cb Callback, tick time.Duration) {
 	t, ok := d.tickers[tick]
 	if !ok {
 		t = new(ticker)
 		t.tick = tick
 		d.tickers[tick] = t
 	}
-	t.updates = append(t.updates, cb)
+	t.callbacks = append(t.callbacks, cb)
 }
 
 // AddSubGauge adds a sub-gauge to a master gauge.
@@ -290,9 +324,8 @@ func (d *DB) tick_event(ev event) {
 	t.ticked(ev.now)
 }
 
-// Update will save the current values of the elements in the
-// database to a file.
-func (d *DB) Update(last, now time.Time) {
+// Run callback will save the values of the elements in the database to a checkpoint file.
+func (d *DB) Run(last, now time.Time) {
 	if len(*checkpoint) == 0 {
 		return
 	}
@@ -328,7 +361,7 @@ func (d *DB) readCheckpoint() error {
 		return nil
 	}
 	// Add a callback to checkpoint the database at the specified interval.
-	d.AddUpdate(d, time.Minute*time.Duration(*checkpointTick))
+	d.AddCallback(d, time.Minute*time.Duration(*checkpointTick))
 	log.Printf("Reading checkpoint data from %s\n", *checkpoint)
 	f, err := os.Open(*checkpoint)
 	if err != nil {
@@ -379,8 +412,8 @@ func (t *ticker) Start(ec chan<- event, last time.Time) {
 
 // ticked handles a tick event by invoking the callbacks registered on this ticker.
 func (t *ticker) ticked(now time.Time) {
-	for _, cb := range t.updates {
-		cb.Update(t.last, now)
+	for _, cb := range t.callbacks {
+		cb.Run(t.last, now)
 	}
 	t.last = now
 }

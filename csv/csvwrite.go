@@ -70,12 +70,12 @@ func csvInit(d *db.DB) error {
 		return err
 	}
 	c := &csv{d: d, fpath: p}
-	d.AddUpdate(c, time.Minute*time.Duration(*csvUpdateRate))
+	d.AddCallback(c, time.Minute*time.Duration(*csvUpdateRate))
 	log.Printf("Registered CSV as writer (updated every %d minutes)\n", *csvUpdateRate)
 	return nil
 }
 
-func (c *csv) Update(last time.Time, now time.Time) {
+func (c *csv) Run(last time.Time, now time.Time) {
 	// Check for new day.
 	if now.YearDay() != c.day {
 		if c.writer != nil {

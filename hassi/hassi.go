@@ -66,13 +66,13 @@ func hassiInit(d *db.DB) error {
 	key = fmt.Sprintf("Bearer %s", key)
 	h := &hassi{d: d, url: url, key: key, client: &http.Client{}}
 	intv := time.Minute * time.Duration(*hassiRate)
-	d.AddUpdate(h, intv)
+	d.AddCallback(h, intv)
 	log.Printf("Registered Home Assistant uploader (%s interval)\n", intv)
 	return nil
 }
 
-// Update uploads any updated tags to Home Assistant.
-func (h *hassi) Update(last time.Time, now time.Time) {
+// Run uploads any updated tags to Home Assistant.
+func (h *hassi) Run(last time.Time, now time.Time) {
 	type blk struct {
 		State string             `json:"state"`
 		Attr  map[string]float64 `json:"attributes"`
