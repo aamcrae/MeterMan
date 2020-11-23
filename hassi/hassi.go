@@ -98,27 +98,30 @@ func (h *hassi) Run(last time.Time, now time.Time) {
 	h.daily(db.A_GEN_TOTAL, "gen_daily", last, b.Attr)
 	h.daily(db.A_IMPORT, "import", last, b.Attr)
 	h.daily(db.A_EXPORT, "export", last, b.Attr)
-	buf := new(bytes.Buffer)
-	json.NewEncoder(buf).Encode(&b)
-	req, err := http.NewRequest("POST", h.url, buf)
-	if err != nil {
-		log.Printf("NewRequest (%s) failed: %v", h.url, err)
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", h.key)
-	res, err := h.client.Do(req)
-	if err != nil {
-		log.Printf("Req (%s) failed: %v", h.url, err)
-		return
-	}
-	defer res.Body.Close()
-	if res.StatusCode != 200 && res.StatusCode != 201 {
-		log.Printf("hassi: req %s, resp %s", h.url, res.Status)
-	}
-	if h.d.Trace {
-		log.Printf("hassi: Sent req %s, resp %s", h.url, res.Status)
-	}
+	// Send request asynchronously.
+	go func() {
+		buf := new(bytes.Buffer)
+		json.NewEncoder(buf).Encode(&b)
+		req, err := http.NewRequest("POST", h.url, buf)
+		if err != nil {
+			log.Printf("NewRequest (%s) failed: %v", h.url, err)
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", h.key)
+		res, err := h.client.Do(req)
+		if err != nil {
+			log.Printf("Req (%s) failed: %v", h.url, err)
+			return
+		}
+		defer res.Body.Close()
+		if res.StatusCode != 200 && res.StatusCode != 201 {
+			log.Printf("hassi: req %s, resp %s", h.url, res.Status)
+		}
+		if h.d.Trace {
+			log.Printf("hassi: Sent req %s, resp %s", h.url, res.Status)
+		}
+	}()
 }
 
 func (h *hassi) add(tag, attr string, last time.Time, m map[string]float64) bool {
