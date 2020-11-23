@@ -74,7 +74,7 @@ var endHour = flag.Int("endhour", 20, "End hour for PV (e.g 19)")
 type DB struct {
 	Config  *config.Config // Parsed configuration
 	InChan  chan<- Input   // Write-only channel to receive tagged data
-	RunChan chan<- func()  // Callback within database context
+	RunChan chan<- func()  // Request callback within database context
 	Trace   bool           // If true, provide tracing
 	// StartHour and EndHour define the hours of daylight.
 	StartHour int
@@ -176,8 +176,10 @@ func (d *DB) Start() error {
 				log.Printf("Unknown tag: %s\n", r.Tag)
 			}
 		case ev := <-ec:
+			// Event from ticker
 			d.tick_event(ev)
 		case f := <-d.run:
+			// Request to run callback.
 			f()
 		}
 	}
