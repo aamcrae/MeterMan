@@ -33,7 +33,7 @@ import (
 )
 
 var verbose = flag.Bool("verbose", false, "Verbose tracing")
-var checkpointTock = flag.Int("checkpointrate", 1, "Checkpoint interval (in minutes)")
+var checkpointTick = flag.Int("checkpointrate", 1, "Checkpoint interval (in minutes)")
 var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
 var startHour = flag.Int("starthour", 5, "Start hour for PV (e.g 6)")
 var endHour = flag.Int("endhour", 20, "End hour for PV (e.g 19)")
@@ -123,31 +123,14 @@ func (d *DB) Start() error {
 		}
 	}
 	d.lastDay = last.YearDay()
-	// Initialise the tickers with the previous saved tick.
-	for _, t := range d.tickers {
-		t.last = last.Truncate(t.tick)
-	}
-	// Start goroutines that send events for each ticker interval.
 	ec := make(chan event, 10)
 	for _, t := range d.tickers {
-		log.Printf("Initialising ticker interval %s", t.tick.String())
-		go func(ec chan<- event, t *ticker) {
-			var tv event
-			tv.ticker = t
-			for {
-				// Calculate the next time an event should be sent, and
-				// sleep until then.
-				now := time.Now()
-				tv.now = now.Add(t.tick).Truncate(t.tick)
-				time.Sleep(tv.now.Sub(now))
-				ec <- tv
-			}
-		}(ec, t)
+		t.Start(ec, last)
 	}
 	for {
 		select {
 		case r := <-d.input:
-			// Input from reader.
+			// Received tagged data from producer.
 			h, ok := d.elements[r.Tag]
 			if ok {
 				h.Update(r.Value, time.Now())
@@ -155,7 +138,7 @@ func (d *DB) Start() error {
 				log.Printf("Unknown tag: %s\n", r.Tag)
 			}
 		case ev := <-ec:
-			d.tick(ev)
+			d.tick_event(ev)
 		}
 	}
 }
@@ -282,10 +265,10 @@ func (d *DB) GetAccum(name string) Acc {
 	}
 }
 
-// tick performs the ticker processing in the following order:
-// - If a new day, call Midnight() on all the elements.
+// tick_event handles a new ticker event with common processing:
+// - If a new day, call Midnight() on all the database elements.
 // - Invoke the update functions.
-func (d *DB) tick(ev event) {
+func (d *DB) tick_event(ev event) {
 	t := ev.ticker
 	// Check for daily reset processing which occurs at midnight.
 	midnight := ev.now.YearDay() != d.lastDay
@@ -304,11 +287,7 @@ func (d *DB) tick(ev event) {
 			log.Printf("Output: Tag: %5s, value: %f, timestamp: %s\n", tag, el.Get(), el.Timestamp().Format(time.UnixDate))
 		}
 	}
-	// Invoke the list of callbacks, passing the previous tick time and the current tick time.
-	for _, cb := range t.updates {
-		cb.Update(t.last, ev.now)
-	}
-	t.last = ev.now
+	t.ticked(ev.now)
 }
 
 // Update will save the current values of the elements in the
@@ -349,7 +328,7 @@ func (d *DB) readCheckpoint() error {
 		return nil
 	}
 	// Add a callback to checkpoint the database at the specified interval.
-	d.AddUpdate(d, time.Minute*time.Duration(*checkpointTock))
+	d.AddUpdate(d, time.Minute*time.Duration(*checkpointTick))
 	log.Printf("Reading checkpoint data from %s\n", *checkpoint)
 	f, err := os.Open(*checkpoint)
 	if err != nil {
@@ -376,4 +355,32 @@ func (d *DB) readCheckpoint() error {
 			}
 		}
 	}
+}
+
+// Initialise and start the ticker.
+func (t *ticker) Start(ec chan<- event, last time.Time) {
+	log.Printf("Initialising ticker interval %s", t.tick.String())
+	// Initialise the tickers with the previous saved tick.
+	t.last = last.Truncate(t.tick)
+	// Start goroutines that send events for each ticker interval.
+	go func(ec chan<- event, t *ticker) {
+		var tv event
+		tv.ticker = t
+		for {
+			// Calculate the next time an event should be sent, and
+			// sleep until then.
+			now := time.Now()
+			tv.now = now.Add(t.tick).Truncate(t.tick)
+			time.Sleep(tv.now.Sub(now))
+			ec <- tv
+		}
+	}(ec, t)
+}
+
+// ticked handles a tick event by invoking the callbacks registered on this ticker.
+func (t *ticker) ticked(now time.Time) {
+	for _, cb := range t.updates {
+		cb.Update(t.last, now)
+	}
+	t.last = now
 }
