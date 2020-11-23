@@ -25,7 +25,8 @@
 // thread that calls Start(). This thread processes the received tagged
 // data sent via the input channel, updating the database as required.
 // Interval callbacks (for consumers) are invoked as part of this same
-// thread, so callbacks can freely access the element database.
+// thread, so callbacks can freely access the element database - as a result,
+// consumer callbacks should not block or delay unnecessarily.
 //
 // Initialisation is handled as a set-up phase, where modules register an init hook
 // (via an init() function) by calling RegisterInit().
