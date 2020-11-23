@@ -28,32 +28,7 @@ import (
 var checkpointTick = flag.Int("checkpointrate", 1, "Checkpoint interval (in minutes)")
 var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
 
-// writeCheckpoint saves the values of the elements in the database to a checkpoint file.
-func (d *DB) writeCheckpoint(now time.Time) {
-	if len(*checkpoint) == 0 {
-		return
-	}
-	if d.Trace {
-		log.Printf("Writing checkpoint data to %s\n", *checkpoint)
-	}
-	f, err := os.Create(*checkpoint)
-	if err != nil {
-		log.Printf("Checkpoint file create: %s %v\n", *checkpoint, err)
-		return
-	}
-	defer f.Close()
-	wr := bufio.NewWriter(f)
-	defer wr.Flush()
-	for n, e := range d.elements {
-		s := e.Checkpoint()
-		if len(s) != 0 {
-			fmt.Fprintf(wr, "%s:%s\n", n, s)
-		}
-	}
-	fmt.Fprintf(wr, "%s:%d\n", C_TIME, now.Unix())
-}
-
-// Checkpoint reads the checkpoint data into a map.
+// readCheckpoint reads the checkpoint data into a map.
 // The checkpoint file contains lines of the form:
 //
 //    <tag>:<checkpoint string>
@@ -94,4 +69,29 @@ func (d *DB) readCheckpoint() error {
 			}
 		}
 	}
+}
+
+// writeCheckpoint saves the values of the elements in the database to a checkpoint file.
+func (d *DB) writeCheckpoint(now time.Time) {
+	if len(*checkpoint) == 0 {
+		return
+	}
+	if d.Trace {
+		log.Printf("Writing checkpoint data to %s\n", *checkpoint)
+	}
+	f, err := os.Create(*checkpoint)
+	if err != nil {
+		log.Printf("Checkpoint file create: %s %v\n", *checkpoint, err)
+		return
+	}
+	defer f.Close()
+	wr := bufio.NewWriter(f)
+	defer wr.Flush()
+	for n, e := range d.elements {
+		s := e.Checkpoint()
+		if len(s) != 0 {
+			fmt.Fprintf(wr, "%s:%s\n", n, s)
+		}
+	}
+	fmt.Fprintf(wr, "%s:%d\n", C_TIME, now.Unix())
 }

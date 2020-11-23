@@ -127,10 +127,9 @@ func NewDatabase(conf *config.Config) *DB {
 }
 
 // Start reads the checkpoint data, calls the init functions,
-// and then enters a service loop processing the tag data inputs and tick events.
+// and then enters a select loop processing the tag data inputs and tick events.
 func (d *DB) Start() error {
-	err := d.readCheckpoint()
-	if err != nil {
+	if err := d.readCheckpoint(); err != nil {
 		return err
 	}
 	// Call the init hooks, which initialises all the registered modules.
@@ -172,18 +171,18 @@ func (d *DB) Start() error {
 			// Event from ticker
 			d.tick_event(ev)
 		case f := <-d.run:
-			// Request to run callback.
+			// Request to run callback from main thread
 			f()
 		}
 	}
 }
 
-// Input sends tagged input data to database
+// Input sends tagged input data to the input channel
 func (d *DB) Input(tag string, value float64) {
 	d.input <- input{tag, value}
 }
 
-// AddCallback adds a callback to be invoked at the interval specified.
+// AddCallback adds a callback to be regularly invoked at the interval specified.
 func (d *DB) AddCallback(tick time.Duration, cb callback) {
 	t, ok := d.tickers[tick]
 	if !ok {
@@ -194,7 +193,8 @@ func (d *DB) AddCallback(tick time.Duration, cb callback) {
 	t.callbacks = append(t.callbacks, cb)
 }
 
-// Execute runs a function in the database thread
+// Execute runs a function in the main thread, blocking until
+// the function returns.
 func (d *DB) Execute(f func()) {
 	var l sync.WaitGroup
 	l.Add(1)
