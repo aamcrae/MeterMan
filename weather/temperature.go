@@ -118,7 +118,7 @@ func reader(d *db.DB, get func() (float64, error)) {
 			if d.Trace {
 				log.Printf("Current temperature: %f\n", t)
 			}
-			d.InChan <- db.Input{Tag: db.G_TEMP, Value: t}
+			d.In <- db.Input{Tag: db.G_TEMP, Value: t}
 		}
 		time.Sleep(time.Duration(*weatherpoll) * time.Second)
 	}

@@ -23,7 +23,6 @@ import (
 	"log"
 	"net/http"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
@@ -64,37 +63,25 @@ func serverInit(d *db.DB) error {
 	mux := http.NewServeMux()
 	s := &apiServer{d: d}
 	apih := func(w http.ResponseWriter, req *http.Request) {
-		var l sync.WaitGroup
-		l.Add(1)
-		s.d.RunChan <- func() {
+		s.d.Execute(func() {
 			s.api(w, req)
-			l.Done()
-		}
-		l.Wait()
+		})
 	}
 	mux.HandleFunc("/api", apih)
 	mux.HandleFunc("/api/", apih)
 	mux.HandleFunc("/status", func(w http.ResponseWriter, req *http.Request) {
-		var l sync.WaitGroup
-		l.Add(1)
-		s.d.RunChan <- func() {
+		s.d.Execute(func() {
 			s.status(w, req)
-			l.Done()
-		}
-		l.Wait()
+		})
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Path != "/" {
 			http.NotFound(w, req)
 			return
 		}
-		var l sync.WaitGroup
-		l.Add(1)
-		s.d.RunChan <- func() {
+		s.d.Execute(func() {
 			s.status(w, req)
-			l.Done()
-		}
-		l.Wait()
+		})
 	})
 	go func() {
 		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *port), mux))

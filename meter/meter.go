@@ -144,7 +144,7 @@ func runReader(d *db.DB, r *Reader, source string, angle float64) {
 				log.Printf("Unknown meter label: %s\n", label)
 			} else {
 				for _, tag := range tags {
-					d.InChan <- db.Input{Tag: tag, Value: val}
+					d.In <- db.Input{Tag: tag, Value: val}
 				}
 			}
 		}

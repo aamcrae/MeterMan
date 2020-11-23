@@ -36,7 +36,7 @@
 //  db.Start()
 //             -> MyInit(db)
 //                   -> Initialise module, save input channel, start producer goroutine
-//                   -> db.AddCallback(MyConsumer, interval)  [to register consumer]
+//                   -> db.AddCallback(interval, MyConsumer)  [to register consumer]
 //     ...
 //  <processing loop>
 //                                  <- MyProducer sends tagged data updates via channel
@@ -59,6 +59,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aamcrae/config"
@@ -72,10 +73,9 @@ var endHour = flag.Int("endhour", 20, "End hour for PV (e.g 19)")
 
 // DB contains the element database.
 type DB struct {
-	Config  *config.Config // Parsed configuration
-	InChan  chan<- Input   // Write-only channel to receive tagged data
-	RunChan chan<- func()  // Request callback within database context
-	Trace   bool           // If true, provide tracing
+	Config *config.Config // Parsed configuration
+	In     chan<- Input   // Write-only channel to receive tagged data
+	Trace  bool           // If true, provide tracing
 	// StartHour and EndHour define the hours of daylight.
 	StartHour int
 	EndHour   int
@@ -88,16 +88,13 @@ type DB struct {
 	lastDay    int                       // Current day, to check for midnight processing
 }
 
-// Ticker callback interface.
-type Callback interface {
-	Run(time.Time, time.Time)
-}
+type callback func(time.Time, time.Time)
 
 // ticker holds callbacks to be invoked at the specified period (e.g every 5 minutes)
 type ticker struct {
 	tick      time.Duration // Interval time
 	last      time.Time     // Last time callbacks were invoked.
-	callbacks []Callback    // List of callbacks
+	callbacks []callback    // List of callbacks
 }
 
 // event is sent from the goroutine when each interval ticks over
@@ -127,9 +124,8 @@ func NewDatabase(conf *config.Config) *DB {
 	d.StartHour = *startHour
 	d.EndHour = *endHour
 	d.input = make(chan Input, 200)
-	d.InChan = d.input // Exported write-only input channel
+	d.In = d.input // Exported write-only input channel
 	d.run = make(chan func(), 100)
-	d.RunChan = d.run
 	return d
 }
 
@@ -186,7 +182,7 @@ func (d *DB) Start() error {
 }
 
 // AddCallback adds a callback to be invoked at the interval specified.
-func (d *DB) AddCallback(cb Callback, tick time.Duration) {
+func (d *DB) AddCallback(tick time.Duration, cb callback) {
 	t, ok := d.tickers[tick]
 	if !ok {
 		t = new(ticker)
@@ -194,6 +190,17 @@ func (d *DB) AddCallback(cb Callback, tick time.Duration) {
 		d.tickers[tick] = t
 	}
 	t.callbacks = append(t.callbacks, cb)
+}
+
+// Execute runs a function in the database thread
+func (d *DB) Execute(f func()) {
+	var l sync.WaitGroup
+	l.Add(1)
+	d.run <- func() {
+		f()
+		l.Done()
+	}
+	l.Wait()
 }
 
 // AddSubGauge adds a sub-gauge to a master gauge.
@@ -332,8 +339,8 @@ func (d *DB) tick_event(ev event) {
 	t.ticked(ev.now)
 }
 
-// Run callback will save the values of the elements in the database to a checkpoint file.
-func (d *DB) Run(last, now time.Time) {
+// writeCheckpoint saves the values of the elements in the database to a checkpoint file.
+func (d *DB) writeCheckpoint(now time.Time) {
 	if len(*checkpoint) == 0 {
 		return
 	}
@@ -369,7 +376,9 @@ func (d *DB) readCheckpoint() error {
 		return nil
 	}
 	// Add a callback to checkpoint the database at the specified interval.
-	d.AddCallback(d, time.Minute*time.Duration(*checkpointTick))
+	d.AddCallback(time.Minute*time.Duration(*checkpointTick), func(last time.Time, now time.Time) {
+		d.writeCheckpoint(now)
+	})
 	log.Printf("Reading checkpoint data from %s\n", *checkpoint)
 	f, err := os.Open(*checkpoint)
 	if err != nil {
@@ -421,7 +430,7 @@ func (t *ticker) Start(ec chan<- event, last time.Time) {
 // ticked handles a tick event by invoking the callbacks registered on this ticker.
 func (t *ticker) ticked(now time.Time) {
 	for _, cb := range t.callbacks {
-		cb.Run(t.last, now)
+		cb(t.last, now)
 	}
 	t.last = now
 }

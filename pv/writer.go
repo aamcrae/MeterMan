@@ -79,13 +79,13 @@ func pvoutputInit(d *db.DB) error {
 		return err
 	}
 	p := &pvWriter{d: d, pvurl: pvurl, id: id, key: key, client: &http.Client{}}
-	d.AddCallback(p, time.Minute*time.Duration(*pvUpdateRate))
+	d.AddCallback(time.Minute*time.Duration(*pvUpdateRate), p.upload)
 	log.Printf("Registered pvoutput uploader\n")
 	return nil
 }
 
 // Run creates a post request to pvoutput.org to upload the current data.
-func (p *pvWriter) Run(last time.Time, now time.Time) {
+func (p *pvWriter) upload(last time.Time, now time.Time) {
 	pv_power, pv_power_ok := p.getPVPower(last)
 	pv_daily, pv_daily_ok := p.getPVDaily(last)
 	temp := p.d.GetElement(db.G_TEMP)

@@ -70,7 +70,7 @@ func csvInit(d *db.DB) error {
 		return err
 	}
 	c := &csv{d: d, fpath: p}
-	d.AddCallback(c, time.Minute*time.Duration(*csvUpdateRate))
+	d.AddCallback(time.Minute*time.Duration(*csvUpdateRate), c.Run)
 	log.Printf("Registered CSV as writer (updated every %d minutes)\n", *csvUpdateRate)
 	return nil
 }
