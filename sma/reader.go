@@ -14,7 +14,7 @@
 
 // package sma implements reading telemetry data from a SMA solar inverter.
 // The package is configured as a section in the main config file
-// under the '[sma]' section, and the parameters are:
+// under one or more '[sma]' sections, and the parameters are:
 //   [sma]
 //   inverter=<inverter-name>:<udp-port>,<password>
 
@@ -34,50 +34,47 @@ var smaRetry = flag.Int("inverter-retry", 10, "Inverter poll retry time (seconds
 
 // InverterReader polls the inverter(s)
 type InverterReader struct {
-	d        *db.DB
-	sma      *SMA
-	genP     string
-	genDP    string
-	volts    string
-	genDaily string
-	genT     string
+	d   *db.DB // Database
+	sma *SMA   // Inverter object
+	// Database element names. These are dynamically allocated.
+	genP     string // Gauge for current power (Kw)
+	genDP    string // Derived for daily yield (KwH)
+	volts    string // Gauge for current voltage (V)
+	genDaily string // Accum for daily yield (KwH)
+	genT     string // Accum for lifetime yield (KwH)
 }
 
 func init() {
 	db.RegisterInit(inverterReader)
 }
 
+// Initialise SMA reader(s).
 func inverterReader(d *db.DB) error {
-	sl := d.Config.GetSections("sma")
-	if len(sl) == 0 {
-		return nil
-	}
-	for _, sect := range sl {
-		// Inverter name is of the format [IP address|name]:port,password
-		le := sect.Get("inverter")
-		if len(le) != 1 {
-			return fmt.Errorf("Missing or duplicate inverter configuration")
+	for _, sect := range d.Config.GetSections("sma") {
+		for _, e := range sect.Get("inverter") {
+			// Inverter name is of the form [IP address|name]:port,password
+			if len(e.Tokens) != 2 {
+				return fmt.Errorf("%s:%d: Inverter config error", e.Filename, e.Lineno)
+			}
+			sma, err := NewSMA(e.Tokens[0], e.Tokens[1])
+			if err != nil {
+				return err
+			}
+			s := &InverterReader{d: d, sma: sma}
+			// Allocate gauges etc. for the inverter.
+			s.genP = d.AddSubGauge(db.G_GEN_P, false)
+			s.volts = d.AddSubGauge(db.G_VOLTS, true)
+			s.genDaily = d.AddSubAccum(db.A_GEN_DAILY, true)
+			s.genT = d.AddSubAccum(db.A_GEN_TOTAL, false)
+			s.genDP = d.AddSubDiff(db.D_GEN_P, false)
+			log.Printf("Registered SMA inverter reader for %s\n", s.sma.Name())
+			go s.run()
 		}
-		e := le[0]
-		if len(e.Tokens) != 2 {
-			return fmt.Errorf("Inverter config error at line %d", e.Lineno)
-		}
-		sma, err := NewSMA(e.Tokens[0], e.Tokens[1])
-		if err != nil {
-			return err
-		}
-		s := &InverterReader{d: d, sma: sma}
-		s.genP = d.AddSubGauge(db.G_GEN_P, false)
-		s.volts = d.AddSubGauge(db.G_VOLTS, true)
-		s.genDaily = d.AddSubAccum(db.A_GEN_DAILY, true)
-		s.genT = d.AddSubAccum(db.A_GEN_TOTAL, false)
-		s.genDP = d.AddSubDiff(db.D_GEN_P, false)
-		log.Printf("Registered SMA inverter reader for %s\n", s.sma.Name())
-		go s.run()
 	}
 	return nil
 }
 
+// Polling loop for inverter.
 func (s *InverterReader) run() {
 	defer s.sma.Close()
 	for {
