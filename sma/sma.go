@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// package sma implements reading telemetry data from a SMA solar inverter.
+// package sma implements reading telemetry data from a SMA SunnyBoy solar inverter.
 
 package sma
 
@@ -34,8 +34,7 @@ var pktTrace = flag.Bool("packet-trace", false, "Enable packet dumps")
 
 const maxPacketSize = 8 * 1024
 
-var packet_header = []byte{'S', 'M', 'A', 0, 0, 0x04, 0x02, 0xA0,
-	0, 0, 0, 0x01, 0, 0}
+var packet_header = []byte{'S', 'M', 'A', 0, 0, 0x04, 0x02, 0xA0, 0, 0, 0, 0x01, 0, 0}
 
 const signature = uint32(0x65601000)
 
@@ -45,7 +44,7 @@ const password_enc = 0x88
 // Data types of record value.
 const (
 	DT_ULONG     = 0   // Unsigned 32 bits
-	DT_STATUS    = 8   // upper bits is attribute value, lower 24 bits attribute ID.
+	DT_STATUS    = 8   // upper 8 bits are attribute value, lower 24 bits attribute ID.
 	DT_STRING    = 16  // 32 bytes null terminated string
 	DT_FLOAT     = 32  // 32 bit float (unused)
 	DT_SLONG     = 64  // Signed 32 bits
@@ -92,15 +91,15 @@ type record struct {
 	attrVal   []byte
 }
 
-// SMA represents a single SMA inverter.
+// SMA represents a single SMA SunnyBoy inverter.
 type SMA struct {
-	name      string
-	password  []byte
-	conn      *net.UDPConn
+	name      string       // device name or IP address
+	password  []byte       // device password
+	conn      *net.UDPConn // UDP connection
 	timeout   time.Duration
-	appSusyid uint16
-	susyid    uint16
-	serial    uint32
+	appSusyid uint16 // Application system ID
+	susyid    uint16 // System ID from device
+	serial    uint32 // Serial number of device
 }
 
 type request struct {
@@ -116,6 +115,8 @@ func init() {
 	appSerial = 900000000 + uint32(rand.Intn(100000000))
 }
 
+// NewSMA creates and initialises an object for accessing
+// a SunnyBoy inverter.
 func NewSMA(inverter string, password string) (*SMA, error) {
 	raddr, err := net.ResolveUDPAddr("udp4", inverter)
 	if err != nil {
@@ -283,6 +284,8 @@ func (s *SMA) getValue(cmd uint32, id uint16, scale float64) (float64, error) {
 	}
 }
 
+// getRecords retrieves the requested records from the inverter,
+// returning the records in a map keyed by the record ID.
 func (s *SMA) getRecords(code, a1, a2 uint32) (map[uint16][]*record, error) {
 	req, err := s.cmdPacket(code, a1, a2)
 	if err != nil {
@@ -302,6 +305,7 @@ func (s *SMA) getRecords(code, a1, a2 uint32) (map[uint16][]*record, error) {
 	return m, nil
 }
 
+// cmdPacket creates and sends a request to the inverter.
 func (s *SMA) cmdPacket(cmd, first, last uint32) (*request, error) {
 	r := s.packet(9, 0xA0, 0)
 	binary.Write(r.buf, binary.LittleEndian, cmd)
@@ -317,7 +321,7 @@ func (s *SMA) cmdPacket(cmd, first, last uint32) (*request, error) {
 	return r, nil
 }
 
-// Read the packet from the inverter and verify it.
+// response receives the response from the inverter and verifies it.
 func (s *SMA) response(req *request) (*bytes.Buffer, error) {
 	tout := time.Now().Add(time.Duration(*smatimeout) * time.Second)
 	for {
@@ -344,6 +348,7 @@ func (s *SMA) response(req *request) (*bytes.Buffer, error) {
 	}
 }
 
+// packet creates a packet header.
 func (s *SMA) packet(longwords, c1 byte, c2 uint16) *request {
 	new_id := atomic.AddUint32(&master_packet_id, 1)
 	var id uint16 = uint16(new_id) | 0x8000
