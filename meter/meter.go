@@ -134,7 +134,9 @@ func runReader(d *db.DB, r *Reader, source string, angle float64) {
 		// Decode the digits and get the label and value.
 		label, val, err := r.Read(img)
 		if err != nil {
-			log.Printf("Read error: %v", err)
+			if d.Trace {
+				log.Printf("Read error: %v", err)
+			}
 			if *saveBad {
 				lcd.SaveImage(*badFile, img)
 			}
