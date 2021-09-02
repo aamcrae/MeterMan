@@ -49,6 +49,8 @@ type Reader struct {
 	current         image.Image
 	lastCalibration time.Time
 	limits          map[string]limit
+	keyError        int
+	rangeError      int
 }
 
 // measure represents one type of value decoded from the meter.
@@ -150,9 +152,17 @@ func (r *Reader) Recalibrate() {
 		if time.Now().Sub(r.lastCalibration) >= time.Duration(*recalInterval)*time.Second {
 			l := r.decoder
 			r.lastCalibration = now
+			var dErr []string
+			for _, e := range l.DecodeErrors() {
+				dErr = append(dErr, fmt.Sprintf("%2d", e))
+			}
+			log.Printf("Decode: key: %2d range: %2d digits: (%s)", r.keyError, r.rangeError,
+				strings.Join(dErr, ", "))
 			l.Recalibrate()
 			log.Printf("Recalibration: last %3d (good %2d, bad %2d), new %3d, worst %3d, count %d, avg %5.1f",
 				l.LastQuality, l.LastGood, l.LastBad, l.Best, l.Worst, l.Count, float32(l.Total)/float32(l.Count))
+			r.keyError = 0
+			r.rangeError = 0
 			if *saveCalibration && len(*calibration) != 0 {
 				if r.trace {
 					log.Printf("Saving calibration data to %s", *calibration)
@@ -194,12 +204,14 @@ func (r *Reader) Read(img image.Image) (string, float64, error) {
 		// the label does not match any expected strings, so this is
 		// marked as a misread.
 		r.decoder.Bad()
+		r.keyError++
 		return "", 0.0, fmt.Errorf("Unknown key (%s) value %s", key, value)
 	}
 	str, num, err := m.handler(r, m, key, value)
 	if err == nil {
 		r.GoodScan(res)
 	} else {
+		r.rangeError++
 		r.decoder.Bad()
 	}
 	return str, num, err
