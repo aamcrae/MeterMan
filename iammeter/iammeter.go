@@ -44,6 +44,7 @@ import (
 )
 
 var iamPoll = flag.Int("iammeter-poll", 15, "IAMMETER poll time (seconds)")
+var iamSend = flag.Bool("iammeter-send", true, "IAMMETER send meter data")
 
 // Register iamReader as a data source.
 func init() {
@@ -60,15 +61,17 @@ func iamReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
+	vg := d.AddSubGauge(db.G_VOLTS, true)
 	d.AddGauge(db.G_IN_CURRENT)
 	d.AddGauge(db.G_OUT_CURRENT)
-	d.AddDiff(db.D_IN_POWER, time.Minute*5)
-	d.AddDiff(db.D_OUT_POWER, time.Minute*5)
-	d.AddAccum(db.A_IN_TOTAL, true)
-	d.AddAccum(db.A_OUT_TOTAL, true)
-	d.AddAccum(db.A_IMPORT, true)
-	d.AddAccum(db.A_EXPORT, true)
-	vg := d.AddSubGauge(db.G_VOLTS, true)
+	if false {
+		d.AddDiff(db.D_IN_POWER, time.Minute*5)
+		d.AddDiff(db.D_OUT_POWER, time.Minute*5)
+		d.AddAccum(db.A_IN_TOTAL, true)
+		d.AddAccum(db.A_OUT_TOTAL, true)
+		d.AddAccum(db.A_IMPORT, true)
+		d.AddAccum(db.A_EXPORT, true)
+	}
 	log.Printf("Registered IAMMETER reader\n")
 	go meterReader(d, vg, url)
 	return nil
@@ -130,13 +133,15 @@ func fetch(d *db.DB, vg string, client *http.Client, url string) error {
 		d.Input(db.G_OUT_CURRENT, 0.0)
 		d.Input(db.G_IN_CURRENT, m.Data[1])
 	}
-	// ImportEnergy
-	d.Input(db.D_IN_POWER, m.Data[3])
-	d.Input(db.A_IN_TOTAL, m.Data[3])
-	d.Input(db.A_IMPORT, m.Data[3])
-	// ExportGrid
-	d.Input(db.D_OUT_POWER, m.Data[4])
-	d.Input(db.A_OUT_TOTAL, m.Data[4])
-	d.Input(db.A_EXPORT, m.Data[4])
+	if false {
+		// ImportEnergy
+		d.Input(db.D_IN_POWER, m.Data[3])
+		d.Input(db.A_IN_TOTAL, m.Data[3])
+		d.Input(db.A_IMPORT, m.Data[3])
+		// ExportGrid
+		d.Input(db.D_OUT_POWER, m.Data[4])
+		d.Input(db.A_OUT_TOTAL, m.Data[4])
+		d.Input(db.A_EXPORT, m.Data[4])
+	}
 	return nil
 }
