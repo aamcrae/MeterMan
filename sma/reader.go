@@ -31,6 +31,7 @@ import (
 
 var smaPoll = flag.Int("inverter-poll", 90, "Inverter poll time (seconds)")
 var smaRetry = flag.Int("inverter-retry", 10, "Inverter poll retry time (seconds)")
+var smaVolts = flag.Bool("inverter-volts", false, "Send inverter Volts reading")
 
 // InverterReader polls the inverter(s)
 type InverterReader struct {
@@ -63,7 +64,9 @@ func inverterReader(d *db.DB) error {
 			s := &InverterReader{d: d, sma: sma}
 			// Allocate gauges etc. for the inverter.
 			s.genP = d.AddSubGauge(db.G_GEN_P, false)
-			s.volts = d.AddSubGauge(db.G_VOLTS, true)
+			if *smaVolts {
+				s.volts = d.AddSubGauge(db.G_VOLTS, true)
+			}
 			s.genDaily = d.AddSubAccum(db.A_GEN_DAILY, true)
 			s.genT = d.AddSubAccum(db.A_GEN_TOTAL, false)
 			s.genDP = d.AddSubDiff(db.D_GEN_P, false)
@@ -122,15 +125,17 @@ func (s *InverterReader) poll(daytime bool) error {
 		s.d.Input(s.genDP, t)
 	}
 	if daytime {
-		v, err := s.sma.Voltage()
-		if err != nil {
-			return err
-		}
-		if v != 0 {
-			if s.d.Trace {
-				log.Printf("Tag %s volts = %f", s.volts, v)
+		if *smaVolts {
+			v, err := s.sma.Voltage()
+			if err != nil {
+				return err
 			}
-			s.d.Input(s.volts, v)
+			if v != 0 {
+				if s.d.Trace {
+					log.Printf("Tag %s volts = %f", s.volts, v)
+				}
+				s.d.Input(s.volts, v)
+			}
 		}
 		p, err := s.sma.Power()
 		if err != nil {
