@@ -43,7 +43,7 @@ import (
 	"github.com/aamcrae/MeterMan/db"
 )
 
-var iamPoll = flag.Int("iammeter-poll", 60, "IAMMETER poll time (seconds)")
+var iamPoll = flag.Int("iammeter-poll", 15, "IAMMETER poll time (seconds)")
 
 // Register iamReader as a data source.
 func init() {
