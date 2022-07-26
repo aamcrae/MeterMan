@@ -64,7 +64,7 @@ func iamReader(d *db.DB) error {
 	vg := d.AddSubGauge(db.G_VOLTS, true)
 	d.AddGauge(db.G_IN_CURRENT)
 	d.AddGauge(db.G_OUT_CURRENT)
-	if false {
+	if *iamSend {
 		d.AddDiff(db.D_IN_POWER, time.Minute*5)
 		d.AddDiff(db.D_OUT_POWER, time.Minute*5)
 		d.AddAccum(db.A_IN_TOTAL, true)
@@ -133,7 +133,7 @@ func fetch(d *db.DB, vg string, client *http.Client, url string) error {
 		d.Input(db.G_OUT_CURRENT, 0.0)
 		d.Input(db.G_IN_CURRENT, m.Data[1])
 	}
-	if false {
+	if *iamSend {
 		// ImportEnergy
 		d.Input(db.D_IN_POWER, m.Data[3])
 		d.Input(db.A_IN_TOTAL, m.Data[3])
