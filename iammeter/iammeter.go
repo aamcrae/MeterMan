@@ -125,6 +125,10 @@ func fetch(d *db.DB, vg string, client *http.Client, url string) error {
 		log.Printf("iammeter: Volts %fV, current %fA, power %fW", m.Data[0], m.Data[1], m.Data[2])
 		log.Printf("iammeter: Import %fkWh, Export %fkWh", m.Data[3], m.Data[4])
 	}
+	if len(m.Version) == 0 || len(m.Serial) == 0 || m.Data[0] == 0 ||
+		m.Data[3] == 0 || m.Data[4] == 0 {
+		return fmt.Errorf("Missing values")
+	}
 	d.Input(vg, m.Data[0])
 	if m.Data[1] < 0.0 {
 		d.Input(db.G_IN_CURRENT, 0.0)
