@@ -154,6 +154,7 @@ func (s *SMA) Logon() (uint16, uint32, error) {
 		return 0, 0, fmt.Errorf("logon: %v", err)
 	}
 	s.Logoff()
+	s.flush()
 	// logon to the inverter.
 	r := s.packet(14, 0xA0, 0x100)
 	binary.Write(r.buf, binary.LittleEndian, uint32(0xFFFD040C))
@@ -400,6 +401,15 @@ func (s *SMA) send(r *request) error {
 		return fmt.Errorf("wrote %d bytes of buffer size %d", n, r.buf.Len())
 	}
 	return nil
+}
+
+func (s *SMA) flush() {
+	for {
+		_, err := s.read(0)
+		if err != nil {
+			return
+		}
+	}
 }
 
 func (s *SMA) read(timeout time.Duration) (*bytes.Buffer, error) {
