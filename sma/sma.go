@@ -405,7 +405,7 @@ func (s *SMA) send(r *request) error {
 
 func (s *SMA) flush() {
 	for {
-		_, err := s.read(0)
+		_, err := s.read(time.Duration(1) * time.Millisecond)
 		if err != nil {
 			return
 		}
