@@ -147,7 +147,7 @@ func (s *SMA) Logon() (uint16, uint32, error) {
 	s.serial = 0xFFFFFFFF
 	req, err := s.cmdPacket(CMD_INV_LOGON, 0, 0)
 	if err != nil {
-		return 0, 0, fmt.Errorf("logon: %v", err)
+		return 0, 0, fmt.Errorf("%s: logon: %v", s.name, err)
 	}
 	b, err := s.response(req)
 	if err != nil {
@@ -170,7 +170,7 @@ func (s *SMA) Logon() (uint16, uint32, error) {
 	if err != nil {
 		return 0, 0, fmt.Errorf("logon: %v", err)
 	}
-	pkt := b.Bytes()
+	pkt := b[0].Bytes()
 	retCode := binary.LittleEndian.Uint16(pkt[36:])
 	if retCode == 0x0100 {
 		return 0, 0, fmt.Errorf("Invalid password")
@@ -180,8 +180,8 @@ func (s *SMA) Logon() (uint16, uint32, error) {
 	s.susyid = binary.LittleEndian.Uint16(pkt[28:])
 	s.serial = binary.LittleEndian.Uint32(pkt[30:])
 	if *trace {
-		log.Printf("Successful logon to inverter, susyid = %d, serial = %d",
-			s.susyid, s.serial)
+		log.Printf("Successful logon to inverter %s, susyid = %d, serial = %d",
+			s.name, s.susyid, s.serial)
 	}
 	return s.susyid, s.serial, nil
 }
@@ -278,7 +278,7 @@ func (s *SMA) getValue(cmd uint32, id uint16, scale float64) (float64, error) {
 		return float64(v[0].value) / scale, nil
 	} else {
 		if *trace {
-			log.Printf("getValue: missing record (0x%04x)\n", id)
+			log.Printf("%s: getValue: missing record (0x%04x)", s.name, id)
 		}
 		return 0, fmt.Errorf("getValue: missing record")
 	}
@@ -312,7 +312,7 @@ func (s *SMA) cmdPacket(cmd, first, last uint32) (*request, error) {
 	binary.Write(r.buf, binary.LittleEndian, first)
 	binary.Write(r.buf, binary.LittleEndian, last)
 	if *trace {
-		log.Printf("Sending cmd 0x%08x, first 0x%08x, last 0x%08x", cmd, first, last)
+		log.Printf("%s: Sending cmd 0x%08x, first 0x%08x, last 0x%08x", s.name, cmd, first, last)
 	}
 	err := s.send(r)
 	if err != nil {
@@ -321,37 +321,49 @@ func (s *SMA) cmdPacket(cmd, first, last uint32) (*request, error) {
 	return r, nil
 }
 
-// response receives the response from the inverter and verifies it.
-func (s *SMA) response(req *request) (*bytes.Buffer, error) {
+// response receives the response packet(s) from the inverter and verifies them.
+func (s *SMA) response(req *request) ([]*bytes.Buffer, error) {
 	tout := time.Now().Add(time.Duration(*smatimeout) * time.Second)
+	var bList []*bytes.Buffer
+	pkt_id := req.packet_id
 	for {
 		b, err := s.read(tout.Sub(time.Now()))
 		if err != nil {
 			return nil, fmt.Errorf("response: %v", err)
 		}
+		if *pktTrace {
+			log.Printf("%s: Read buf, len %d", s.name, b.Len())
+			dumpPacket(b)
+		}
+		// Check for minimum sized packet
+		if b.Len() < 42 {
+			log.Printf("%s: packet too short (%d), skipping packet", s.name, b.Len())
+			continue
+		}
 		// Verify the packet and id.
 		pkt := b.Bytes()
 		if binary.LittleEndian.Uint32(pkt[14:]) != signature {
-			log.Printf("Unknown signature, skipping packet\n")
+			log.Printf("%s: Unknown signature, skipping packet", s.name)
 			continue
 		}
+		more := binary.LittleEndian.Uint16(pkt[38:])
 		rx_id := binary.LittleEndian.Uint16(pkt[40:])
-		if rx_id != req.packet_id {
-			log.Printf("RX id %04x, looking for %04x\n", rx_id, req.packet_id)
+		if rx_id != pkt_id {
+			log.Printf("%s: RX id %04x, looking for %04x", s.name, rx_id, pkt_id)
 			continue
 		}
-		if *pktTrace {
-			log.Printf("Read buf, len %d\n", b.Len())
-			dumpPacket(b)
+		pkt_id &^= 0x8000
+		bList = append(bList, b)
+		if more == 0 {
+			return bList, nil
 		}
-		return b, nil
 	}
 }
 
 // packet creates a packet header.
 func (s *SMA) packet(longwords, c1 byte, c2 uint16) *request {
 	new_id := atomic.AddUint32(&master_packet_id, 1)
-	var id uint16 = uint16(new_id) | 0x8000
+	var id uint16 = uint16(new_id) | 0x8000 // Top bit set for first packet.
 	b := new(bytes.Buffer)
 	b.Write(packet_header)                            // 0
 	binary.Write(b, binary.LittleEndian, signature)   // 14
@@ -364,7 +376,7 @@ func (s *SMA) packet(longwords, c1 byte, c2 uint16) *request {
 	binary.Write(b, binary.LittleEndian, appSerial)   // 30
 	binary.Write(b, binary.LittleEndian, c2)          // 34 control2
 	binary.Write(b, binary.LittleEndian, uint16(0))   // 36
-	binary.Write(b, binary.LittleEndian, uint16(0))   // 38
+	binary.Write(b, binary.LittleEndian, uint16(0))   // 38 packet count following
 	binary.Write(b, binary.LittleEndian, id)          // 40
 	return &request{packet_id: id, buf: b}
 }
@@ -377,7 +389,7 @@ func (s *SMA) send(r *request) error {
 	binary.BigEndian.PutUint16(r.buf.Bytes()[12:], uint16(len))
 
 	if *pktTrace {
-		log.Printf("Sending pkt ID: %04x, length %d", r.packet_id, r.buf.Len())
+		log.Printf("%s: Sending pkt ID: %04x, length %d", s.name, r.packet_id, r.buf.Len())
 		dumpPacket(r.buf)
 	}
 	n, err := s.conn.Write(r.buf.Bytes())
@@ -401,74 +413,76 @@ func (s *SMA) read(timeout time.Duration) (*bytes.Buffer, error) {
 }
 
 // Unpack records from the buffer.
-func unpackRecords(cmd uint32, b *bytes.Buffer) (map[uint16][]*record, error) {
+func unpackRecords(cmd uint32, bList []*bytes.Buffer) (map[uint16][]*record, error) {
 	m := make(map[uint16][]*record)
-	// Skip headers.
-	b.Next(54)
-	if *pktTrace {
-		log.Printf("Unpacking:")
-		dumpPacket(b)
-	}
-	for b.Len() >= 8 {
-		r := new(record)
-		r.classType, _ = b.ReadByte()
-		binary.Read(b, binary.LittleEndian, &r.code)
-		r.dataType, _ = b.ReadByte()
-		var t uint32
-		binary.Read(b, binary.LittleEndian, &t)
-		r.date = time.Unix(int64(t), 0)
-		done := 8
-		size, ok := cmdRecSize[cmd]
-		if !ok {
-			return m, fmt.Errorf("Unknown size for cmd 0x%04x", cmd)
+	for pn, b := range bList {
+		// Skip headers.
+		b.Next(54)
+		if *pktTrace {
+			log.Printf("Unpacking pkt %d:", pn)
+			dumpPacket(b)
 		}
-		switch r.dataType {
-		case DT_ULONG:
-			var v uint32
-			binary.Read(b, binary.LittleEndian, &v)
-			if v == nan32 || v == nanu32 {
-				v = 0
+		for b.Len() >= 8 {
+			r := new(record)
+			r.classType, _ = b.ReadByte()
+			binary.Read(b, binary.LittleEndian, &r.code)
+			r.dataType, _ = b.ReadByte()
+			var t uint32
+			binary.Read(b, binary.LittleEndian, &t)
+			r.date = time.Unix(int64(t), 0)
+			done := 8
+			size, ok := cmdRecSize[cmd]
+			if !ok {
+				return m, fmt.Errorf("Unknown size for cmd 0x%04x", cmd)
 			}
-			r.value = int64(v)
-			done += 4
-		case DT_SLONG:
-			var v uint32
-			binary.Read(b, binary.LittleEndian, &v)
-			if v == nan32 || v == nanu32 {
-				v = 0
-			}
-			r.value = int64(int32(v))
-			done += 4
-		case DT_STRING:
-			r.str = string(bytes.Trim(b.Next(32), "\x00"))
-			done += 32
-		case DT_ULONGLONG:
-			var v uint64
-			binary.Read(b, binary.LittleEndian, &v)
-			if v == nan64 || v == nanu64 {
-				v = 0
-			}
-			r.value = int64(v)
-			done += 8
-		case DT_STATUS:
-			for done < size {
-				done += 4
-				var a uint32
-				binary.Read(b, binary.LittleEndian, &a)
-				if a == 0xFFFFFE {
-					break
+			switch r.dataType {
+			case DT_ULONG:
+				var v uint32
+				binary.Read(b, binary.LittleEndian, &v)
+				if v == nan32 || v == nanu32 {
+					v = 0
 				}
-				r.attribute = append(r.attribute, a&0xFFFFFF)
-				r.attrVal = append(r.attrVal, byte(a>>24))
+				r.value = int64(v)
+				done += 4
+			case DT_SLONG:
+				var v uint32
+				binary.Read(b, binary.LittleEndian, &v)
+				if v == nan32 || v == nanu32 {
+					v = 0
+				}
+				r.value = int64(int32(v))
+				done += 4
+			case DT_STRING:
+				r.str = string(bytes.Trim(b.Next(32), "\x00"))
+				done += 32
+			case DT_ULONGLONG:
+				var v uint64
+				binary.Read(b, binary.LittleEndian, &v)
+				if v == nan64 || v == nanu64 {
+					v = 0
+				}
+				r.value = int64(v)
+				done += 8
+			case DT_STATUS:
+				for done < size {
+					done += 4
+					var a uint32
+					binary.Read(b, binary.LittleEndian, &a)
+					if a == 0xFFFFFE {
+						break
+					}
+					r.attribute = append(r.attribute, a&0xFFFFFF)
+					r.attrVal = append(r.attrVal, byte(a>>24))
+				}
+			default:
+				return m, fmt.Errorf("cmd 0x%08x code 0x%04x, unknown data type: 0x%02x", cmd, r.code, r.dataType)
 			}
-		default:
-			return m, fmt.Errorf("cmd 0x%08x code 0x%04x, unknown data type: 0x%02x", cmd, r.code, r.dataType)
+			b.Next(size - done)
+			if *trace {
+				log.Printf("Rec # %d, code: %04x, record size %d", len(m), r.code, size)
+			}
+			m[r.code] = append(m[r.code], r)
 		}
-		b.Next(size - done)
-		if *trace {
-			log.Printf("Rec # %d, code: %04x, record size %d", len(m), r.code, size)
-		}
-		m[r.code] = append(m[r.code], r)
 	}
 	return m, nil
 }
