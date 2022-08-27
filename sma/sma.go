@@ -154,7 +154,6 @@ func (s *SMA) Logon() (uint16, uint32, error) {
 		return 0, 0, fmt.Errorf("logon: %v", err)
 	}
 	s.Logoff()
-	s.flush()
 	// logon to the inverter.
 	r := s.packet(14, 0xA0, 0x100)
 	binary.Write(r.buf, binary.LittleEndian, uint32(0xFFFD040C))
@@ -347,15 +346,17 @@ func (s *SMA) response(req *request) ([]*bytes.Buffer, error) {
 			log.Printf("%s: Unknown signature, skipping packet", s.name)
 			continue
 		}
-		more := binary.LittleEndian.Uint16(pkt[38:])
 		rx_id := binary.LittleEndian.Uint16(pkt[40:])
 		if rx_id != pkt_id {
-			log.Printf("%s: RX id %04x, looking for %04x", s.name, rx_id, pkt_id)
+			/* Some leftover packets may be seen at the start */
+			if *pktTrace || len(bList) != 0 {
+				log.Printf("%s: RX id %04x, looking for %04x", s.name, rx_id, pkt_id)
+			}
 			continue
 		}
 		pkt_id &^= 0x8000
 		bList = append(bList, b)
-		if more == 0 {
+		if binary.LittleEndian.Uint16(pkt[38:]) == 0 {
 			return bList, nil
 		}
 	}
@@ -401,15 +402,6 @@ func (s *SMA) send(r *request) error {
 		return fmt.Errorf("wrote %d bytes of buffer size %d", n, r.buf.Len())
 	}
 	return nil
-}
-
-func (s *SMA) flush() {
-	for {
-		_, err := s.read(time.Duration(1) * time.Millisecond)
-		if err != nil {
-			return
-		}
-	}
 }
 
 func (s *SMA) read(timeout time.Duration) (*bytes.Buffer, error) {
