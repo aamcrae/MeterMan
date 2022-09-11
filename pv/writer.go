@@ -86,8 +86,8 @@ func pvoutputInit(d *db.DB) error {
 
 // Run creates a post request to pvoutput.org to upload the current data.
 func (p *pvWriter) upload(last time.Time, now time.Time) {
-	pv_power, pv_power_ok := p.getPVPower(last)
-	pv_daily, pv_daily_ok := p.getPVDaily(last)
+	pv_power, pv_power_ok := p.getPVPower()
+	pv_daily, pv_daily_ok := p.getPVDaily()
 	temp := p.d.GetElement(db.G_TEMP)
 	volts := p.d.GetElement(db.G_VOLTS)
 	imp := p.d.GetAccum(db.A_IN_TOTAL)
@@ -116,7 +116,7 @@ func (p *pvWriter) upload(last time.Time, now time.Time) {
 	} else if p.d.Trace {
 		log.Printf("No PV power, v2 not updated\n")
 	}
-	if isValid(temp, last) && temp.Get() != 0 {
+	if isValid(temp) && temp.Get() != 0 {
 		val.Add("v5", fmt.Sprintf("%.2f", temp.Get()))
 		if p.d.Trace {
 			log.Printf("v5 = %.2f", temp.Get())
@@ -124,7 +124,7 @@ func (p *pvWriter) upload(last time.Time, now time.Time) {
 	} else if p.d.Trace {
 		log.Printf("No temperature, v5 not updated\n")
 	}
-	if isValid(volts, last) && volts.Get() != 0 {
+	if isValid(volts) && volts.Get() != 0 {
 		val.Add("v6", fmt.Sprintf("%.2f", volts.Get()))
 		if p.d.Trace {
 			log.Printf("v6 = %.2f", volts.Get())
@@ -132,7 +132,7 @@ func (p *pvWriter) upload(last time.Time, now time.Time) {
 	} else if p.d.Trace {
 		log.Printf("No Voltage, v6 not updated\n")
 	}
-	if isValid(imp, last) && isValid(exp, last) {
+	if isValid(imp) && isValid(exp) {
 		consumption := imp.Daily() - exp.Daily()
 		// Daily PV generation may be out of date, but it is used regardless.
 		consumption += pv_daily
@@ -147,17 +147,17 @@ func (p *pvWriter) upload(last time.Time, now time.Time) {
 	} else if *pvLog || p.d.Trace {
 		if exp == nil {
 			log.Printf("No export data\n")
-		} else if !isValid(exp, last) {
+		} else if !isValid(exp) {
 			log.Printf("Export data not fresh\n")
 		}
 		if imp == nil {
 			log.Printf("No import data\n")
-		} else if !isValid(imp, last) {
+		} else if !isValid(imp) {
 			log.Printf("Import data not fresh\n")
 		}
 		log.Printf("No consumption data, v3 not updated\n")
 	}
-	tp, err := p.getPower(last)
+	tp, err := p.getPower()
 	if err == nil {
 		var g float64
 		if pv_power_ok {
@@ -216,9 +216,9 @@ func (p *pvWriter) send(req *http.Request) {
 // getPVPower returns the current PV power.
 // If it is not valid, an attempt is made to derive it from any
 // valid sub-values.
-func (p *pvWriter) getPVPower(last time.Time) (float64, bool) {
+func (p *pvWriter) getPVPower() (float64, bool) {
 	pwr := p.d.GetElement(db.D_GEN_P)
-	if isValid(pwr, last) {
+	if isValid(pwr) {
 		return pwr.Get(), true
 	}
 	if p.d.Trace {
@@ -229,7 +229,7 @@ func (p *pvWriter) getPVPower(last time.Time) (float64, bool) {
 		if pe == nil {
 			break
 		}
-		if isValid(pe, last) {
+		if isValid(pe) {
 			if p.d.Trace {
 				log.Printf("Using 2 x %s/%d (value %f)", db.D_GEN_P, i, pe.Get())
 			}
@@ -245,9 +245,9 @@ func (p *pvWriter) getPVPower(last time.Time) (float64, bool) {
 // getPVDaily returns the PV daily generation.
 // If it is not valid, an attempt is made to derive it from any
 // valid sub-values.
-func (p *pvWriter) getPVDaily(last time.Time) (float64, bool) {
+func (p *pvWriter) getPVDaily() (float64, bool) {
 	pd := p.d.GetAccum(db.A_GEN_TOTAL)
-	if isValid(pd, last) {
+	if isValid(pd) {
 		return pd.Daily(), true
 	}
 	if p.d.Trace {
@@ -258,7 +258,7 @@ func (p *pvWriter) getPVDaily(last time.Time) (float64, bool) {
 		if pe == nil {
 			break
 		}
-		if isValid(pe, last) {
+		if isValid(pe) {
 			if p.d.Trace {
 				log.Printf("Using 2 x %s/%d (value %f)", db.A_GEN_TOTAL, i, pe.Daily())
 			}
@@ -272,21 +272,20 @@ func (p *pvWriter) getPVDaily(last time.Time) (float64, bool) {
 }
 
 // getPower returns the current import/export power (as Watts)
-func (p *pvWriter) getPower(last time.Time) (float64, error) {
+func (p *pvWriter) getPower() (float64, error) {
 	d_in := p.d.GetElement(db.D_IN_POWER)
 	d_out := p.d.GetElement(db.D_OUT_POWER)
 	if p.d.Trace {
-		log.Printf("IN-P  = %f, valid = %v", d_in.Get(), isValid(d_in, last))
-		log.Printf("OUT-P = %f, valid = %v", d_out.Get(), isValid(d_out, last))
+		log.Printf("IN-P  = %f, valid = %v", d_in.Get(), isValid(d_in))
+		log.Printf("OUT-P = %f, valid = %v", d_out.Get(), isValid(d_out))
 	}
-	if isValid(d_in, last) && isValid(d_out, last) {
+	if isValid(d_in) && isValid(d_out) {
 		return (d_in.Get() - d_out.Get()) * 1000.0, nil
 	}
 	return 0.0, fmt.Errorf("no valid power reading")
 }
 
-// isValid will return true if the element is not nil and has been updated
-// in the last interval.
-func isValid(e db.Element, last time.Time) bool {
-	return e != nil && !e.Timestamp().Before(last)
+// isValid will return true if the element is not nil and is fresh
+func isValid(e db.Element) bool {
+	return e != nil && e.Fresh()
 }

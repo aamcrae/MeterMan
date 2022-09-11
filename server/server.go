@@ -39,6 +39,7 @@ type Item struct {
 	Daily     int   `json:"total"`
 	Power     int   `json:"power"`
 	Timestamp int64 `json:"timestamp"`
+	Fresh     bool  `json:"fresh"`
 }
 
 type Data struct {
@@ -105,6 +106,7 @@ func (s *apiServer) api(w http.ResponseWriter, req *http.Request) {
 	c.Power = c.Import.Power - c.Export.Power
 	c.Consumption.Power = c.Generated.Power + c.Power
 	c.Consumption.Timestamp = c.Import.Timestamp
+	c.Consumption.Fresh = c.Import.Fresh
 	if c.Power < 0 {
 		c.Available = -c.Power
 	}
@@ -131,6 +133,7 @@ func (s *apiServer) daily(i *Item, n, p string, scale float64) {
 		i.Power = int(ep.Get() * scale)
 	}
 	i.Timestamp = e.Timestamp().Unix()
+	i.Fresh = e.Fresh()
 }
 
 // status provides a HTML status page.

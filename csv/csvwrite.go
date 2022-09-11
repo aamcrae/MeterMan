@@ -109,14 +109,14 @@ func (c *csv) Run(last time.Time, now time.Time) {
 	for _, s := range elements {
 		g := c.d.GetElement(s)
 		fmt.Fprint(c.writer, ",")
-		if g != nil && !g.Timestamp().Before(last) {
+		if g != nil && g.Fresh() {
 			fmt.Fprintf(c.writer, "%f", g.Get())
 		}
 	}
 	for _, s := range accums {
 		a := c.d.GetAccum(s)
 		fmt.Fprint(c.writer, ",")
-		if a != nil && !a.Timestamp().Before(last) {
+		if a != nil && a.Fresh() {
 			fmt.Fprintf(c.writer, "%f,%f", a.Get(), a.Daily())
 		} else {
 			fmt.Fprint(c.writer, ",")

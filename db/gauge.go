@@ -24,6 +24,7 @@ import (
 type Gauge struct {
 	value float64
 	ts    time.Time
+	stale time.Duration // Duration until stale
 }
 
 func NewGauge(cp string) *Gauge {
@@ -33,6 +34,7 @@ func NewGauge(cp string) *Gauge {
 	if sec != 0 {
 		g.ts = time.Unix(sec, 0)
 	}
+	g.SetFreshness(time.Minute * time.Duration(*freshness))
 	return g
 }
 
@@ -50,6 +52,14 @@ func (g *Gauge) Get() float64 {
 
 func (g *Gauge) Timestamp() time.Time {
 	return g.ts
+}
+
+func (g *Gauge) SetFreshness(s time.Duration) {
+	g.stale = s
+}
+
+func (g *Gauge) Fresh() bool {
+	return !g.Timestamp().Before(time.Now().Add(-g.stale))
 }
 
 func (g *Gauge) Checkpoint() string {

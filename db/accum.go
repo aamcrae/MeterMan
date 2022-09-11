@@ -23,9 +23,10 @@ import (
 // Accum represents an accumulating value i.e a value that continually increases.
 type Accum struct {
 	value      float64
-	midnight   float64   // Value at the start of the day.
-	resettable bool      // If set, the value can be reset to a lower value.
-	ts         time.Time // Timestamp of last update.
+	midnight   float64       // Value at the start of the day.
+	resettable bool          // If set, the value can be reset to a lower value.
+	ts         time.Time     // Timestamp of last update.
+	stale      time.Duration // Duration until stale
 }
 
 func NewAccum(cp string, resettable bool) *Accum {
@@ -42,6 +43,7 @@ func NewAccum(cp string, resettable bool) *Accum {
 		a.midnight = a.value
 	}
 	a.resettable = resettable
+	a.SetFreshness(time.Minute * time.Duration(*freshness))
 	return a
 }
 
@@ -73,6 +75,14 @@ func (a *Accum) Midnight() {
 
 func (a *Accum) Timestamp() time.Time {
 	return a.ts
+}
+
+func (a *Accum) SetFreshness(s time.Duration) {
+	a.stale = s
+}
+
+func (a *Accum) Fresh() bool {
+	return !a.Timestamp().Before(time.Now().Add(-a.stale))
 }
 
 // Create a checkpoint string.

@@ -64,6 +64,7 @@ import (
 var verbose = flag.Bool("verbose", false, "Verbose tracing")
 var startHour = flag.Int("starthour", 5, "Start hour for PV (e.g 6)")
 var endHour = flag.Int("endhour", 20, "End hour for PV (e.g 19)")
+var freshness = flag.Int("freshness", 10, "Default minutes until data is stale")
 
 // DB contains the element database.
 type DB struct {

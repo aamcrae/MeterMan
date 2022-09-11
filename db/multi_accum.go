@@ -69,6 +69,23 @@ func (m *MultiAccum) Timestamp() time.Time {
 	return timestamp
 }
 
+// Set all subaccumulators to this freshness
+func (m *MultiAccum) SetFreshness(s time.Duration) {
+	for _, a := range m.accums {
+		a.SetFreshness(s)
+	}
+}
+
+// Return true only if all subaccumulators are fresh
+func (m *MultiAccum) Fresh() bool {
+	for _, a := range m.accums {
+		if !a.Fresh() {
+			return false
+		}
+	}
+	return true
+}
+
 func (m *MultiAccum) Checkpoint() string {
 	return ""
 }

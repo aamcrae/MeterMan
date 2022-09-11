@@ -79,11 +79,11 @@ func (h *hassi) send(last time.Time, now time.Time) {
 	}
 	var b blk
 	b.Attr = make(map[string]float64)
-	h.add(db.D_IN_POWER, "in_power", last, b.Attr)
-	h.add(db.D_OUT_POWER, "out_power", last, b.Attr)
+	h.add(db.D_IN_POWER, "in_power", b.Attr)
+	h.add(db.D_OUT_POWER, "out_power", b.Attr)
 	in_p := h.d.GetElement(db.D_IN_POWER)
 	out_p := h.d.GetElement(db.D_OUT_POWER)
-	if isFresh(in_p, last) && isFresh(out_p, last) {
+	if in_p.Fresh() && out_p.Fresh() {
 		b.Attr["meter_power"] = in_p.Get() - out_p.Get()
 		if in_p.Get() <= out_p.Get() {
 			b.State = "exporting"
@@ -91,13 +91,13 @@ func (h *hassi) send(last time.Time, now time.Time) {
 			b.State = "importing"
 		}
 	}
-	h.add(db.G_VOLTS, "volts", last, b.Attr)
-	h.add(db.D_GEN_P, "gen_power", last, b.Attr)
-	h.daily(db.A_OUT_TOTAL, "out", last, b.Attr)
-	h.daily(db.A_IN_TOTAL, "in", last, b.Attr)
-	h.daily(db.A_GEN_TOTAL, "gen_daily", last, b.Attr)
-	h.daily(db.A_IMPORT, "import", last, b.Attr)
-	h.daily(db.A_EXPORT, "export", last, b.Attr)
+	h.add(db.G_VOLTS, "volts", b.Attr)
+	h.add(db.D_GEN_P, "gen_power", b.Attr)
+	h.daily(db.A_OUT_TOTAL, "out", b.Attr)
+	h.daily(db.A_IN_TOTAL, "in", b.Attr)
+	h.daily(db.A_GEN_TOTAL, "gen_daily", b.Attr)
+	h.daily(db.A_IMPORT, "import", b.Attr)
+	h.daily(db.A_EXPORT, "export", b.Attr)
 	// Send request asynchronously.
 	go func() {
 		buf := new(bytes.Buffer)
@@ -124,24 +124,18 @@ func (h *hassi) send(last time.Time, now time.Time) {
 	}()
 }
 
-func (h *hassi) add(tag, attr string, last time.Time, m map[string]float64) bool {
+func (h *hassi) add(tag, attr string, m map[string]float64) bool {
 	e := h.d.GetElement(tag)
-	if isFresh(e, last) {
+	if e.Fresh() {
 		m[attr] = e.Get()
 		return true
 	}
 	return false
 }
 
-func (h *hassi) daily(tag, attr string, last time.Time, m map[string]float64) {
+func (h *hassi) daily(tag, attr string, m map[string]float64) {
 	e := h.d.GetAccum(tag)
-	if isFresh(e, last) {
+	if e.Fresh() {
 		m[attr] = e.Daily()
 	}
-}
-
-// isFresh will return true if the element is not nil and has been updated
-// in the last interval.
-func isFresh(e db.Element, last time.Time) bool {
-	return e != nil && !e.Timestamp().Before(last)
 }
