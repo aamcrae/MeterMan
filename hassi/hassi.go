@@ -95,7 +95,7 @@ func (h *hassi) send(now time.Time) {
 	h.add(db.D_GEN_P, "gen_power", b.Attr)
 	h.daily(db.A_OUT_TOTAL, "out", b.Attr)
 	h.daily(db.A_IN_TOTAL, "in", b.Attr)
-	h.daily(db.A_GEN_TOTAL, "gen_daily", b.Attr)
+	h.daily(db.A_GEN_TOTAL, "gen", b.Attr)
 	h.daily(db.A_IMPORT, "import", b.Attr)
 	h.daily(db.A_EXPORT, "export", b.Attr)
 	// Send request asynchronously.
@@ -136,6 +136,7 @@ func (h *hassi) add(tag, attr string, m map[string]float64) bool {
 func (h *hassi) daily(tag, attr string, m map[string]float64) {
 	e := h.d.GetAccum(tag)
 	if e.Fresh() {
-		m[attr] = e.Daily()
+		m[attr+"_daily"] = e.Daily()
+		m[attr+"_total"] = e.Get()
 	}
 }
