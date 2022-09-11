@@ -75,7 +75,7 @@ func csvInit(d *db.DB) error {
 	return nil
 }
 
-func (c *csv) Run(last time.Time, now time.Time) {
+func (c *csv) Run(now time.Time) {
 	// Check for new day.
 	if now.YearDay() != c.day {
 		if c.writer != nil {

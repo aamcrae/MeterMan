@@ -85,7 +85,7 @@ func pvoutputInit(d *db.DB) error {
 }
 
 // Run creates a post request to pvoutput.org to upload the current data.
-func (p *pvWriter) upload(last time.Time, now time.Time) {
+func (p *pvWriter) upload(now time.Time) {
 	pv_power, pv_power_ok := p.getPVPower()
 	pv_daily, pv_daily_ok := p.getPVDaily()
 	temp := p.d.GetElement(db.G_TEMP)

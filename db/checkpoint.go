@@ -40,7 +40,7 @@ func (d *DB) readCheckpoint() error {
 		return nil
 	}
 	// Add a callback to checkpoint the database at the specified interval.
-	d.AddCallback(time.Minute*time.Duration(*checkpointTick), func(last time.Time, now time.Time) {
+	d.AddCallback(time.Minute*time.Duration(*checkpointTick), func(now time.Time) {
 		d.writeCheckpoint(now)
 	})
 	log.Printf("Reading checkpoint data from %s\n", *checkpoint)

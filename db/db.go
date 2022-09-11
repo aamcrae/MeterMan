@@ -87,12 +87,11 @@ type input struct {
 	value float64 // The value.
 }
 
-type callback func(time.Time, time.Time)
+type callback func(time.Time)
 
 // ticker holds callbacks to be invoked at the specified period (e.g every 5 minutes)
 type ticker struct {
 	tick      time.Duration // Interval time
-	last      time.Time     // Last time callbacks were invoked.
 	callbacks []callback    // List of callbacks
 }
 
@@ -235,7 +234,6 @@ func (d *DB) tick_event(ev event) {
 func (t *ticker) Start(ec chan<- event, last time.Time) {
 	log.Printf("Initialising ticker interval %s", t.tick.String())
 	// Initialise the tickers with the previous saved tick.
-	t.last = last.Truncate(t.tick)
 	// Start goroutines that send events for each ticker interval.
 	go func(ec chan<- event, t *ticker) {
 		var tv event
@@ -254,7 +252,6 @@ func (t *ticker) Start(ec chan<- event, last time.Time) {
 // ticked handles a tick event by invoking the callbacks registered on this ticker.
 func (t *ticker) ticked(now time.Time) {
 	for _, cb := range t.callbacks {
-		cb(t.last, now)
+		cb(now)
 	}
-	t.last = now
 }
