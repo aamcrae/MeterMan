@@ -16,7 +16,7 @@
 // The package is configured as a section in the main config file
 // under one or more '[sma]' sections, and the parameters are:
 //   [sma]
-//   inverter=<inverter-name>:<udp-port>,<password>
+//   inverter=<inverter-name>:<udp-port>,<password>[,poll-time-seconds]
 
 package sma
 
@@ -24,13 +24,14 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
 )
 
-var smaPoll = flag.Int("inverter-poll", 90, "Inverter poll time (seconds)")
-var smaRetry = flag.Int("inverter-retry", 10, "Inverter poll retry time (seconds)")
+var smaPoll = flag.Int("inverter-poll", 90, "Default inverter poll time (seconds)")
+var smaRetry = flag.Int("inverter-retry", 15, "Inverter poll retry time (seconds)")
 var smaVolts = flag.Bool("inverter-volts", false, "Send inverter Volts reading")
 
 // InverterReader polls the inverter(s)
@@ -53,8 +54,15 @@ func init() {
 func inverterReader(d *db.DB) error {
 	for _, sect := range d.Config.GetSections("sma") {
 		for _, e := range sect.Get("inverter") {
-			// Inverter name is of the form [IP address|name]:port,password
-			if len(e.Tokens) != 2 {
+			poll := *smaPoll
+			// Inverter config is of the form [IP address|name]:port,password[,poll]
+			if len(e.Tokens) == 3 {
+				if v, err := strconv.ParseInt(e.Tokens[2], 10, 32); err != nil {
+					return fmt.Errorf("%s:%d: Inverter poll value error: %v", e.Filename, e.Lineno, err)
+				} else {
+					poll = int(v)
+				}
+			} else if len(e.Tokens) != 2 {
 				return fmt.Errorf("%s:%d: Inverter config error", e.Filename, e.Lineno)
 			}
 			sma, err := NewSMA(e.Tokens[0], e.Tokens[1])
@@ -70,24 +78,24 @@ func inverterReader(d *db.DB) error {
 			s.genDaily = d.AddSubAccum(db.A_GEN_DAILY, true)
 			s.genT = d.AddSubAccum(db.A_GEN_TOTAL, false)
 			s.genDP = d.AddSubDiff(db.D_GEN_P, false)
-			log.Printf("Registered SMA inverter reader for %s\n", s.sma.Name())
-			go s.run()
+			log.Printf("Registered SMA inverter reader for %s (polling interval %d seconds)\n", s.sma.Name(), poll)
+			go s.run(time.Duration(poll)*time.Second, time.Duration(*smaRetry)*time.Second)
 		}
 	}
 	return nil
 }
 
 // Polling loop for inverter.
-func (s *InverterReader) run() {
+func (s *InverterReader) run(poll, retry time.Duration) {
 	defer s.sma.Close()
 	for {
 		hour := time.Now().Hour()
 		err := s.poll(hour >= s.d.StartHour && hour < s.d.EndHour)
 		if err != nil {
 			log.Printf("Inverter poll error:%s - %v", s.sma.Name(), err)
-			time.Sleep(time.Duration(*smaRetry) * time.Second)
+			time.Sleep(retry)
 		} else {
-			time.Sleep(time.Duration(*smaPoll) * time.Second)
+			time.Sleep(poll)
 		}
 	}
 }
