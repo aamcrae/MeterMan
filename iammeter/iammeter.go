@@ -38,12 +38,13 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
 )
 
-var iamPoll = flag.Int("iammeter-poll", 15, "IAMMETER poll time (seconds)")
+var iamPoll = flag.Int("iammeter-poll", 15, "Default IAMMETER poll time (seconds)")
 var iamSend = flag.Bool("iammeter-send", true, "IAMMETER send meter data")
 
 // Register iamReader as a data source.
@@ -61,6 +62,15 @@ func iamReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
+	poll := *iamPoll
+	ps, err := sect.GetArg("poll")
+	if err == nil {
+		if v, err := strconv.ParseInt(ps, 10, 32); err != nil {
+			return fmt.Errorf("iammeter poll value error: %v", err)
+		} else {
+			poll = int(v)
+		}
+	}
 	vg := d.AddSubGauge(db.G_VOLTS, true)
 	d.AddGauge(db.G_IN_CURRENT)
 	d.AddGauge(db.G_OUT_CURRENT)
@@ -72,14 +82,13 @@ func iamReader(d *db.DB) error {
 		d.AddAccum(db.A_IMPORT, true)
 		d.AddAccum(db.A_EXPORT, true)
 	}
-	log.Printf("Registered IAMMETER reader\n")
-	go meterReader(d, vg, url)
+	log.Printf("Registered IAMMETER reader (polling interval %d seconds)\n", poll)
+	go meterReader(d, vg, url, time.Duration(poll)*time.Second)
 	return nil
 }
 
 // meterReader is a loop that reads the data from the energy meter.
-func meterReader(d *db.DB, vg string, url string) {
-	delay := time.Duration(*iamPoll) * time.Second
+func meterReader(d *db.DB, vg string, url string, delay time.Duration) {
 	lastTime := time.Now()
 	client := http.Client{
 		Timeout: time.Duration(time.Second * 10),
