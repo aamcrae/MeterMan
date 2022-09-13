@@ -20,6 +20,7 @@
 //  [hassi]
 //  apikey=<apikey from Home Assistant>
 //  url=<API endpoint>
+//  update=60 # Update rate in seconds
 //
 // Values that are not stale are sent to Home assistant.
 
@@ -32,12 +33,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
 )
 
-var hassiRate = flag.Int("hassirate", 2, "Home Assistant update rate (in minutes)")
+var hassiRate = flag.Int("hassirate", 120, "Default Home Assistant update rate (seconds)")
 
 type hassi struct {
 	d      *db.DB
@@ -63,11 +65,20 @@ func hassiInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
+	rate := *hassiRate
+	hr, err := sect.GetArg("update")
+	if err == nil {
+		if v, err := strconv.ParseInt(hr, 10, 32); err != nil {
+			return fmt.Errorf("hassi update value error: %v", err)
+		} else {
+			rate = int(v)
+		}
+	}
 	key = fmt.Sprintf("Bearer %s", key)
 	h := &hassi{d: d, url: url, key: key, client: &http.Client{}}
-	intv := time.Minute * time.Duration(*hassiRate)
+	intv := time.Second * time.Duration(rate)
 	d.AddCallback(intv, h.send)
-	log.Printf("Registered Home Assistant uploader (%s interval)\n", intv)
+	log.Printf("Registered Home Assistant uploader (%d seconds interval)", rate)
 	return nil
 }
 
