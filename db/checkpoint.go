@@ -31,7 +31,7 @@ var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
 // readCheckpoint reads the checkpoint data into a map.
 // The checkpoint file contains lines of the form:
 //
-//    <tag>:<checkpoint string>
+//	<tag>:<checkpoint string>
 //
 // When a new element is created, the tag is used to find the checkpoint string
 // to be passed to the element's init function so that the element's value can be restored.

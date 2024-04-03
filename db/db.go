@@ -55,7 +55,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/aamcrae/config"
@@ -152,6 +155,9 @@ func (d *DB) Start() error {
 		}
 	}
 	d.lastDay = last.YearDay()
+	// Register some signal handlers for graceful termination
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 	// Start the tickers.
 	ec := make(chan event, 10)
 	for _, t := range d.tickers {
@@ -173,6 +179,10 @@ func (d *DB) Start() error {
 		case f := <-d.run:
 			// Request to run callback from main thread
 			f()
+		case <-sigc:
+			// Signal caught, write checkpoint file and exit.
+			d.writeCheckpoint(time.Now())
+			log.Fatalf("Signal received, exiting")
 		}
 	}
 }
