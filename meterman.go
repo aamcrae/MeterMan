@@ -36,9 +36,14 @@ import (
 var configFile = flag.String("config", "", "Config file")
 var profile = flag.Bool("profile", false, "Enable profiling")
 var port = flag.Int("profileport", 6060, "Port for profiling server")
+var logDate = flag.Bool("logtime", false, "Log date and time")
 
 func main() {
 	flag.Parse()
+	if !*logDate {
+		// Turn off date/time tags on logs
+		log.SetFlags(0)
+	}
 	conf, err := config.ParseFile(*configFile)
 	if err != nil {
 		log.Fatalf("Can't read config %s: %v", *configFile, err)
