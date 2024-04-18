@@ -9,6 +9,6 @@ services:
       - "/var/cache/mman:/data"
       - "./config:/config"
     ports:
-      - "8080:80"
+      - "8080:8080"
     environment:
       - TZ=Australia/Sydney
