@@ -1,0 +1,14 @@
+services:
+  meterman:
+    image: aamcrae/meterman:latest
+    container_name: meterman
+    restart: unless-stopped
+    # User 'meter' uid and gid
+    user: "${METERUID}:${METERGID}"
+    volumes:
+      - "/var/cache/mman:/data"
+      - "./config:/config"
+    ports:
+      - "8080:80"
+    environment:
+      - TZ=Australia/Sydney

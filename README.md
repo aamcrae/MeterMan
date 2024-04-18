@@ -14,4 +14,15 @@ The features include:
 An internal database allows input and output modules to be added independently, and multiple values to
 be averaged, summed and managed.
 
+MeterMan can be built as a docker image:
+
+```
+docker build --tag aamcrae/meterman:latest .
+```
+
+A [sample](docker/sample-docker-compose.yml) docker compose file can be to
+deploy the image.
+
+It is recommended that a MeterMan be run under its own uid (e.g 'meter:meter').
+
 This is not an officially supported Google product.
