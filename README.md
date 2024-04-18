@@ -17,7 +17,7 @@ be averaged, summed and managed.
 MeterMan can be built as a docker image:
 
 ```
-docker build --tag aamcrae/meterman:latest .
+docker build --tag aamcrae/meterman:latest -f docker/Dockerfile .
 ```
 
 A [sample](docker/sample-docker-compose.yml) docker compose file can be to
