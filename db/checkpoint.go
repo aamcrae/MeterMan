@@ -43,12 +43,14 @@ func (d *DB) readCheckpoint() error {
 	d.AddCallback(time.Minute*time.Duration(*checkpointTick), func(now time.Time) {
 		d.writeCheckpoint(now)
 	})
-	log.Printf("Reading checkpoint data from %s\n", *checkpoint)
 	f, err := os.Open(*checkpoint)
 	if err != nil {
-		return fmt.Errorf("checkpoint file %s: %v", *checkpoint, err)
+		// If the checkpoint file doesn't exist, skip trying to read it.
+		log.Printf("Unable to read %s (%v), no checkpoint data", *checkpoint, err)
+		return nil
 	}
 	defer f.Close()
+	log.Printf("Reading checkpoint data from %s", *checkpoint)
 	r := bufio.NewReader(f)
 	lineno := 0
 	for {
@@ -77,11 +79,11 @@ func (d *DB) writeCheckpoint(now time.Time) {
 		return
 	}
 	if d.Trace {
-		log.Printf("Writing checkpoint data to %s\n", *checkpoint)
+		log.Printf("Writing checkpoint data to %s", *checkpoint)
 	}
 	f, err := os.Create(*checkpoint)
 	if err != nil {
-		log.Printf("Checkpoint file create: %s %v\n", *checkpoint, err)
+		log.Printf("Checkpoint file create: %s %v", *checkpoint, err)
 		return
 	}
 	defer f.Close()
