@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM golang:1.20-alpine AS builder
+FROM golang:alpine AS builder
 
 # Add timezone data
 RUN apk add --no-cache tzdata
