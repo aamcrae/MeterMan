@@ -31,7 +31,7 @@ import (
 )
 
 var smaPoll = flag.Int("inverter-poll", 90, "Default inverter poll time (seconds)")
-var smaRetry = flag.Int("inverter-retry", 15, "Inverter poll retry time (seconds)")
+var smaRetry = flag.Int("inverter-retry", 61, "Inverter poll retry time (seconds)")
 var smaVolts = flag.Bool("inverter-volts", false, "Send inverter Volts reading")
 
 // InverterReader polls the inverter(s)
