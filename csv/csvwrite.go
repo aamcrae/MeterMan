@@ -112,14 +112,14 @@ func (c *csv) Run(now time.Time) {
 		g := c.d.GetElement(s)
 		fmt.Fprint(c.writer, ",")
 		if g != nil && g.Fresh() {
-			fmt.Fprintf(c.writer, "%g", g.Get())
+			fmt.Fprintf(c.writer, "%s", db.FmtFloat(g.Get()))
 		}
 	}
 	for _, s := range accums {
 		a := c.d.GetAccum(s)
 		fmt.Fprint(c.writer, ",")
 		if a != nil && a.Fresh() {
-			fmt.Fprintf(c.writer, "%g,%g", a.Get(), a.Daily())
+			fmt.Fprintf(c.writer, "%s,%s", db.FmtFloat(a.Get()), db.FmtFloat(a.Daily()))
 		} else {
 			fmt.Fprint(c.writer, ",")
 		}

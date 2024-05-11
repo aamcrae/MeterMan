@@ -57,6 +57,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -269,4 +271,16 @@ func (t *ticker) ticked(now time.Time) {
 	for _, cb := range t.callbacks {
 		cb(now)
 	}
+}
+
+// FmtFloat is a custom float formatter that
+// has a fixed precision of 2 decimal places with trailing zeros removed.
+func FmtFloat(f float64) string {
+	s := strconv.FormatFloat(f, 'f', 2, 64)
+	s = strings.TrimRight(s, "0")
+	last := len(s) - 1
+	if s[last] == '.' {
+		s = s[:last]
+	}
+	return s
 }
