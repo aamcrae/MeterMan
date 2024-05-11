@@ -1,8 +1,9 @@
 # syntax=docker/dockerfile:1
-FROM golang:alpine AS builder
+# golang image uses debian as base
+FROM golang:latest AS builder
 
-# Add timezone data
-RUN apk add --no-cache tzdata
+# Add timezone data and certs
+RUN apt-get -y install tzdata ca-certificates
 
 WORKDIR /src
 
@@ -10,7 +11,8 @@ COPY . .
 
 RUN go mod download
 
-RUN go build  -ldflags '-s' -o /bin/meterman
+# Ensure statically built
+RUN CGO_ENABLED=0 go build  -ldflags '-s' -o /bin/meterman
 
 FROM scratch
 
