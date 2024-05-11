@@ -99,7 +99,9 @@ func meterReader(d *db.DB) error {
 	d.AddSubAccum(db.A_EXPORT, true)
 	d.AddSubAccum(db.A_EXPORT, true)
 	log.Printf("Registered meter LCD reader\n")
-	go runReader(d, r, source, angle)
+	if !d.Dryrun {
+		go runReader(d, r, source, angle)
+	}
 	return nil
 }
 

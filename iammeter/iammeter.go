@@ -83,7 +83,9 @@ func iamReader(d *db.DB) error {
 		d.AddAccum(db.A_EXPORT, true)
 	}
 	log.Printf("Registered IAMMETER reader (polling interval %d seconds)\n", poll)
-	go meterReader(d, vg, url, time.Duration(poll)*time.Second)
+	if !d.Dryrun {
+		go meterReader(d, vg, url, time.Duration(poll)*time.Second)
+	}
 	return nil
 }
 

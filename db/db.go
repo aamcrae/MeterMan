@@ -65,6 +65,7 @@ import (
 )
 
 var verbose = flag.Bool("verbose", false, "Verbose tracing")
+var dryrun = flag.Bool("dryrun", false, "Validate config only")
 var startHour = flag.Int("starthour", 5, "Start hour for PV (e.g 6)")
 var endHour = flag.Int("endhour", 20, "End hour for PV (e.g 19)")
 var freshness = flag.Int("freshness", 10, "Default minutes until data is stale")
@@ -73,6 +74,7 @@ var freshness = flag.Int("freshness", 10, "Default minutes until data is stale")
 type DB struct {
 	Config *config.Config // Parsed configuration
 	Trace  bool           // If true, provide tracing
+	Dryrun bool           // If true, validate only
 	// StartHour and EndHour define the hours of daylight.
 	StartHour int
 	EndHour   int
@@ -162,6 +164,9 @@ func (d *DB) Start() error {
 	ec := make(chan event, 10)
 	for _, t := range d.tickers {
 		t.Start(ec, last)
+	}
+	if *dryrun {
+		log.Fatalf("Dryrun only, exiting")
 	}
 	for {
 		select {

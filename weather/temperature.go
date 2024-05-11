@@ -103,9 +103,11 @@ func weatherReader(d *db.DB) error {
 			return Darksky(url)
 		}
 	}
-	log.Printf("Registered temperature reader using service %s\n", service)
+	log.Printf("Registered temperature reader using service %s, polling every %d seconds\n", service, *weatherpoll)
 	d.AddGauge(db.G_TEMP)
-	go reader(d, get)
+	if !d.Dryrun {
+		go reader(d, get)
+	}
 	return nil
 }
 

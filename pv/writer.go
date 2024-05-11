@@ -45,7 +45,7 @@ import (
 	"github.com/aamcrae/MeterMan/db"
 )
 
-var dryrun = flag.Bool("dryrun", false, "Do not upload data")
+var pvUpload = flag.Bool("pvupload", true, "Upload PV data")
 var pvLog = flag.Bool("pvlog", true, "Log upload parameters")
 var pvUpdateRate = flag.Int("pvupdate", 5, "pvoutput Update rate (in minutes)")
 
@@ -79,7 +79,9 @@ func pvoutputInit(d *db.DB) error {
 		return err
 	}
 	p := &pvWriter{d: d, pvurl: pvurl, id: id, key: key, client: &http.Client{}}
-	d.AddCallback(time.Minute*time.Duration(*pvUpdateRate), p.upload)
+	if !d.Dryrun {
+		d.AddCallback(time.Minute*time.Duration(*pvUpdateRate), p.upload)
+	}
 	log.Printf("Registered pvoutput uploader\n")
 	return nil
 }
@@ -186,14 +188,13 @@ func (p *pvWriter) upload(now time.Time) {
 	req.Header.Add("X-Pvoutput-Apikey", p.key)
 	req.Header.Add("X-Pvoutput-SystemId", p.id)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if p.d.Trace || *dryrun {
-		log.Printf("req: %s (size %d)", val.Encode(), req.ContentLength)
-		if *dryrun {
-			return
-		}
+	if p.d.Trace || !*pvUpload {
+		log.Printf("PV req: %s (size %d)", val.Encode(), req.ContentLength)
 	}
 	// Asynchronously send request to avoid blocking.
-	go p.send(req)
+	if *pvUpload {
+		go p.send(req)
+	}
 }
 
 // Send request to server.

@@ -84,6 +84,9 @@ func hassiInit(d *db.DB) error {
 
 // Upload any updated tags to Home Assistant.
 func (h *hassi) send(now time.Time) {
+	if h.d.Dryrun {
+		return
+	}
 	type blk struct {
 		State string             `json:"state"`
 		Attr  map[string]float64 `json:"attributes"`
