@@ -51,14 +51,14 @@ func (a *Accum) Update(v float64, ts time.Time) {
 	// Check whether the accumulator has been reset.
 	if v < a.value {
 		if !a.resettable {
-			log.Printf("Non-resettable accumulator change ignored, value = %f, current = %f, midnight = %f\n", v, a.value, a.midnight)
+			log.Printf("Non-resettable accumulator change ignored, value = %g, current = %g, midnight = %g\n", v, a.value, a.midnight)
 			return
 		}
 		if v < a.midnight {
-			log.Printf("Accumulator reset, new value = %f, current = %f, midnight = %f\n", v, a.value, a.midnight)
+			log.Printf("Accumulator reset, new value = %g, current = %g, midnight = %g\n", v, a.value, a.midnight)
 			a.midnight = v
 		} else {
-			log.Printf("Accumulator going backwards, ignored, value = %f, current = %f, midnight = %f\n", v, a.value, a.midnight)
+			log.Printf("Accumulator going backwards, ignored, value = %g, current = %g, midnight = %g\n", v, a.value, a.midnight)
 		}
 	}
 	a.value = v
@@ -87,7 +87,7 @@ func (a *Accum) Fresh() bool {
 
 // Create a checkpoint string.
 func (a *Accum) Checkpoint() string {
-	return fmt.Sprintf("%f %f %d", a.midnight, a.value, a.ts.Unix())
+	return fmt.Sprintf("%g %g %d", a.midnight, a.value, a.ts.Unix())
 }
 
 func (a *Accum) Daily() float64 {

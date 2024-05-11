@@ -83,5 +83,5 @@ func (d *Diff) Fresh() bool {
 }
 
 func (d *Diff) Checkpoint() string {
-	return fmt.Sprintf("%f %f %d", d.value, d.previous[0].value, d.previous[0].ts.Unix())
+	return fmt.Sprintf("%g %g %d", d.value, d.previous[0].value, d.previous[0].ts.Unix())
 }

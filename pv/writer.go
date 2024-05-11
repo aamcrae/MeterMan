@@ -103,7 +103,7 @@ func (p *pvWriter) upload(now time.Time) {
 	if pv_daily_ok && daytime {
 		val.Add("v1", fmt.Sprintf("%d", int(pv_daily*1000)))
 		if p.d.Trace {
-			log.Printf("v1 = %f", pv_daily)
+			log.Printf("v1 = %g", pv_daily)
 		}
 	} else if p.d.Trace {
 		if !pv_daily_ok {
@@ -113,7 +113,7 @@ func (p *pvWriter) upload(now time.Time) {
 	if pv_power_ok && pv_power != 0 {
 		val.Add("v2", fmt.Sprintf("%d", int(pv_power*1000)))
 		if p.d.Trace {
-			log.Printf("v2 = %f", pv_power)
+			log.Printf("v2 = %g", pv_power)
 		}
 	} else if p.d.Trace {
 		log.Printf("No PV power, v2 not updated\n")
@@ -140,8 +140,8 @@ func (p *pvWriter) upload(now time.Time) {
 		consumption += pv_daily
 		val.Add("v3", fmt.Sprintf("%d", int(consumption*1000)))
 		if p.d.Trace {
-			log.Printf("v3 = %f, imp = %f, exp = %f", consumption, imp.Daily(), exp.Daily())
-			log.Printf("daily = %f", pv_daily)
+			log.Printf("v3 = %g, imp = %g, exp = %g", consumption, imp.Daily(), exp.Daily())
+			log.Printf("daily = %g", pv_daily)
 			if !pv_daily_ok {
 				log.Printf("Using old generation data")
 			}
@@ -232,7 +232,7 @@ func (p *pvWriter) getPVPower() (float64, bool) {
 		}
 		if isValid(pe) {
 			if p.d.Trace {
-				log.Printf("Using 2 x %s/%d (value %f)", db.D_GEN_P, i, pe.Get())
+				log.Printf("Using 2 x %s/%d (value %g)", db.D_GEN_P, i, pe.Get())
 			}
 			return pe.Get() * 2, true
 		}
@@ -261,7 +261,7 @@ func (p *pvWriter) getPVDaily() (float64, bool) {
 		}
 		if isValid(pe) {
 			if p.d.Trace {
-				log.Printf("Using 2 x %s/%d (value %f)", db.A_GEN_TOTAL, i, pe.Daily())
+				log.Printf("Using 2 x %s/%d (value %g)", db.A_GEN_TOTAL, i, pe.Daily())
 			}
 			return pe.Daily() * 2, true
 		}
@@ -277,8 +277,8 @@ func (p *pvWriter) getPower() (float64, error) {
 	d_in := p.d.GetElement(db.D_IN_POWER)
 	d_out := p.d.GetElement(db.D_OUT_POWER)
 	if p.d.Trace {
-		log.Printf("IN-P  = %f, valid = %v", d_in.Get(), isValid(d_in))
-		log.Printf("OUT-P = %f, valid = %v", d_out.Get(), isValid(d_out))
+		log.Printf("IN-P  = %g, valid = %v", d_in.Get(), isValid(d_in))
+		log.Printf("OUT-P = %g, valid = %v", d_out.Get(), isValid(d_out))
 	}
 	if isValid(d_in) && isValid(d_out) {
 		return (d_in.Get() - d_out.Get()) * 1000.0, nil

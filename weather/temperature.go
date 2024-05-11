@@ -118,7 +118,7 @@ func reader(d *db.DB, get func() (float64, error)) {
 			log.Printf("Getting temperature: %v\n", err)
 		} else {
 			if d.Trace {
-				log.Printf("Current temperature: %f\n", t)
+				log.Printf("Current temperature: %g\n", t)
 			}
 			d.Input(db.G_TEMP, t)
 		}

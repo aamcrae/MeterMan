@@ -33,5 +33,5 @@ func main() {
 	if err != nil {
 		log.Fatalf("%s: %v", *url, err)
 	}
-	log.Printf("Temperature is currently %f degrees\n", t)
+	log.Printf("Temperature is currently %g degrees\n", t)
 }

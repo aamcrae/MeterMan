@@ -126,7 +126,7 @@ func (s *InverterReader) poll(daytime bool) error {
 		}
 	} else {
 		if s.d.Trace {
-			log.Printf("Tag %s Daily yield = %f", s.genDaily, d)
+			log.Printf("Tag %s Daily yield = %g", s.genDaily, d)
 		}
 		s.d.Input(s.genDaily, d)
 	}
@@ -137,7 +137,7 @@ func (s *InverterReader) poll(daytime bool) error {
 		}
 	} else {
 		if s.d.Trace {
-			log.Printf("Tag %s Total yield = %f", s.genT, t)
+			log.Printf("Tag %s Total yield = %g", s.genT, t)
 		}
 		s.d.Input(s.genT, t)
 		s.d.Input(s.genDP, t)
@@ -150,7 +150,7 @@ func (s *InverterReader) poll(daytime bool) error {
 			}
 			if v != 0 {
 				if s.d.Trace {
-					log.Printf("Tag %s volts = %f", s.volts, v)
+					log.Printf("Tag %s volts = %g", s.volts, v)
 				}
 				s.d.Input(s.volts, v)
 			}
@@ -161,7 +161,7 @@ func (s *InverterReader) poll(daytime bool) error {
 		}
 		pf := float64(p) / 1000
 		if s.d.Trace {
-			log.Printf("Tag %s power = %f", s.genP, pf)
+			log.Printf("Tag %s power = %g", s.genP, pf)
 		}
 		s.d.Input(s.genP, pf)
 	}

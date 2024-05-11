@@ -239,7 +239,7 @@ func (d *DB) tick_event(ev event) {
 			log.Printf("New day reset")
 		}
 		for tag, el := range d.elements {
-			log.Printf("Output: Tag: %5s, value: %f, timestamp: %s\n", tag, el.Get(), el.Timestamp().Format(time.UnixDate))
+			log.Printf("Output: Tag: %5s, value: %g, timestamp: %s\n", tag, el.Get(), el.Timestamp().Format(time.UnixDate))
 		}
 	}
 	t.ticked(ev.now)

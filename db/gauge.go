@@ -63,5 +63,5 @@ func (g *Gauge) Fresh() bool {
 }
 
 func (g *Gauge) Checkpoint() string {
-	return fmt.Sprintf("%f %d", g.value, g.ts.Unix())
+	return fmt.Sprintf("%g %d", g.value, g.ts.Unix())
 }

@@ -133,8 +133,8 @@ func fetch(d *db.DB, vg string, client *http.Client, url string) error {
 	}
 	if d.Trace {
 		log.Printf("iammeter: version %s, serial number %s", m.Version, m.Serial)
-		log.Printf("iammeter: Volts %fV, current %fA, power %fW", m.Data[0], m.Data[1], m.Data[2])
-		log.Printf("iammeter: Import %fkWh, Export %fkWh", m.Data[3], m.Data[4])
+		log.Printf("iammeter: Volts %gV, current %gA, power %gW", m.Data[0], m.Data[1], m.Data[2])
+		log.Printf("iammeter: Import %gkWh, Export %gkWh", m.Data[3], m.Data[4])
 	}
 	if len(m.Version) == 0 || len(m.Serial) == 0 || m.Data[0] == 0 ||
 		m.Data[3] == 0 || m.Data[4] == 0 {

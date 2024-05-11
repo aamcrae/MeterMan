@@ -54,17 +54,17 @@ func main() {
 	if err != nil {
 		log.Printf("Total Energy: %v", err)
 	}
-	log.Printf("day = %f KwH, total = %f KwH\n", day, total)
+	log.Printf("day = %g KwH, total = %g KwH\n", day, total)
 	p, err := sma.Power()
 	if err != nil {
 		log.Fatalf("Power: %v", err)
 	}
-	log.Printf("power = %f\n", p)
+	log.Printf("power = %g\n", p)
 	v, err := sma.Voltage()
 	if err != nil {
 		log.Fatalf("Voltage: %v", err)
 	}
-	log.Printf("volts = %f\n", v)
+	log.Printf("volts = %g\n", v)
 	if *getall {
 		sma.GetAll()
 	}

@@ -109,7 +109,7 @@ func NewReader(c config.Conf, trace bool) (*Reader, error) {
 		m.min = min
 		m.max = max
 		if trace {
-			log.Printf("Setting range of '%s' to [%f, %f]\n", e.Tokens[0], min, max)
+			log.Printf("Setting range of '%s' to [%g, %g]\n", e.Tokens[0], min, max)
 		}
 	}
 	r := &Reader{trace: trace, decoder: d, limits: map[string]limit{}}
@@ -233,10 +233,10 @@ func handlerNumber(r *Reader, m *measure, key, value string) (string, float64, e
 		return "", 0, fmt.Errorf("key %s: %v", key, err)
 	}
 	if v < m.min || v >= m.max {
-		return "", 0, fmt.Errorf("%s Out of range (%f), min %f, max %f", key, v, m.min, m.max)
+		return "", 0, fmt.Errorf("%s Out of range (%g), min %g, max %g", key, v, m.min, m.max)
 	}
 	if r.trace {
-		log.Printf("Meter read: key %s value %f, min %f, max %f\n", key, v, m.min, m.max)
+		log.Printf("Meter read: key %s value %g, min %g, max %g\n", key, v, m.min, m.max)
 	}
 	return key, v, nil
 }
@@ -254,15 +254,15 @@ func handlerAccum(r *Reader, m *measure, key, value string) (string, float64, er
 	if ok {
 		diff := (v - lv.value) * 3600 / now.Sub(lv.last).Seconds()
 		if diff < 0 {
-			log.Printf("%s Going backwards (old %f, new %f)", key, lv.value, v)
+			log.Printf("%s Going backwards (old %g, new %g)", key, lv.value, v)
 			diff = -diff
 		}
 		// Calculate and compare hourly change.
 		if diff > m.max {
-			return "", 0.0, fmt.Errorf("%s limit exceeded (old %f, change = %f, limit = %f)", key, lv.value, diff, m.max)
+			return "", 0.0, fmt.Errorf("%s limit exceeded (old %g, change = %g, limit = %g)", key, lv.value, diff, m.max)
 		}
 		if r.trace {
-			log.Printf("Meter read: key %s value %f, change %f, max %f\n", key, v, diff, m.max)
+			log.Printf("Meter read: key %s value %g, change %g, max %g\n", key, v, diff, m.max)
 		}
 	}
 	r.limits[key] = limit{now, v}
