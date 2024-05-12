@@ -16,22 +16,34 @@
 // LCD image. The LCD format that is supported is:
 //     kkkkNNNNNNNN
 // where kkkk is a 4 character key, and N..N is an 8 digit number.
-// The package is configured as a section in the main config file
-// under the '[meter]' section, and the parameters are:
-//   [meter]
-//   source=<url to retrieve image>
-//   rotate=<degrees to rotate clockwise> # Optional
-//   threshold=<threshold percentage> # Optional
-//   calibrate=<image file to be used for initial calibration> # Optional
-//   calibration=<cache file to store moving calibrations>
-//   # Optional offset for offsetting all digits.
-//   offset=<X offset, Y offset>
-//   # Top left (TL) is assumed 0,0
-//   # TR = Top right,BR - bottom right etc.
-//   lcd=<digit name>,<X TR>,<Y TR>,<X BR>,<Y BR>,<X BL>,<Y BL>,<line width>
-//   digit=<digit name>,<X>,<Y>  # co-ordinate of TL corner
-//   # Optional limits for meter key.
-//   range=<key>,<min>,<max>
+// The package is configured as a section in the YAML config file:
+//   meter:
+//     source: <url to retrieve image>
+//     rotate: <degrees to rotate clockwise> # Optional
+//     threshold: <threshold percentage> # Optional
+//     calibrate: <image file to be used for initial calibration> # Optional
+//     calibration: <cache file to store moving calibrations>
+//     # Optional offset for offsetting all digits.
+//     offset: [<X offset, Y offset>]
+//     # Top left (TL) is assumed 0,0
+//     # TR = Top right,BR - bottom right etc.
+//     lcd:
+//       - name: <digit name>
+//         tr: [x,y]
+//         br: [x,y]
+//         bl: [x,y]
+//         width: <line width>
+//       ...
+//     digit:
+//       - lcd: <digit name>
+//         coord: [x,y]  # co-ordinate of TL corner
+//       ...
+//     # Optional limits for meter key.
+//     range:
+//       - key: <key>
+//         min: <min>
+//         max: <max>
+//       ...
 
 package meter
 
