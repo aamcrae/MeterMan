@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aamcrae/config"
 	"github.com/aamcrae/lcd"
 )
 
@@ -79,8 +78,13 @@ var measures map[string]*measure = map[string]*measure{
 }
 
 // Creates a new reader.
-func NewReader(c config.Conf, trace bool) (*Reader, error) {
-	d, err := lcd.CreateLcdDecoder(c)
+func NewReader(c MeterConfig, trace bool) (*Reader, error) {
+	var lc lcd.LcdConfig
+	lc.Threshold = c.Threshold
+	lc.Offset = c.Offset
+	copy(lc.Lcd, c.Lcd)
+	copy(lc.Digit, c.Digit)
+	d, err := lcd.CreateLcdDecoder(lc)
 	if *history > 0 {
 		d.History = *history
 	}
@@ -90,26 +94,15 @@ func NewReader(c config.Conf, trace bool) (*Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, e := range c.Get("range") {
-		if len(e.Tokens) != 3 {
-			return nil, fmt.Errorf("Bad 'range' parameters at %s:%d", e.Filename, e.Lineno)
-		}
-		m, ok := measures[e.Tokens[0]]
+	for _, r := range c.Range {
+		m, ok := measures[r.Key]
 		if !ok {
-			return nil, fmt.Errorf("Unknown measurement (%s) at %s:%d", e.Tokens[0], e.Filename, e.Lineno)
+			return nil, fmt.Errorf("Unknown range key (%s)", r.Key)
 		}
-		min, err := strconv.ParseFloat(e.Tokens[1], 64)
-		if err != nil {
-			return nil, fmt.Errorf("Ilegal min value (%s) at %s:%d", e.Tokens[0], e.Filename, e.Lineno)
-		}
-		max, err := strconv.ParseFloat(e.Tokens[2], 64)
-		if err != nil {
-			return nil, fmt.Errorf("Ilegal max value (%s) at %s:%d", e.Tokens[0], e.Filename, e.Lineno)
-		}
-		m.min = min
-		m.max = max
+		m.min = r.Min
+		m.max = r.Max
 		if trace {
-			log.Printf("Setting range of '%s' to [%g, %g]\n", e.Tokens[0], min, max)
+			log.Printf("Setting range of '%s' to [%g, %g]\n", r.Key, m.min, m.max)
 		}
 	}
 	r := &Reader{trace: trace, decoder: d, limits: map[string]limit{}}

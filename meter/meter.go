@@ -40,7 +40,6 @@ import (
 	"image"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
@@ -67,26 +66,30 @@ func init() {
 	db.RegisterInit(meterReader)
 }
 
+type MeterConfig struct {
+	Source        string
+	Rotate        float64
+	lcd.LcdConfig `yaml:",inline"`
+	Range         []struct {
+		Key string
+		Min float64
+		Max float64
+	}
+}
+
 // Create an instance of a meter reader, if there is
 // a config section declared for it.
 func meterReader(d *db.DB) error {
-	sect := d.Config.GetSection("meter")
-	if sect == nil {
+	var conf MeterConfig
+	yaml, ok := d.Config["meter"]
+	if !ok {
 		return nil
 	}
-	var angle float64
-	a, err := sect.GetArg("rotate")
-	if err == nil {
-		angle, err = strconv.ParseFloat(a, 64)
-		if err != nil {
-			return err
-		}
-	}
-	source, err := sect.GetArg("source")
+	err := yaml.Decode(&conf)
 	if err != nil {
 		return err
 	}
-	r, err := NewReader(sect, d.Trace)
+	r, err := NewReader(conf, d.Trace)
 	if err != nil {
 		return err
 	}
@@ -100,7 +103,7 @@ func meterReader(d *db.DB) error {
 	d.AddSubAccum(db.A_EXPORT, true)
 	log.Printf("Registered meter LCD reader\n")
 	if !d.Dryrun {
-		go runReader(d, r, source, angle)
+		go runReader(d, r, conf.Source, conf.Rotate)
 	}
 	return nil
 }

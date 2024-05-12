@@ -3,8 +3,7 @@ module github.com/aamcrae/MeterMan
 go 1.16
 
 require (
-	github.com/aamcrae/config v0.0.0-20210616045748-8d33c99aa500
-	github.com/aamcrae/lcd v0.0.0-20210916043457-c3cd7a65b4bc
+	github.com/aamcrae/lcd v0.0.0-20240512232903-1f7a9ad32ddf
 	golang.org/x/image v0.15.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1
 )
