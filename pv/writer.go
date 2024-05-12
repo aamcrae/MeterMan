@@ -23,12 +23,11 @@
 // v5 - Temperature (C)
 // v6 - AC voltage (V)
 //
-// The package is configured as a section in the main config file
-// under the '[pvoutput]' section, and the parameters are:
-//  [pvoutput]
-//  apikey=<apikey from pvoutput.org>
-//  systemid=<systemid from pvoutput.org>
-//  pvurl=<URL API endpoint to use>
+// The package is configured as a section in the YAML config file:
+//  pvoutput:
+//    apikey: <apikey from pvoutput.org>
+//    systemid: <systemid from pvoutput.org>
+//    pvurl: <URL API endpoint to use>
 
 package pv
 
@@ -49,6 +48,12 @@ var pvUpload = flag.Bool("pvupload", true, "Upload PV data")
 var pvLog = flag.Bool("pvlog", true, "Log upload parameters")
 var pvUpdateRate = flag.Int("pvupdate", 5, "pvoutput Update rate (in minutes)")
 
+type Pvoutput struct {
+	Apikey   string
+	Systemid string
+	Pvurl    string
+}
+
 type pvWriter struct {
 	d      *db.DB
 	pvurl  string
@@ -62,23 +67,16 @@ func init() {
 }
 
 func pvoutputInit(d *db.DB) error {
-	sect := d.Config.GetSection("pvoutput")
-	if sect == nil {
+	var conf Pvoutput
+	c, ok := d.Config["pvoutput"]
+	if !ok {
 		return nil
 	}
-	key, err := sect.GetArg("apikey")
+	err := c.Decode(&conf)
 	if err != nil {
 		return err
 	}
-	id, err := sect.GetArg("systemid")
-	if err != nil {
-		return err
-	}
-	pvurl, err := sect.GetArg("pvurl")
-	if err != nil {
-		return err
-	}
-	p := &pvWriter{d: d, pvurl: pvurl, id: id, key: key, client: &http.Client{}}
+	p := &pvWriter{d: d, pvurl: conf.Pvurl, id: conf.Systemid, key: conf.Apikey, client: &http.Client{}}
 	if !d.Dryrun {
 		d.AddCallback(time.Minute*time.Duration(*pvUpdateRate), p.upload)
 	}

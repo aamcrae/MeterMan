@@ -15,10 +15,8 @@
 // package csv writes the telemetered data to a daily CSV file.
 // Under the base directory, year and month directories are
 // created, and a daily file named as 'yyyy-mm-dd' is written.
-// The package is configured as a section in the main config file
-// under the '[csv]' section, and the parameters are:
-//  [csv]
-//  csv=<base directory>
+// The package is configured as a section in the main YAML config file as:
+//  csv: <base directory>
 
 package csv
 
@@ -60,12 +58,12 @@ func init() {
 
 // Returns a writer that writes daily CSV files in the form path/year/month/day
 func csvInit(d *db.DB) error {
-	var err error
-	s := d.Config.GetSection("csv")
-	if s == nil {
+	var p string
+	conf, ok := d.Config["csv"]
+	if !ok {
 		return nil
 	}
-	p, err := s.GetArg("csv")
+	err := conf.Decode(&p)
 	if err != nil {
 		return err
 	}

@@ -63,7 +63,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aamcrae/config"
+	"gopkg.in/yaml.v3"
 )
 
 var verbose = flag.Bool("verbose", false, "Verbose tracing")
@@ -74,13 +74,14 @@ var freshness = flag.Int("freshness", 10, "Default minutes until data is stale")
 
 // DB contains the element database.
 type DB struct {
-	Config *config.Config // Parsed configuration
-	Trace  bool           // If true, provide tracing
-	Dryrun bool           // If true, validate only
+	Config map[string]*yaml.Decoder // Decoded config
+	Trace  bool                     // If true, provide tracing
+	Dryrun bool                     // If true, validate only
 	// StartHour and EndHour define the hours of daylight.
 	StartHour int
 	EndHour   int
 
+	yaml       []byte                    // YAML config
 	input      chan input                // Channel for tagged data
 	run        chan func()               // Channel for callbacks
 	elements   map[string]Element        // Map of tags to elements
@@ -119,10 +120,11 @@ func RegisterInit(f func(*DB) error) {
 }
 
 // NewDatabase creates a new database handler.
-func NewDatabase(conf *config.Config) *DB {
+func NewDatabase(conf []byte) *DB {
 	d := new(DB)
 	d.Trace = *verbose
-	d.Config = conf
+	d.Config = make(map[string]*yaml.Decoder)
+	d.yaml = conf
 	d.elements = make(map[string]Element)
 	d.checkpoint = make(map[string]string)
 	d.tickers = make(map[time.Duration]*ticker)
@@ -133,9 +135,28 @@ func NewDatabase(conf *config.Config) *DB {
 	return d
 }
 
-// Start reads the checkpoint data, calls the init functions,
+// Start processes the YAML config into separate sections,
+// reads the checkpoint data, calls the init functions,
 // and then enters a select loop processing the tag data inputs and tick events.
 func (d *DB) Start() error {
+	// Generate separate subsections for the YAML configuration
+	m := make(map[string]interface{})
+	err := yaml.Unmarshal(d.yaml, &m)
+	if err != nil {
+		return err
+	}
+	for k, v := range m {
+		var b strings.Builder
+		e := yaml.NewEncoder(&b)
+		err := e.Encode(v)
+		if err != nil {
+			return fmt.Errorf("YAML re-encode of %s failed: %v", k, err)
+		}
+		e.Close()
+		// Create a YAML decoder for each separate subsection of the YAML config file.
+		d.Config[k] = yaml.NewDecoder(strings.NewReader(b.String()))
+		d.Config[k].KnownFields(true)
+	}
 	if err := d.readCheckpoint(); err != nil {
 		return err
 	}

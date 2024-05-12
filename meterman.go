@@ -17,6 +17,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -25,12 +26,12 @@ import (
 	"github.com/aamcrae/MeterMan/db"
 	_ "github.com/aamcrae/MeterMan/hassi"
 	_ "github.com/aamcrae/MeterMan/iammeter"
-	_ "github.com/aamcrae/MeterMan/meter"
+	// TODO Fix config for LCD.
+	//	_ "github.com/aamcrae/MeterMan/meter"
 	_ "github.com/aamcrae/MeterMan/pv"
 	_ "github.com/aamcrae/MeterMan/server"
 	_ "github.com/aamcrae/MeterMan/sma"
 	_ "github.com/aamcrae/MeterMan/weather"
-	"github.com/aamcrae/config"
 )
 
 var configFile = flag.String("config", "", "Config file")
@@ -44,7 +45,7 @@ func main() {
 		// Turn off date/time tags on logs
 		log.SetFlags(0)
 	}
-	conf, err := config.ParseFile(*configFile)
+	conf, err := ioutil.ReadFile(*configFile)
 	if err != nil {
 		log.Fatalf("Can't read config %s: %v", *configFile, err)
 	}

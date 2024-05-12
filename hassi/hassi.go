@@ -15,12 +15,11 @@
 // package hassi implements a writer that uploads data
 // to the Home Assistant API.
 //
-// The package is configured as a section in the main config file
-// under the '[hassi]' section, and the parameters are:
-//  [hassi]
-//  apikey=<apikey from Home Assistant>
-//  url=<API endpoint>
-//  update=60 # Update rate in seconds
+// The package is configured as a section in the YAML config file:
+//  hassi:
+//    apikey: <apikey from Home Assistant>
+//    url: <API endpoint>
+//    update: 60 # Update rate in seconds
 //
 // Values that are not stale are sent to Home assistant.
 
@@ -33,7 +32,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
@@ -48,34 +46,34 @@ type hassi struct {
 	client *http.Client
 }
 
+// Config structure
+type Hassi struct {
+	Url    string
+	Apikey string
+	Update int
+}
+
 func init() {
 	db.RegisterInit(hassiInit)
 }
 
 func hassiInit(d *db.DB) error {
-	sect := d.Config.GetSection("hassi")
-	if sect == nil {
+	var conf Hassi
+
+	dec, ok := d.Config["hassi"]
+	if !ok {
 		return nil
 	}
-	key, err := sect.GetArg("apikey")
-	if err != nil {
-		return err
-	}
-	url, err := sect.GetArg("url")
+	err := dec.Decode(&conf)
 	if err != nil {
 		return err
 	}
 	rate := *hassiRate
-	hr, err := sect.GetArg("update")
-	if err == nil {
-		if v, err := strconv.ParseInt(hr, 10, 32); err != nil {
-			return fmt.Errorf("hassi update value error: %v", err)
-		} else {
-			rate = int(v)
-		}
+	if conf.Update != 0 {
+		rate = conf.Update
 	}
-	key = fmt.Sprintf("Bearer %s", key)
-	h := &hassi{d: d, url: url, key: key, client: &http.Client{}}
+	key := fmt.Sprintf("Bearer %s", conf.Apikey)
+	h := &hassi{d: d, url: conf.Url, key: key, client: &http.Client{}}
 	intv := time.Second * time.Duration(rate)
 	d.AddCallback(intv, h.send)
 	log.Printf("Registered Home Assistant uploader (%d seconds interval)", rate)

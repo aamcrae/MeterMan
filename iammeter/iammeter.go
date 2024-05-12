@@ -13,13 +13,14 @@
 // limitations under the License.
 
 // package iammeter polls a IAMMETER WEM3080 single phase energy meter.
-// The package is configured as a section in the main config file
-// under the '[iammeter]' section, and the parameters are:
-//   [iammeter]
-//   meter=<url to retrieve data>
+// The package is configured as a section in the YAML config file:
+//   iammeter:
+//     meter: <url to retrieve data>
+//     poll: <polling delay in seconds>
 // e.g
-// [iammeter]
-// meter=http://admin:admin@meter-hostname/monitorjson
+// iammeter:
+//   meter: http://admin:admin@meter-hostname/monitorjson
+//   poll: 30
 //
 // The energy meter is polled, and the following values are extracted:
 // Volts (V) -> G_VOLTS (averaged)
@@ -38,7 +39,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
@@ -47,6 +47,11 @@ import (
 var iamPoll = flag.Int("iammeter-poll", 15, "Default IAMMETER poll time (seconds)")
 var iamSend = flag.Bool("iammeter-send", true, "IAMMETER send meter data")
 
+type Iammeter struct {
+	Meter string
+	Poll  int
+}
+
 // Register iamReader as a data source.
 func init() {
 	db.RegisterInit(iamReader)
@@ -54,22 +59,20 @@ func init() {
 
 // Set up polling the energy meter, if the config exists for it.
 func iamReader(d *db.DB) error {
-	sect := d.Config.GetSection("iammeter")
-	if sect == nil {
+	var conf Iammeter
+	c, ok := d.Config["iammeter"]
+	if !ok {
 		return nil
 	}
-	url, err := sect.GetArg("meter")
+	err := c.Decode(&conf)
 	if err != nil {
 		return err
 	}
-	poll := *iamPoll
-	ps, err := sect.GetArg("poll")
-	if err == nil {
-		if v, err := strconv.ParseInt(ps, 10, 32); err != nil {
-			return fmt.Errorf("iammeter poll value error: %v", err)
-		} else {
-			poll = int(v)
-		}
+	if conf.Poll == 0 {
+		conf.Poll = *iamPoll
+	}
+	if len(conf.Meter) == 0 {
+		return fmt.Errorf("iammeter: missing URL")
 	}
 	vg := d.AddSubGauge(db.G_VOLTS, true)
 	d.AddGauge(db.G_IN_CURRENT)
@@ -82,9 +85,9 @@ func iamReader(d *db.DB) error {
 		d.AddAccum(db.A_IMPORT, true)
 		d.AddAccum(db.A_EXPORT, true)
 	}
-	log.Printf("Registered IAMMETER reader (polling interval %d seconds)\n", poll)
+	log.Printf("Registered IAMMETER reader (polling interval %d seconds)\n", conf.Poll)
 	if !d.Dryrun {
-		go meterReader(d, vg, url, time.Duration(poll)*time.Second)
+		go meterReader(d, vg, conf.Meter, time.Duration(conf.Poll)*time.Second)
 	}
 	return nil
 }

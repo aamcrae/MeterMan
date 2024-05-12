@@ -13,20 +13,19 @@
 // limitations under the License.
 
 // package weather extracts current weather data from selected providers.
-// The package is configured as a section in the main config file
-// under the '[weather]' section, and the parameters are:
-//   [weather]
-//   tempservice={bom,openweather,darksky}  # Choose one
+// The package is configured as a section in the YAML config file:
+//   weather:
+//     tempservice: {bom,openweather,darksky}  # Choose one
 //
 // if bom:
-//   bom=<URL of JSON output for location>
+//     bom: <URL of JSON output for location>
 // if openweather:
-//   tempid=<openweather id for locaton>
-//   tempkey=<openweather API key>
+//     tempid: <openweather id for locaton>
+//     tempkey: <openweather API key>
 // if darksky:
-//   darkskykey=<darksky API key>
-//   darkskylat=<location latitude>
-//   darkskylong=<location longitude>
+//     darkskykey: <darksky API key>
+//     darkskylat: <location latitude>
+//     darkskylong: <location longitude>
 
 package weather
 
@@ -47,63 +46,50 @@ const darkskyUrl = "https://api.darksky.net/forecast/%s/%s,%s?exclude=minutely,h
 
 var weatherpoll = flag.Int("weather-poll", 120, "Weather poll time (seconds)")
 
+type Weather struct {
+	Tempservice string
+	Bom         string
+	Tempid      string
+	Tempkey     string
+	Darkskykey  string
+	Darkskylat  string
+	Darkskylong string
+}
+
 func init() {
 	db.RegisterInit(weatherReader)
 }
 
 func weatherReader(d *db.DB) error {
-	sect := d.Config.GetSection("weather")
-	if sect == nil {
+	var conf Weather
+	dec, ok := d.Config["weather"]
+	if !ok {
 		return nil
 	}
-	service, err := sect.GetArg("tempservice")
+	err := dec.Decode(&conf)
 	if err != nil {
 		return err
 	}
 	var get func() (float64, error)
-	switch service {
+	switch conf.Tempservice {
 	default:
-		return fmt.Errorf("%s: Unknown weather service", service)
+		return fmt.Errorf("%s: Unknown weather service", conf.Tempservice)
 	case "bom":
-		url, err := sect.GetArg("bom")
-		if err != nil {
-			return err
-		}
 		get = func() (float64, error) {
-			return BOM(url)
+			return BOM(conf.Bom)
 		}
 	case "openweather":
-		id, err := sect.GetArg("tempid")
-		if err != nil {
-			return err
-		}
-		key, err := sect.GetArg("tempkey")
-		if err != nil {
-			return err
-		}
-		url := fmt.Sprintf(weatherUrl, id, key)
+		url := fmt.Sprintf(weatherUrl, conf.Tempid, conf.Tempkey)
 		get = func() (float64, error) {
 			return OpenWeather(url)
 		}
 	case "darksky":
-		key, err := sect.GetArg("darkskykey")
-		if err != nil {
-			return err
-		}
-		lat, err := sect.GetArg("darkskylat")
-		if err != nil {
-			return err
-		}
-		lng, err := sect.GetArg("darkskylong")
-		if err != nil {
-			return err
-		}
-		url := fmt.Sprintf(darkskyUrl, key, lat, lng)
+		url := fmt.Sprintf(darkskyUrl, conf.Darkskykey, conf.Darkskylat, conf.Darkskylong)
 		get = func() (float64, error) {
 			return Darksky(url)
 		}
 	}
-	log.Printf("Registered temperature reader using service %s, polling every %d seconds\n", service, *weatherpoll)
+	log.Printf("Registered temperature reader using service %s, polling every %d seconds\n", conf.Tempservice, *weatherpoll)
 	d.AddGauge(db.G_TEMP)
 	if !d.Dryrun {
 		go reader(d, get)
