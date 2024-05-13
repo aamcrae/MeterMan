@@ -113,7 +113,7 @@ func meterReader(d *db.DB) error {
 	d.AddSubAccum(db.A_IMPORT, true)
 	d.AddSubAccum(db.A_EXPORT, true)
 	d.AddSubAccum(db.A_EXPORT, true)
-	log.Printf("Registered meter LCD reader\n")
+	log.Printf("Registered meter LCD reader (%d digits)\n", len(conf.Digit))
 	if !d.Dryrun {
 		go runReader(d, r, conf.Source, conf.Rotate)
 	}

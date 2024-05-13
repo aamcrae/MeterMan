@@ -52,6 +52,7 @@
 package db
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"log"
@@ -123,6 +124,7 @@ func RegisterInit(f func(*DB) error) {
 func NewDatabase(conf []byte) *DB {
 	d := new(DB)
 	d.Trace = *verbose
+	d.Dryrun = *dryrun
 	d.Config = make(map[string]*yaml.Decoder)
 	d.yaml = conf
 	d.elements = make(map[string]Element)
@@ -146,16 +148,16 @@ func (d *DB) Start() error {
 		return err
 	}
 	for k, v := range m {
-		var b strings.Builder
-		e := yaml.NewEncoder(&b)
-		err := e.Encode(v)
+		b, err := yaml.Marshal(v)
 		if err != nil {
-			return fmt.Errorf("YAML re-encode of %s failed: %v", k, err)
+			return fmt.Errorf("YAML marshal of %s failed: %v", k, err)
 		}
-		e.Close()
 		// Create a YAML decoder for each separate subsection of the YAML config file.
-		d.Config[k] = yaml.NewDecoder(strings.NewReader(b.String()))
+		d.Config[k] = yaml.NewDecoder(bytes.NewReader(b))
 		d.Config[k].KnownFields(true)
+		if d.Trace || d.Dryrun {
+			log.Printf("YAML section %s = %v", k, v)
+		}
 	}
 	if err := d.readCheckpoint(); err != nil {
 		return err
