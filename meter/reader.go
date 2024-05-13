@@ -79,12 +79,7 @@ var measures map[string]*measure = map[string]*measure{
 
 // Creates a new reader.
 func NewReader(c MeterConfig, trace bool) (*Reader, error) {
-	var lc lcd.LcdConfig
-	lc.Threshold = c.Threshold
-	lc.Offset = c.Offset
-	lc.Lcd = append(lc.Lcd, c.Lcd...)
-	lc.Digit = append(lc.Digit, c.Digit...)
-	d, err := lcd.CreateLcdDecoder(lc)
+	d, err := lcd.CreateLcdDecoder(c.LcdConfig)
 	if *history > 0 {
 		d.History = *history
 	}
