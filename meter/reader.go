@@ -82,10 +82,8 @@ func NewReader(c MeterConfig, trace bool) (*Reader, error) {
 	var lc lcd.LcdConfig
 	lc.Threshold = c.Threshold
 	lc.Offset = c.Offset
-	lc.Lcd = make([]lcd.LcdTemplate, len(c.Lcd))
-	lc.Digit = make([]lcd.DigitConfig, len(c.Digit))
-	copy(lc.Lcd, c.Lcd)
-	copy(lc.Digit, c.Digit)
+	lc.Lcd = append(lc.Lcd, c.Lcd...)
+	lc.Digit = append(lc.Digit, c.Digit...)
 	d, err := lcd.CreateLcdDecoder(lc)
 	if *history > 0 {
 		d.History = *history
