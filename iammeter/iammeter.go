@@ -16,7 +16,7 @@
 // The package is configured as a section in the YAML config file:
 //   iammeter:
 //     meter: <url to retrieve data>
-//     poll: <polling delay in seconds>
+//     poll: <polling interval in seconds>
 // e.g
 // iammeter:
 //   meter: http://admin:admin@meter-hostname/monitorjson
@@ -34,7 +34,6 @@ package iammeter
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -44,13 +43,12 @@ import (
 	"github.com/aamcrae/MeterMan/db"
 )
 
-var iamPoll = flag.Int("iammeter-poll", 15, "Default IAMMETER poll time (seconds)")
-var iamSend = flag.Bool("iammeter-send", true, "IAMMETER send meter data")
-
 type Iammeter struct {
 	Meter string
 	Poll  int
 }
+
+const defaultPoll = 15 // Default poll interval in seconds
 
 // Register iamReader as a data source.
 func init() {
@@ -68,26 +66,25 @@ func iamReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	if conf.Poll == 0 {
-		conf.Poll = *iamPoll
+	poll := defaultPoll
+	if conf.Poll != 0 {
+		poll = conf.Poll
 	}
 	if len(conf.Meter) == 0 {
 		return fmt.Errorf("iammeter: missing URL")
 	}
-	vg := d.AddSubGauge(db.G_VOLTS, true)
-	d.AddGauge(db.G_IN_CURRENT)
-	d.AddGauge(db.G_OUT_CURRENT)
-	if *iamSend {
+	log.Printf("Registered IAMMETER reader (polling interval %d seconds)\n", poll)
+	if !d.Dryrun {
+		vg := d.AddSubGauge(db.G_VOLTS, true)
+		d.AddGauge(db.G_IN_CURRENT)
+		d.AddGauge(db.G_OUT_CURRENT)
 		d.AddDiff(db.D_IN_POWER, time.Minute*5)
 		d.AddDiff(db.D_OUT_POWER, time.Minute*5)
 		d.AddAccum(db.A_IN_TOTAL, true)
 		d.AddAccum(db.A_OUT_TOTAL, true)
 		d.AddAccum(db.A_IMPORT, true)
 		d.AddAccum(db.A_EXPORT, true)
-	}
-	log.Printf("Registered IAMMETER reader (polling interval %d seconds)\n", conf.Poll)
-	if !d.Dryrun {
-		go meterReader(d, vg, conf.Meter, time.Duration(conf.Poll)*time.Second)
+		go meterReader(d, vg, conf.Meter, time.Duration(poll)*time.Second)
 	}
 	return nil
 }
@@ -151,15 +148,13 @@ func fetch(d *db.DB, vg string, client *http.Client, url string) error {
 		d.Input(db.G_OUT_CURRENT, 0.0)
 		d.Input(db.G_IN_CURRENT, m.Data[1])
 	}
-	if *iamSend {
-		// ImportEnergy
-		d.Input(db.D_IN_POWER, m.Data[3])
-		d.Input(db.A_IN_TOTAL, m.Data[3])
-		d.Input(db.A_IMPORT, m.Data[3])
-		// ExportGrid
-		d.Input(db.D_OUT_POWER, m.Data[4])
-		d.Input(db.A_OUT_TOTAL, m.Data[4])
-		d.Input(db.A_EXPORT, m.Data[4])
-	}
+	// ImportEnergy
+	d.Input(db.D_IN_POWER, m.Data[3])
+	d.Input(db.A_IN_TOTAL, m.Data[3])
+	d.Input(db.A_IMPORT, m.Data[3])
+	// ExportGrid
+	d.Input(db.D_OUT_POWER, m.Data[4])
+	d.Input(db.A_OUT_TOTAL, m.Data[4])
+	d.Input(db.A_EXPORT, m.Data[4])
 	return nil
 }
