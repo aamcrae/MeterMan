@@ -15,7 +15,7 @@ hassi:
   update: <Seconds between updates>
 ```
 
-The default update rate can be set via the ```--hassiRate``` flag.
+The default update interval is 120 seconds.
 
 ## Home Assistant integration
 
