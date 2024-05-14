@@ -30,9 +30,6 @@ import (
 	"github.com/aamcrae/MeterMan/db"
 )
 
-const defaultRetry = 61
-const defaultPoll = 90
-
 type Sma []struct {
 	Addr     string
 	Password string
@@ -43,6 +40,9 @@ type Sma []struct {
 	Trace    bool
 	Dump     bool
 }
+
+const defaultRetry = 61
+const defaultPoll = 90
 
 // InverterReader polls the inverter(s)
 type InverterReader struct {
@@ -72,21 +72,13 @@ func inverterReader(d *db.DB) error {
 		return err
 	}
 	for _, e := range conf {
-		poll := defaultPoll
-		retry := defaultRetry
-		if e.Poll != 0 {
-			poll = e.Poll
-		}
-		if e.Retry != 0 {
-			retry = e.Retry
-		}
+		poll := db.ConfigOrDefault(e.Poll, defaultPoll)
+		retry := db.ConfigOrDefault(e.Retry, defaultRetry)
 		sma, err := NewSMA(e.Addr, e.Password)
 		if err != nil {
 			return err
 		}
-		if e.Timeout != 0 {
-			sma.Timeout = e.Timeout
-		}
+		sma.Timeout = db.ConfigOrDefault(e.Timeout, sma.Timeout)
 		sma.Trace = e.Trace
 		sma.PktDump = e.Dump
 		s := &InverterReader{d: d, sma: sma}

@@ -43,6 +43,7 @@ type limit struct {
 
 // Reader is a meter specific reader.
 type Reader struct {
+	conf            *MeterConfig
 	trace           bool
 	decoder         *lcd.LcdDecoder
 	current         image.Image
@@ -78,7 +79,7 @@ var measures map[string]*measure = map[string]*measure{
 }
 
 // Creates a new reader.
-func NewReader(c MeterConfig, trace bool) (*Reader, error) {
+func NewReader(c *MeterConfig, trace bool) (*Reader, error) {
 	d, err := lcd.CreateLcdDecoder(c.LcdConfig)
 	if *history > 0 {
 		d.History = *history

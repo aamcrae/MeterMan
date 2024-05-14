@@ -71,10 +71,7 @@ func serverInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	port := defaultPort
-	if conf.Port != 0 {
-		port = conf.Port
-	}
+	port := db.ConfigOrDefault(conf.Port, defaultPort)
 	mux := http.NewServeMux()
 	s := &apiServer{d: d}
 	apih := func(w http.ResponseWriter, req *http.Request) {

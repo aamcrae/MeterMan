@@ -57,8 +57,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -168,21 +166,11 @@ func (d *DB) Start() error {
 		}
 	}
 	// If configured, override the daylight hour limits
-	if conf.Daylight[0] != 0 {
-		d.StartHour = conf.Daylight[0]
-	}
-	if conf.Daylight[1] != 0 {
-		d.EndHour = conf.Daylight[1]
-	}
+	d.StartHour = ConfigOrDefault(conf.Daylight[0], d.StartHour)
+	d.EndHour = ConfigOrDefault(conf.Daylight[1], d.EndHour)
 	// If configured, override the freshness timeout
-	if conf.Freshness != 0 {
-		freshness = conf.Freshness
-	}
 	// If configured, override the default checkpoint update interval
-	update := defaultUpdate
-	if conf.Update != 0 {
-		update = conf.Update
-	}
+	update := ConfigOrDefault(conf.Update, defaultUpdate)
 	// If a checkpoint file is configured, read it, and set up a
 	// regular callback to write it. The checkpoint file must be
 	// read before the init hooks are called.
@@ -311,16 +299,4 @@ func (d *DB) tick_event(ev event) {
 		}
 	}
 	t.ticked(ev.now)
-}
-
-// FmtFloat is a custom float formatter that
-// has a fixed precision of 2 decimal places with trailing zeros removed.
-func FmtFloat(f float64) string {
-	s := strconv.FormatFloat(f, 'f', 2, 64)
-	s = strings.TrimRight(s, "0")
-	last := len(s) - 1
-	if s[last] == '.' {
-		s = s[:last]
-	}
-	return s
 }

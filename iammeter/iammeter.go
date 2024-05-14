@@ -66,10 +66,7 @@ func iamReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	poll := defaultPoll
-	if conf.Poll != 0 {
-		poll = conf.Poll
-	}
+	poll := db.ConfigOrDefault(conf.Poll, defaultPoll)
 	if len(conf.Meter) == 0 {
 		return fmt.Errorf("iammeter: missing URL")
 	}

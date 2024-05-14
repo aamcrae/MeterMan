@@ -76,10 +76,7 @@ func pvoutputInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	interval := defaultInterval
-	if conf.Interval != 0 {
-		interval = conf.Interval
-	}
+	interval := db.ConfigOrDefault(conf.Interval, defaultInterval)
 	p := &pvWriter{d: d, pvurl: conf.Pvurl, id: conf.Systemid, key: conf.Apikey, client: &http.Client{}, trace: conf.Trace || d.Trace}
 	if !d.Dryrun {
 		d.AddCallback(time.Minute*time.Duration(interval), p.upload)

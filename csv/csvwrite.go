@@ -31,12 +31,12 @@ import (
 	"github.com/aamcrae/MeterMan/db"
 )
 
-var defaultInterval = 5
-
 type CsvConfig struct {
 	Base     string
 	Interval int
 }
+
+const defaultInterval = 5
 
 type writer struct {
 	name string
@@ -71,10 +71,7 @@ func csvInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	interval := defaultInterval
-	if conf.Interval != 0 {
-		interval = conf.Interval
-	}
+	interval := db.ConfigOrDefault(conf.Interval, defaultInterval)
 	if !d.Dryrun {
 		c := &csv{d: d, fpath: conf.Base}
 		d.AddCallback(time.Minute*time.Duration(interval), c.Run)

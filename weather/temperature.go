@@ -70,10 +70,7 @@ func weatherReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	poll := defaultPoll
-	if conf.Poll != 0 {
-		poll = conf.Poll
-	}
+	poll := db.ConfigOrDefault(conf.Poll, defaultPoll)
 	var get func() (float64, error)
 	switch conf.Tempservice {
 	default:

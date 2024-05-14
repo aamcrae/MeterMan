@@ -1,8 +1,4 @@
-// Copyright 2019 Google LLC
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// Copyright 2019 Google LLC // // Licensed under the Apache License, Version 2.0 (the "License"); // you may not use this file except in compliance with the License.  // You may obtain a copy of the License at
 //
 //     https://www.apache.org/licenses/LICENSE-2.0
 //
@@ -48,7 +44,6 @@
 package meter
 
 import (
-	"flag"
 	"image"
 	"log"
 	"net/http"
@@ -58,10 +53,22 @@ import (
 	"github.com/aamcrae/lcd"
 )
 
-var saveBad = flag.Bool("savebad", false, "Save each bad image")
-var badFile = flag.String("bad", "/tmp/bad.jpg", "Bad images")
-var sampleTime = flag.Int("sample", 4900, "Image sample rate (milliseconds)")
-var sourceTimeout = flag.Int("source_timeout", 20, "Source timeout in seconds")
+type MeterConfig struct {
+	Source        string
+	Rotate        float64
+	lcd.LcdConfig `yaml:",inline"`
+	Range         []struct {
+		Key string
+		Min float64
+		Max float64
+	}
+	BadImage string // Save bad image to this file.
+	Timeout  int    // Timeout in seconds
+	Sample   int    // Sample interval in milliseconds
+}
+
+const defaultSample = 4900 // sample interval in milliseconds
+const defaultTimeout = 20  // Default source timeout
 
 // Maps meter label to database tag.
 var tagMap map[string][]string = map[string][]string{
@@ -78,17 +85,6 @@ func init() {
 	db.RegisterInit(meterReader)
 }
 
-type MeterConfig struct {
-	Source        string
-	Rotate        float64
-	lcd.LcdConfig `yaml:",inline"`
-	Range         []struct {
-		Key string
-		Min float64
-		Max float64
-	}
-}
-
 // Create an instance of a meter reader, if there is
 // a config section declared for it.
 func meterReader(d *db.DB) error {
@@ -101,7 +97,7 @@ func meterReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	r, err := NewReader(conf, d.Trace)
+	r, err := NewReader(&conf, d.Trace)
 	if err != nil {
 		return err
 	}
@@ -115,38 +111,40 @@ func meterReader(d *db.DB) error {
 	d.AddSubAccum(db.A_EXPORT, true)
 	log.Printf("Registered meter LCD reader (%d digits)\n", len(conf.Digit))
 	if !d.Dryrun {
-		go runReader(d, r, conf.Source, conf.Rotate)
+		go runReader(d, r, &conf)
 	}
 	return nil
 }
 
 // runReader is a loop that reads the image of the meter panel
 // from an image source, and decodes the LCD digits.
-func runReader(d *db.DB, r *Reader, source string, angle float64) {
-	delay := time.Duration(*sampleTime) * time.Millisecond
+func runReader(d *db.DB, r *Reader, conf *MeterConfig) {
+	sample := db.ConfigOrDefault(conf.Sample, defaultSample)
+	timeout := db.ConfigOrDefault(conf.Timeout, defaultTimeout)
+	delay := time.Duration(sample) * time.Millisecond
 	lastTime := time.Now()
 	client := http.Client{
-		Timeout: time.Duration(*sourceTimeout) * time.Second,
+		Timeout: time.Duration(timeout) * time.Second,
 	}
 	for {
 		time.Sleep(delay - time.Now().Sub(lastTime))
 		lastTime = time.Now()
-		res, err := client.Get(source)
+		res, err := client.Get(conf.Source)
 		if err != nil {
-			log.Printf("Failed to retrieve source image from %s: %v", source, err)
+			log.Printf("Failed to retrieve source image from %s: %v", conf.Source, err)
 			continue
 		}
 		img, _, err := image.Decode(res.Body)
 		res.Body.Close()
 		if err != nil {
-			log.Printf("Failed to decode image from %s: %v", source, err)
+			log.Printf("Failed to decode image from %s: %v", conf.Source, err)
 			continue
 		}
 		if d.Trace {
-			log.Printf("Successful image read from %s, delay %s", source, time.Now().Sub(lastTime).String())
+			log.Printf("Successful image read from %s, delay %s", conf.Source, time.Now().Sub(lastTime).String())
 		}
-		if angle != 0 {
-			img = lcd.RotateImage(img, angle)
+		if conf.Rotate != 0 {
+			img = lcd.RotateImage(img, conf.Rotate)
 		}
 		// Decode the digits and get the label and value.
 		label, val, err := r.Read(img)
@@ -154,8 +152,9 @@ func runReader(d *db.DB, r *Reader, source string, angle float64) {
 			if d.Trace {
 				log.Printf("Read error: %v", err)
 			}
-			if *saveBad {
-				lcd.SaveImage(*badFile, img)
+			if len(conf.BadImage) != 0 {
+				log.Printf("Read error: %v, image saved to %s", err, conf.BadImage)
+				lcd.SaveImage(conf.BadImage, img)
 			}
 		} else if len(label) > 0 {
 			tags, ok := tagMap[label]
