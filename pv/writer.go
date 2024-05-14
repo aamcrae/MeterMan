@@ -211,7 +211,7 @@ func (p *pvWriter) Status() string {
 
 // Send request to server.
 func (p *pvWriter) send(req *http.Request, b *strings.Builder) {
-	defer func() {p.status = b.String()}()
+	defer func() { p.status = b.String() }()
 	resp, err := p.client.Do(req)
 	if err != nil {
 		log.Printf(" - Request failed: %v", err)

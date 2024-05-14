@@ -129,7 +129,7 @@ func (s *InverterReader) poll(daytime bool) error {
 		log.Printf("Polling inverter %s", s.sma.Name())
 	}
 	var b strings.Builder
-	defer func() {s.status = b.String()}()
+	defer func() { s.status = b.String() }()
 	fmt.Fprintf(&b, "%s: ", time.Now().Format("2006-01-02 15:04"))
 	_, _, err := s.sma.Logon()
 	if err != nil {

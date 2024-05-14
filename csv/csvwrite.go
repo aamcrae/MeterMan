@@ -58,7 +58,7 @@ type csv struct {
 	fpath  string
 	day    int
 	writer *writer
-	lines int
+	lines  int
 	status string
 }
 
@@ -89,7 +89,7 @@ func csvInit(d *db.DB) error {
 
 func (c *csv) Run(now time.Time) {
 	var b strings.Builder
-	defer func() {c.status = b.String()}()
+	defer func() { c.status = b.String() }()
 	fmt.Fprintf(&b, "%s: ", now.Format("2006-01-02 15:04"))
 	// Check for new day.
 	if now.YearDay() != c.day {

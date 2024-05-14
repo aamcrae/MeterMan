@@ -119,7 +119,7 @@ func (h *hassi) send(now time.Time) {
 	// Send request asynchronously.
 	go func() {
 		var str strings.Builder
-		defer func() {h.status = str.String()}()
+		defer func() { h.status = str.String() }()
 		fmt.Fprintf(&str, "%s: ", now.Format("2006-01-02 15:04"))
 		buf := new(bytes.Buffer)
 		json.NewEncoder(buf).Encode(&b)

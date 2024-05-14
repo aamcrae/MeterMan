@@ -49,15 +49,16 @@ type Iammeter struct {
 	Meter string
 	Poll  int
 }
+
 const defaultPoll = 15 // Default poll interval in seconds
 
 const moduleName = "iammeter"
 
 type imeter struct {
-	d	  *db.DB
+	d      *db.DB
 	client http.Client
-	url	string
-	volts string
+	url    string
+	volts  string
 	status string
 }
 
@@ -97,7 +98,7 @@ func iamReader(d *db.DB) error {
 		im.d.AddAccum(db.A_OUT_TOTAL, true)
 		im.d.AddAccum(db.A_IMPORT, true)
 		im.d.AddAccum(db.A_EXPORT, true)
-		go im.meterReader(time.Duration(poll)*time.Second)
+		go im.meterReader(time.Duration(poll) * time.Second)
 	}
 	return nil
 }
@@ -129,7 +130,7 @@ func (im *imeter) fetch() error {
 		Data    []float64 `json:"Data"`
 	}
 	var b strings.Builder
-	defer func() {im.status = b.String()}()
+	defer func() { im.status = b.String() }()
 	fmt.Fprintf(&b, "%s: ", time.Now().Format("2006-01-02 15:04"))
 	resp, err := im.client.Get(im.url)
 	if err != nil {

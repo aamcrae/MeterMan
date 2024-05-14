@@ -75,8 +75,8 @@ type DbConfig struct {
 type statusPrinter func() string
 
 const defaultCheckpoint = 60 // Default time between checkpoints (seconds)
-const defaultStartHour = 5 // Default start of earliest daylight
-const defaultEndHour = 20  // Default end of latest daylight
+const defaultStartHour = 5   // Default start of earliest daylight
+const defaultEndHour = 20    // Default end of latest daylight
 
 var freshness int = 10 // Number of minutes before data is considered stale
 
@@ -97,7 +97,7 @@ type DB struct {
 	disabled   map[string]struct{}           // Map of disabled features
 	tickers    map[time.Duration]*lib.Ticker // Map of tickers
 	lastDay    int                           // Current day, to check for midnight processing
-	status	   map[string]statusPrinter		 // Map of status reporters
+	status     map[string]statusPrinter      // Map of status reporters
 }
 
 type input struct {
