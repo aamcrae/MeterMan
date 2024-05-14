@@ -31,19 +31,21 @@ type Accum struct {
 
 func NewAccum(cp string, resettable bool) *Accum {
 	a := new(Accum)
-	var sec int64
-	n, err := fmt.Sscanf(cp, "%f %f %d", &a.midnight, &a.value, &sec)
-	if sec != 0 {
-		a.ts = time.Unix(sec, 0)
-	}
-	if err != nil {
-		fmt.Printf("%d parsed, accum err: %v\n", n, err)
+	if len(cp) != 0 {
+		var sec int64
+		n, err := fmt.Sscanf(cp, "%f %f %d", &a.midnight, &a.value, &sec)
+		if sec != 0 {
+			a.ts = time.Unix(sec, 0)
+		}
+		if err != nil {
+			fmt.Printf("%d parsed, accum err: %v\n", n, err)
+		}
 	}
 	if a.midnight > a.value {
 		a.midnight = a.value
 	}
 	a.resettable = resettable
-	a.SetFreshness(time.Minute * time.Duration(*freshness))
+	a.SetFreshness(time.Minute * time.Duration(freshness))
 	return a
 }
 

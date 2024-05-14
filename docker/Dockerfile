@@ -23,4 +23,4 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 
 COPY --from=builder /bin/meterman /bin/meterman
 
-CMD ["/bin/meterman", "--config=/config", "--checkpoint=/data/checkpoint", "--port=8080"]
+CMD ["/bin/meterman", "--config=/config", "--port=8080"]

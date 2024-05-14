@@ -21,6 +21,7 @@ import (
 	"log"
 	"net/http"
 	_ "net/http/pprof"
+	"strings"
 
 	_ "github.com/aamcrae/MeterMan/csv"
 	"github.com/aamcrae/MeterMan/db"
@@ -37,6 +38,9 @@ var configFile = flag.String("config", "", "Config file")
 var profile = flag.Bool("profile", false, "Enable profiling")
 var port = flag.Int("profileport", 6060, "Port for profiling server")
 var logDate = flag.Bool("logtime", false, "Log date and time")
+var verbose = flag.Bool("verbose", false, "Verbose tracing")
+var dryrun = flag.Bool("dryrun", false, "Validate config only")
+var disable = flag.String("disable", "", "Disable features")
 
 func main() {
 	flag.Parse()
@@ -54,6 +58,11 @@ func main() {
 		}()
 	}
 	d := db.NewDatabase(conf)
+	d.Trace = *verbose
+	d.Dryrun = *dryrun
+	for _, feat := range strings.Split(*disable, ",") {
+		d.Disable(feat)
+	}
 	err = d.Start()
 	log.Fatalf("Initialisation error: %v", err)
 }

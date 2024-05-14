@@ -16,7 +16,6 @@ package db
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -25,9 +24,6 @@ import (
 	"time"
 )
 
-var checkpointTick = flag.Int("checkpointrate", 1, "Checkpoint interval (in minutes)")
-var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
-
 // readCheckpoint reads the checkpoint data into a map.
 // The checkpoint file contains lines of the form:
 //
@@ -35,22 +31,15 @@ var checkpoint = flag.String("checkpoint", "", "Checkpoint file")
 //
 // When a new element is created, the tag is used to find the checkpoint string
 // to be passed to the element's init function so that the element's value can be restored.
-func (d *DB) readCheckpoint() error {
-	if len(*checkpoint) == 0 {
-		return nil
-	}
-	// Add a callback to checkpoint the database at the specified interval.
-	d.AddCallback(time.Minute*time.Duration(*checkpointTick), func(now time.Time) {
-		d.writeCheckpoint(now)
-	})
-	f, err := os.Open(*checkpoint)
+func (d *DB) readCheckpoint(file string) error {
+	f, err := os.Open(file)
 	if err != nil {
 		// If the checkpoint file doesn't exist, skip trying to read it.
-		log.Printf("Unable to read %s (%v), no checkpoint data", *checkpoint, err)
+		log.Printf("Unable to read %s (%v), no checkpoint data", file, err)
 		return nil
 	}
 	defer f.Close()
-	log.Printf("Reading checkpoint data from %s", *checkpoint)
+	log.Printf("Reading checkpoint data from %s", file)
 	r := bufio.NewReader(f)
 	lineno := 0
 	for {
@@ -58,7 +47,7 @@ func (d *DB) readCheckpoint() error {
 		s, err := r.ReadString('\n')
 		if err != nil {
 			if err != io.EOF {
-				return fmt.Errorf("checkpoint read %s: line %d: %v", *checkpoint, lineno, err)
+				return fmt.Errorf("checkpoint read %s: line %d: %v", file, lineno, err)
 			}
 			return nil
 		}
@@ -74,16 +63,13 @@ func (d *DB) readCheckpoint() error {
 }
 
 // writeCheckpoint saves the values of the elements in the database to a checkpoint file.
-func (d *DB) writeCheckpoint(now time.Time) {
-	if len(*checkpoint) == 0 {
-		return
-	}
+func (d *DB) writeCheckpoint(file string, now time.Time) {
 	if d.Trace {
-		log.Printf("Writing checkpoint data to %s", *checkpoint)
+		log.Printf("Writing checkpoint data to %s", file)
 	}
-	f, err := os.Create(*checkpoint)
+	f, err := os.Create(file)
 	if err != nil {
-		log.Printf("Checkpoint file create: %s %v", *checkpoint, err)
+		log.Printf("Checkpoint file create: %s %v", file, err)
 		return
 	}
 	defer f.Close()

@@ -67,12 +67,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var verbose = flag.Bool("verbose", false, "Verbose tracing")
-var dryrun = flag.Bool("dryrun", false, "Validate config only")
-var disable = flag.String("disable", "", "Disable features")
+type DbConfig struct {
+	Checkpoint string // Checkpoint file
+	Update     int    // Update interval for checkpoint in seconds
+	Freshness  int	  // Number of minutes before data is considered stale
+}
+
+const defaultUpdate = 60
+const defaultFreshness = 10
+
 var startHour = flag.Int("starthour", 5, "Start hour for PV (e.g 6)")
 var endHour = flag.Int("endhour", 20, "End hour for PV (e.g 19)")
-var freshness = flag.Int("freshness", 10, "Default minutes until data is stale")
+
+var freshness int
 
 // DB contains the element database.
 type DB struct {
@@ -88,6 +95,7 @@ type DB struct {
 	run        chan func()               // Channel for callbacks
 	elements   map[string]Element        // Map of tags to elements
 	checkpoint map[string]string         // Initial checkpoint data
+    disabled   map[string]struct{}		 // Map of disabled features
 	tickers    map[time.Duration]*ticker // Map of tickers
 	lastDay    int                       // Current day, to check for midnight processing
 }
@@ -110,13 +118,12 @@ func RegisterInit(f func(*DB) error) {
 // NewDatabase creates a new database handler.
 func NewDatabase(conf []byte) *DB {
 	d := new(DB)
-	d.Trace = *verbose
-	d.Dryrun = *dryrun
 	d.Config = make(map[string]*yaml.Decoder)
 	d.yaml = conf
 	d.elements = make(map[string]Element)
 	d.checkpoint = make(map[string]string)
 	d.tickers = make(map[time.Duration]*ticker)
+	d.disabled = make(map[string]struct{})
 	d.StartHour = *startHour
 	d.EndHour = *endHour
 	d.input = make(chan input, 200)
@@ -134,12 +141,10 @@ func (d *DB) Start() error {
 	if err != nil {
 		return err
 	}
-	disabled := make(map[string]struct{})
-	for _, feat := range strings.Split(*disable, ",") {
-		disabled[feat] = struct{}{}
-	}
 	for k, v := range m {
-		_, ok := disabled[k]
+		// If a config section has been disabled, do not
+		// save that section.
+		_, ok := d.disabled[k]
 		if ok {
 			log.Printf("Disabling feature %s", k)
 			continue
@@ -155,8 +160,30 @@ func (d *DB) Start() error {
 			log.Printf("YAML section %s = %v", k, v)
 		}
 	}
-	if err := d.readCheckpoint(); err != nil {
-		return err
+	// If configured, read checkpoint file and set up regular updates.
+	var conf DbConfig
+	yaml, ok := d.Config["db"]
+	if ok {
+		err := yaml.Decode(&conf)
+		if err != nil {
+			return err
+		}
+	}
+	update := defaultUpdate
+	if conf.Update != 0 {
+		update = conf.Update
+	}
+	if len(conf.Checkpoint) != 0 {
+		log.Printf("Checkpoint file %s, updated every %d seconds", conf.Checkpoint, update)
+		if !d.Dryrun {
+			if err := d.readCheckpoint(conf.Checkpoint); err != nil {
+				return err
+			}
+			// Add a callback to checkpoint the database at the specified interval.
+			d.AddCallback(time.Second*time.Duration(update), func(now time.Time) {
+				d.writeCheckpoint(conf.Checkpoint, now)
+			})
+		}
 	}
 	// Call the init hooks, which initialises all the registered modules.
 	for _, h := range initHook {
@@ -186,7 +213,7 @@ func (d *DB) Start() error {
 	for _, t := range d.tickers {
 		t.Start(ec, last)
 	}
-	if *dryrun {
+	if d.Dryrun {
 		log.Fatalf("Dryrun only, exiting")
 	}
 	for {
@@ -207,10 +234,16 @@ func (d *DB) Start() error {
 			f()
 		case <-sigc:
 			// Signal caught, write checkpoint file and exit.
-			d.writeCheckpoint(time.Now())
+			d.writeCheckpoint(conf.Checkpoint, time.Now())
 			log.Fatalf("Signal received, exiting")
 		}
 	}
+}
+
+// Disable will disable the selected feature by erasing any
+// configuration related to that feature.
+func (d *DB) Disable(feat string) {
+	d.disabled[feat] = struct{}{}
 }
 
 // Input sends tagged input data to the input channel

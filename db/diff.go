@@ -45,7 +45,7 @@ func NewDiff(cp string, window time.Duration) *Diff {
 		p.ts = time.Unix(sec, 0)
 	}
 	d.previous = append(d.previous, p)
-	d.SetFreshness(time.Minute * time.Duration(*freshness))
+	d.SetFreshness(time.Minute * time.Duration(freshness))
 	return d
 }
 

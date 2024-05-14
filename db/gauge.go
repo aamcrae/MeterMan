@@ -34,7 +34,7 @@ func NewGauge(cp string) *Gauge {
 	if sec != 0 {
 		g.ts = time.Unix(sec, 0)
 	}
-	g.SetFreshness(time.Minute * time.Duration(*freshness))
+	g.SetFreshness(time.Minute * time.Duration(freshness))
 	return g
 }
 
