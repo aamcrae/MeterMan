@@ -81,7 +81,8 @@ func pvoutputInit(d *db.DB) error {
 		return err
 	}
 	interval := lib.ConfigOrDefault(conf.Interval, defaultInterval)
-	p := &pvWriter{d: d, pvurl: conf.Pvurl, id: conf.Systemid, key: conf.Apikey, client: &http.Client{}, trace: conf.Trace || d.Trace, status: "init"}
+	url := lib.ConfigOrDefault(conf.Pvurl, "https://pvoutput.org/service/r2/addstatus.jsp")
+	p := &pvWriter{d: d, pvurl: url, id: conf.Systemid, key: conf.Apikey, client: &http.Client{}, trace: conf.Trace || d.Trace, status: "init"}
 	if !d.Dryrun {
 		d.AddCallback(time.Minute*time.Duration(interval), p.upload)
 	}
