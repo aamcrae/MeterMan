@@ -127,6 +127,7 @@ func NewDatabase(conf []byte) *DB {
 	d.status = make(map[string]statusPrinter)
 	d.StartHour = defaultStartHour
 	d.EndHour = defaultEndHour
+	d.freshness = time.Minute * defaultFreshness
 	d.input = make(chan input, 200)
 	d.run = make(chan func(), 100)
 	return d
