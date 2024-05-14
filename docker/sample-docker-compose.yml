@@ -2,12 +2,12 @@ services:
   meterman:
     image: aamcrae/meterman:latest
     container_name: meterman
-    restart: unless-stopped
+    restart: always
     # User 'meter' uid and gid
     user: "${METERUID}:${METERGID}"
     volumes:
       - "/var/cache/mman:/data"
-      - "./config:/config"
+      - "./config.yml:/config"
     ports:
       - "8080:8080"
     environment:
