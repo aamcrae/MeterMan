@@ -15,7 +15,6 @@
 package meter
 
 import (
-	"flag"
 	"fmt"
 	"image"
 	"log"
@@ -23,16 +22,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aamcrae/MeterMan/db"
 	"github.com/aamcrae/lcd"
 )
-
-var levelSize = flag.Int("level_size", 0, "Size of calibration level map")
-var savedLevels = flag.Int("level_saved", 50, "Number of levels saved")
-var history = flag.Int("history", 0, "Size of moving average cache")
-var recalInterval = flag.Int("recal_interval", 120, "Recalibrate interval (seconds)")
-var recalibrate = flag.Bool("recalibrate", false, "Recalibrate with new image")
-var saveCalibration = flag.Bool("save_calibration", false, "Save calibration data")
-var calibration = flag.String("calibration", "", "File containing calibration data")
 
 // limit holds the last value read, along with the time.
 // Used to sanity check accumulator values.
@@ -51,6 +43,8 @@ type Reader struct {
 	limits          map[string]limit
 	keyError        int
 	rangeError      int
+	savedLevels     int
+	recalInterval   int
 }
 
 // measure represents one type of value decoded from the meter.
@@ -81,12 +75,8 @@ var measures map[string]*measure = map[string]*measure{
 // Creates a new reader.
 func NewReader(c *MeterConfig, trace bool) (*Reader, error) {
 	d, err := lcd.CreateLcdDecoder(c.LcdConfig)
-	if *history > 0 {
-		d.History = *history
-	}
-	if *levelSize > 0 {
-		d.MaxLevels = *levelSize
-	}
+	d.History = db.ConfigOrDefault(c.History, d.History)
+	d.MaxLevels = db.ConfigOrDefault(c.MaxLevels, d.MaxLevels)
 	if err != nil {
 		return nil, err
 	}
@@ -102,13 +92,15 @@ func NewReader(c *MeterConfig, trace bool) (*Reader, error) {
 		}
 	}
 	r := &Reader{trace: trace, decoder: d, limits: map[string]limit{}}
-	if len(*calibration) != 0 {
-		n, err := r.decoder.RestoreFromFile(*calibration)
+	r.savedLevels = db.ConfigOrDefault(c.SavedLevels, 50)
+	r.recalInterval = db.ConfigOrDefault(c.RecalibrateInterval, 120)
+	if len(c.Calibration) != 0 {
+		n, err := r.decoder.RestoreFromFile(c.Calibration)
 		if err != nil {
 			return nil, err
 		}
 		if r.trace {
-			log.Printf("Restored %d calibration entries from %s", n, *calibration)
+			log.Printf("Restored %d calibration entries from %s", n, c.Calibration)
 		}
 	}
 	r.lastCalibration = time.Now()
@@ -125,7 +117,7 @@ func NewReader(c *MeterConfig, trace bool) (*Reader, error) {
 // dynamically adjust to changing image conditions.
 func (r *Reader) GoodScan(res *lcd.DecodeResult) {
 	r.decoder.Good()
-	if *recalibrate {
+	if r.conf.Recalibrate {
 		err := r.decoder.CalibrateUsingScan(res.Img, res.Scans)
 		if err != nil {
 			log.Printf("CalibrateUsingScan: %v\n", err)
@@ -135,10 +127,10 @@ func (r *Reader) GoodScan(res *lcd.DecodeResult) {
 
 // If enabled, save the calibration data and recalibrate.
 func (r *Reader) Recalibrate() {
-	if *recalibrate {
+	if r.conf.Recalibrate {
 		// Regularly, save the calibration data.
 		now := time.Now()
-		if time.Now().Sub(r.lastCalibration) >= time.Duration(*recalInterval)*time.Second {
+		if time.Now().Sub(r.lastCalibration) >= time.Duration(r.recalInterval)*time.Second {
 			l := r.decoder
 			r.lastCalibration = now
 			var dErr []string
@@ -152,13 +144,13 @@ func (r *Reader) Recalibrate() {
 				l.LastQuality, l.LastGood, l.LastBad, l.Best, l.Worst, l.Count, float32(l.Total)/float32(l.Count))
 			r.keyError = 0
 			r.rangeError = 0
-			if *saveCalibration && len(*calibration) != 0 {
+			if len(r.conf.Calibration) != 0 {
 				if r.trace {
-					log.Printf("Saving calibration data to %s", *calibration)
+					log.Printf("Saving calibration data to %s", r.conf.Calibration)
 				}
-				err := l.SaveToFile(*calibration, *savedLevels)
+				err := l.SaveToFile(r.conf.Calibration, r.savedLevels)
 				if err != nil {
-					log.Printf("%s: %v\n", *calibration, err)
+					log.Printf("%s: %v\n", r.conf.Calibration, err)
 				}
 			}
 		}

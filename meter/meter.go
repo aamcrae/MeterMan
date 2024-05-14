@@ -62,9 +62,15 @@ type MeterConfig struct {
 		Min float64
 		Max float64
 	}
-	BadImage string // Save bad image to this file.
-	Timeout  int    // Timeout in seconds
-	Sample   int    // Sample interval in milliseconds
+	BadImage            string // Save bad image to this file.
+	Timeout             int    // Timeout in seconds
+	Sample              int    // Sample interval in milliseconds
+	History             int    // Size of moving average cache
+	MaxLevels           int    // Size of calibration level map
+	SavedLevels         int    // Number of levels saved
+	Recalibrate         bool   // Recalibrate
+	Calibration         string // Calibration save file
+	RecalibrateInterval int    // Recalibrate interval in seconds
 }
 
 const defaultSample = 4900 // sample interval in milliseconds
