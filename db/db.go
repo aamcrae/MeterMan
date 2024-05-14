@@ -77,8 +77,9 @@ type statusPrinter func() string
 const defaultCheckpoint = 60 // Default time between checkpoints (seconds)
 const defaultStartHour = 5   // Default start of earliest daylight
 const defaultEndHour = 20    // Default end of latest daylight
+const defaultFreshness = 10 // Default freshness is 10 minutes
 
-var freshness int = 10 // Number of minutes before data is considered stale
+var freshness int // Number of minutes before data is considered stale
 
 // DB contains the element database.
 type DB struct {
@@ -174,6 +175,7 @@ func (d *DB) Start() error {
 	d.StartHour = lib.ConfigOrDefault(conf.Daylight[0], d.StartHour)
 	d.EndHour = lib.ConfigOrDefault(conf.Daylight[1], d.EndHour)
 	// If configured, override the freshness timeout
+	freshness := lib.ConfigOrDefault(conf.Freshness, defaultFreshness)
 	// If configured, override the default checkpoint update interval
 	update := lib.ConfigOrDefault(conf.Update, defaultCheckpoint)
 	// If a checkpoint file is configured, read it, and set up a
