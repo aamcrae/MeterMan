@@ -22,7 +22,24 @@ The [example configuration file](example.conf) shows how each feature can be
 individually enabled and configured. If a feature is required, it is enabled
 by adding that feature's configuration to the YAML configuration file.
 
-The configuration and flags for each the features are documented in:
+The core configuration allows a checkpoint file to be defined so that
+state data is preserved across restarts.
+The core configuration is:
+
+```yaml
+db:
+  checkpoint: <checkpoint file>
+  update: <interval for writing checkpoint file in seconds>
+  freshness: <duration before data is considered stale>
+  daylight: <start hour, end hour>
+```
+
+The default ```update``` interval is 60 seconds.
+The ```freshness``` parameter (in minutes) defines how long data is not updated before
+it is considered stale i.e not included in exports.  The default is 10 minutes.
+The ```daylight``` parameters indicate the begin and end time (as hours) for the limit of daylight hours. The default is ```[5, 20]```.
+
+The configuration for each the features are documented in:
 
 * [SMA](sma/config.md) - Monitoring of [SMA](http://sma.de) Solar inverters.
 * [IAMMeter](iammeter/config.md) - Monitoring of [IAMMeter](https://www.iammeter.com/products/single-phase-meter) Energy meters.
