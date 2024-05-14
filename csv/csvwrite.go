@@ -58,6 +58,7 @@ type csv struct {
 	fpath  string
 	day    int
 	writer *writer
+	lines int
 	status string
 }
 
@@ -95,6 +96,7 @@ func (c *csv) Run(now time.Time) {
 		if c.writer != nil {
 			c.writer.Close()
 			c.writer = nil
+			c.lines = 0
 		}
 		var err error
 		var created bool
@@ -113,6 +115,7 @@ func (c *csv) Run(now time.Time) {
 				fmt.Fprintf(c.writer, ",%s,%s-DAILY", s, s)
 			}
 			fmt.Fprint(c.writer, "\n")
+			c.lines++
 		}
 		c.day = now.YearDay()
 	}
@@ -120,6 +123,7 @@ func (c *csv) Run(now time.Time) {
 	if c.d.Trace {
 		log.Printf("Writing CSV data to %s\n", c.writer.name)
 	}
+	c.lines++
 	fmt.Fprint(c.writer, now.Format("2006-01-02,15:04"))
 	for _, s := range elements {
 		g := c.d.GetElement(s)
@@ -138,7 +142,7 @@ func (c *csv) Run(now time.Time) {
 		}
 	}
 	fmt.Fprint(c.writer, "\n")
-	fmt.Fprintf(&b, "OK - file %s", c.writer.name)
+	fmt.Fprintf(&b, "OK - file %s, lines %d", c.writer.name, c.lines)
 	c.writer.Flush()
 }
 
