@@ -41,7 +41,7 @@ Some values are duplicated since they may come from different sources (e.g IMP a
 The columns are:
 
 | Name | Unit | Description |
-| ---- | ------- |
+| ---- | ---- | -------- |
 | date  | | The date as YYYY-MM-DD |
 | time  | | The time as HH:MM (24 hour notation) |
 | GEN-P | Kw | Solar PV power output  |
