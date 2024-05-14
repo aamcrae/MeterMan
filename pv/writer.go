@@ -54,6 +54,8 @@ type Pvoutput struct {
 
 const defaultInterval = 5 // Default update rate in minutes
 
+const moduleName = "pvoutput"
+
 type pvWriter struct {
 	d      *db.DB
 	pvurl  string
@@ -61,6 +63,8 @@ type pvWriter struct {
 	key    string
 	client *http.Client
 	trace  bool
+	lastUpdate string
+	lastUpdateTime time.Time
 }
 
 func init() {
@@ -69,7 +73,7 @@ func init() {
 
 func pvoutputInit(d *db.DB) error {
 	var conf Pvoutput
-	c, ok := d.Config["pvoutput"]
+	c, ok := d.Config[moduleName]
 	if !ok {
 		return nil
 	}
@@ -82,6 +86,7 @@ func pvoutputInit(d *db.DB) error {
 	if !d.Dryrun {
 		d.AddCallback(time.Minute*time.Duration(interval), p.upload)
 	}
+	d.AddStatusPrinter(moduleName, p.Status)
 	log.Printf("Registered pvoutput uploader (%d minute intervals)\n", interval)
 	return nil
 }
@@ -185,6 +190,8 @@ func (p *pvWriter) upload(now time.Time) {
 	if p.trace {
 		log.Printf("PV Uploading: %v", val)
 	}
+	p.lastUpdateTime = now
+	p.lastUpdate = fmt.Sprintf("%v", val)
 	req.Header.Add("X-Pvoutput-Apikey", p.key)
 	req.Header.Add("X-Pvoutput-SystemId", p.id)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -193,6 +200,10 @@ func (p *pvWriter) upload(now time.Time) {
 	}
 	// Asynchronously send request to avoid blocking.
 	go p.send(req)
+}
+
+func (p *pvWriter) Status() string {
+	return fmt.Sprintf("last update at %s: %s", p.lastUpdateTime.Format("2006-01-02 15:04"), p.lastUpdate)
 }
 
 // Send request to server.

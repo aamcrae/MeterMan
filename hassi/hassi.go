@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
@@ -39,11 +40,14 @@ import (
 
 const defaultInterval = 120 // Default update interval (in seconds)
 
+const moduleName = "hassi"
+
 type hassi struct {
 	d      *db.DB
 	url    string
 	key    string
 	client *http.Client
+	status string
 }
 
 // Config structure
@@ -60,7 +64,7 @@ func init() {
 func hassiInit(d *db.DB) error {
 	var conf Hassi
 
-	dec, ok := d.Config["hassi"]
+	dec, ok := d.Config[moduleName]
 	if !ok {
 		return nil
 	}
@@ -70,18 +74,23 @@ func hassiInit(d *db.DB) error {
 	}
 	interval := lib.ConfigOrDefault(conf.Update, defaultInterval)
 	key := fmt.Sprintf("Bearer %s", conf.Apikey)
-	h := &hassi{d: d, url: conf.Url, key: key, client: &http.Client{}}
+	h := &hassi{d: d, url: conf.Url, key: key, client: &http.Client{}, status: "init"}
 	intv := time.Second * time.Duration(interval)
-	d.AddCallback(intv, h.send)
+	if !d.Dryrun {
+		d.AddCallback(intv, h.send)
+	}
+	d.AddStatusPrinter(moduleName, h.Status)
 	log.Printf("Registered Home Assistant uploader (%d seconds interval)", interval)
 	return nil
 }
 
+// Status returns the current status
+func (h *hassi) Status() string {
+	return h.status
+}
+
 // Upload any updated tags to Home Assistant.
 func (h *hassi) send(now time.Time) {
-	if h.d.Dryrun {
-		return
-	}
 	type blk struct {
 		State string             `json:"state"`
 		Attr  map[string]float64 `json:"attributes"`
@@ -109,11 +118,15 @@ func (h *hassi) send(now time.Time) {
 	h.daily(db.A_EXPORT, "export", b.Attr)
 	// Send request asynchronously.
 	go func() {
+		var str strings.Builder
+		defer func() {h.status = str.String()}()
+		fmt.Fprintf(&str, "%s: ", now.Format("2006-01-02 15:04"))
 		buf := new(bytes.Buffer)
 		json.NewEncoder(buf).Encode(&b)
 		req, err := http.NewRequest("POST", h.url, buf)
 		if err != nil {
 			log.Printf("NewRequest (%s) failed: %v", h.url, err)
+			fmt.Fprintf(&str, "Error: %v", err)
 			return
 		}
 		req.Header.Set("Content-Type", "application/json")
@@ -121,11 +134,15 @@ func (h *hassi) send(now time.Time) {
 		res, err := h.client.Do(req)
 		if err != nil {
 			log.Printf("Req (%s) failed: %v", h.url, err)
+			fmt.Fprintf(&str, "Error: %v", err)
 			return
 		}
 		defer res.Body.Close()
 		if res.StatusCode != 200 && res.StatusCode != 201 {
 			log.Printf("hassi: req %s, resp %s", h.url, res.Status)
+			fmt.Fprintf(&str, "Send status: %s", res.Status)
+		} else {
+			fmt.Fprintf(&str, "OK")
 		}
 		if h.d.Trace {
 			log.Printf("hassi: Sent req %s, resp %s", h.url, res.Status)

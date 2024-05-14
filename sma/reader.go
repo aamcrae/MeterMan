@@ -24,7 +24,9 @@
 package sma
 
 import (
+	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
@@ -55,6 +57,7 @@ type InverterReader struct {
 	volts    string // Gauge for current voltage (V)
 	genDaily string // Accum for daily yield (KwH)
 	genT     string // Accum for lifetime yield (KwH)
+	status   string // Current status
 }
 
 func init() {
@@ -91,12 +94,19 @@ func inverterReader(d *db.DB) error {
 		s.genDaily = d.AddSubAccum(db.A_GEN_DAILY, true)
 		s.genT = d.AddSubAccum(db.A_GEN_TOTAL, false)
 		s.genDP = d.AddSubDiff(db.D_GEN_P, false)
+		nm := strings.Split(e.Addr, ":")[0]
+		d.AddStatusPrinter(fmt.Sprintf("SMA-%s", nm), s.Status)
 		log.Printf("Registered SMA inverter reader for %s (poll interval %d seconds, retry %d seconds, timeout %d seconds)\n", s.sma.Name(), poll, retry, s.sma.Timeout)
 		if !d.Dryrun {
 			go s.run(time.Duration(poll)*time.Second, time.Duration(retry)*time.Second)
 		}
 	}
 	return nil
+}
+
+// Status returns a string status for this inverter
+func (s *InverterReader) Status() string {
+	return s.status
 }
 
 // Polling loop for inverter.
@@ -118,11 +128,16 @@ func (s *InverterReader) poll(daytime bool) error {
 	if s.d.Trace {
 		log.Printf("Polling inverter %s", s.sma.Name())
 	}
+	var b strings.Builder
+	defer func() {s.status = b.String()}()
+	fmt.Fprintf(&b, "%s: ", time.Now().Format("2006-01-02 15:04"))
 	_, _, err := s.sma.Logon()
 	if err != nil {
+		fmt.Fprintf(&b, "Error - %v", err)
 		return err
 	}
 	defer s.sma.Logoff()
+	fmt.Fprintf(&b, "OK")
 	d, err := s.sma.DailyEnergy()
 	if err != nil {
 		if s.d.Trace {
@@ -133,6 +148,7 @@ func (s *InverterReader) poll(daytime bool) error {
 			log.Printf("Tag %s Daily yield = %g", s.genDaily, d)
 		}
 		s.d.Input(s.genDaily, d)
+		fmt.Fprintf(&b, ", Daily %s", lib.FmtFloat(d))
 	}
 	t, err := s.sma.TotalEnergy()
 	if err != nil {
@@ -143,6 +159,7 @@ func (s *InverterReader) poll(daytime bool) error {
 		if s.d.Trace {
 			log.Printf("Tag %s Total yield = %g", s.genT, t)
 		}
+		fmt.Fprintf(&b, ", Total %s", lib.FmtFloat(t))
 		s.d.Input(s.genT, t)
 		s.d.Input(s.genDP, t)
 	}
@@ -157,6 +174,7 @@ func (s *InverterReader) poll(daytime bool) error {
 					log.Printf("Tag %s volts = %g", s.volts, v)
 				}
 				s.d.Input(s.volts, v)
+				fmt.Fprintf(&b, ", Volts %s", lib.FmtFloat(v))
 			}
 		}
 		p, err := s.sma.Power()
@@ -168,6 +186,7 @@ func (s *InverterReader) poll(daytime bool) error {
 			log.Printf("Tag %s power = %g", s.genP, pf)
 		}
 		s.d.Input(s.genP, pf)
+		fmt.Fprintf(&b, ", Power %s", lib.FmtFloat(pf))
 	}
 	return nil
 }

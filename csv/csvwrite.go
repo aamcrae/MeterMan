@@ -26,6 +26,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
@@ -37,24 +38,27 @@ type CsvConfig struct {
 	Interval int
 }
 
-const defaultInterval = 5
-
 type writer struct {
 	name string
 	file *os.File
 	buf  *bufio.Writer
 }
 
+const defaultInterval = 5
+
 const header = "#date,time"
 
 var elements []string = []string{"GEN-P", "VOLTS", "TEMP", "IN-P", "OUT-P", "D-GEN-P"}
 var accums []string = []string{"IMP", "EXP", "GEN-T", "GEN-D", "IN", "OUT"}
+
+const moduleName = "csv"
 
 type csv struct {
 	d      *db.DB
 	fpath  string
 	day    int
 	writer *writer
+	status string
 }
 
 func init() {
@@ -64,7 +68,7 @@ func init() {
 // Returns a writer that writes daily CSV files in the form path/year/month/day
 func csvInit(d *db.DB) error {
 	var conf CsvConfig
-	yaml, ok := d.Config["csv"]
+	yaml, ok := d.Config[moduleName]
 	if !ok {
 		return nil
 	}
@@ -73,15 +77,19 @@ func csvInit(d *db.DB) error {
 		return err
 	}
 	interval := lib.ConfigOrDefault(conf.Interval, defaultInterval)
+	c := &csv{d: d, fpath: conf.Base, status: "init"}
 	if !d.Dryrun {
-		c := &csv{d: d, fpath: conf.Base}
 		d.AddCallback(time.Minute*time.Duration(interval), c.Run)
 	}
+	d.AddStatusPrinter(moduleName, c.Status)
 	log.Printf("Registered CSV as writer, base directory %s, updating every %d minutes\n", conf.Base, interval)
 	return nil
 }
 
 func (c *csv) Run(now time.Time) {
+	var b strings.Builder
+	defer func() {c.status = b.String()}()
+	fmt.Fprintf(&b, "%s: ", now.Format("2006-01-02 15:04"))
 	// Check for new day.
 	if now.YearDay() != c.day {
 		if c.writer != nil {
@@ -93,6 +101,7 @@ func (c *csv) Run(now time.Time) {
 		c.writer, created, err = NewWriter(c.fpath, now)
 		if err != nil {
 			log.Printf("%s: %v", c.fpath, err)
+			fmt.Fprintf(&b, "NewWriter Err: - %v", err)
 			return
 		}
 		if created {
@@ -129,7 +138,12 @@ func (c *csv) Run(now time.Time) {
 		}
 	}
 	fmt.Fprint(c.writer, "\n")
+	fmt.Fprintf(&b, "OK - file %s", c.writer.name)
 	c.writer.Flush()
+}
+
+func (c *csv) Status() string {
+	return c.status
 }
 
 // NewWriter creates a new file writer.

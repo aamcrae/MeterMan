@@ -108,7 +108,7 @@ func serverInit(d *db.DB) error {
 // Handler for API requests.
 func (s *apiServer) api(w http.ResponseWriter, req *http.Request) {
 	if s.d.Trace {
-		log.Printf("Request: %s", req.URL.String())
+		log.Printf("API: Request: %s", req.URL.String())
 	}
 	var c Data
 	c.Power = int((s.d.GetElement(db.D_IN_POWER).Get() - s.d.GetElement(db.D_OUT_POWER).Get()) * 1000.0)
@@ -157,6 +157,14 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprintf(w, "<html><head></head><body>")
+	fmt.Fprintf(w, "<h1>Status</h1>")
+	sm := s.d.GetStatus()
+	fmt.Fprintf(w, "<table border=\"1\"><tr><th>Module</th><th>Status</th></tr>")
+	for k, v := range sm {
+		fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td></tr>", k, v)
+	}
+	fmt.Fprintf(w, "</table>")
+	fmt.Fprintf(w, "<h1>Database</h1>")
 	fmt.Fprintf(w, "<table border=\"1\"><tr><th>Tag</th><th>Value</th><th>Daily</th><th>Fresh</th><th>Timestamp</th><th>Age</tr>")
 	m := s.d.GetElements()
 	// Sort in key order.

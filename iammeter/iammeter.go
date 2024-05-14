@@ -38,6 +38,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
@@ -48,8 +49,17 @@ type Iammeter struct {
 	Meter string
 	Poll  int
 }
-
 const defaultPoll = 15 // Default poll interval in seconds
+
+const moduleName = "iammeter"
+
+type imeter struct {
+	d	  *db.DB
+	client http.Client
+	url	string
+	volts string
+	status string
+}
 
 // Register iamReader as a data source.
 func init() {
@@ -59,7 +69,7 @@ func init() {
 // Set up polling the energy meter, if the config exists for it.
 func iamReader(d *db.DB) error {
 	var conf Iammeter
-	c, ok := d.Config["iammeter"]
+	c, ok := d.Config[moduleName]
 	if !ok {
 		return nil
 	}
@@ -71,39 +81,45 @@ func iamReader(d *db.DB) error {
 	if len(conf.Meter) == 0 {
 		return fmt.Errorf("iammeter: missing URL")
 	}
+	im := &imeter{d: d, url: conf.Meter, status: "init"}
+	im.client = http.Client{
+		Timeout: time.Duration(time.Second * 10),
+	}
+	im.d.AddStatusPrinter(moduleName, im.Status)
 	log.Printf("Registered IAMMETER reader (polling interval %d seconds)\n", poll)
 	if !d.Dryrun {
-		vg := d.AddSubGauge(db.G_VOLTS, true)
-		d.AddGauge(db.G_IN_CURRENT)
-		d.AddGauge(db.G_OUT_CURRENT)
-		d.AddDiff(db.D_IN_POWER, time.Minute*5)
-		d.AddDiff(db.D_OUT_POWER, time.Minute*5)
-		d.AddAccum(db.A_IN_TOTAL, true)
-		d.AddAccum(db.A_OUT_TOTAL, true)
-		d.AddAccum(db.A_IMPORT, true)
-		d.AddAccum(db.A_EXPORT, true)
-		go meterReader(d, vg, conf.Meter, time.Duration(poll)*time.Second)
+		im.volts = d.AddSubGauge(db.G_VOLTS, true)
+		im.d.AddGauge(db.G_IN_CURRENT)
+		im.d.AddGauge(db.G_OUT_CURRENT)
+		im.d.AddDiff(db.D_IN_POWER, time.Minute*5)
+		im.d.AddDiff(db.D_OUT_POWER, time.Minute*5)
+		im.d.AddAccum(db.A_IN_TOTAL, true)
+		im.d.AddAccum(db.A_OUT_TOTAL, true)
+		im.d.AddAccum(db.A_IMPORT, true)
+		im.d.AddAccum(db.A_EXPORT, true)
+		go im.meterReader(time.Duration(poll)*time.Second)
 	}
 	return nil
 }
 
 // meterReader is a loop that reads the data from the energy meter.
-func meterReader(d *db.DB, vg string, url string, delay time.Duration) {
+func (im *imeter) meterReader(delay time.Duration) {
 	lastTime := time.Now()
-	client := http.Client{
-		Timeout: time.Duration(time.Second * 10),
-	}
 	for {
 		time.Sleep(delay - time.Now().Sub(lastTime))
 		lastTime = time.Now()
-		err := fetch(d, vg, &client, url)
+		err := im.fetch()
 		if err != nil {
 			log.Printf("iammeter: %v", err)
 		}
 	}
 }
 
-func fetch(d *db.DB, vg string, client *http.Client, url string) error {
+func (im *imeter) Status() string {
+	return im.status
+}
+
+func (im *imeter) fetch() error {
 	type Top struct {
 		Method  string    `json:"method"`
 		Mac     string    `json:"mac"`
@@ -112,24 +128,33 @@ func fetch(d *db.DB, vg string, client *http.Client, url string) error {
 		Serial  string    `json:"SN"`
 		Data    []float64 `json:"Data"`
 	}
-	resp, err := client.Get(url)
+	var b strings.Builder
+	defer func() {im.status = b.String()}()
+	fmt.Fprintf(&b, "%s: ", time.Now().Format("2006-01-02 15:04"))
+	resp, err := im.client.Get(im.url)
 	if err != nil {
+		fmt.Fprintf(&b, "Get: %v", err)
 		return err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		fmt.Fprintf(&b, "ReadAll: %v", err)
 		return err
 	}
 	var m Top
 	err = json.Unmarshal(body, &m)
 	if err != nil {
+		fmt.Fprintf(&b, "Unmarshal: %v", err)
 		return err
 	}
 	if len(m.Data) != 5 {
+		fmt.Fprintf(&b, "Malformed data from meter")
 		return fmt.Errorf("malformed data from meter")
 	}
-	if d.Trace {
+	if im.d.Trace {
+		fmt.Fprintf(&b, "OK - Volts: %s, current %s, power %s", lib.FmtFloat(m.Data[0]), lib.FmtFloat(m.Data[1]), lib.FmtFloat(m.Data[2]))
+		fmt.Fprintf(&b, ", Imp: %s, Exp %s", lib.FmtFloat(m.Data[3]), lib.FmtFloat(m.Data[4]))
 		log.Printf("iammeter: version %s, serial number %s", m.Version, m.Serial)
 		log.Printf("iammeter: Volts %gV, current %gA, power %gW", m.Data[0], m.Data[1], m.Data[2])
 		log.Printf("iammeter: Import %gkWh, Export %gkWh", m.Data[3], m.Data[4])
@@ -138,21 +163,21 @@ func fetch(d *db.DB, vg string, client *http.Client, url string) error {
 		m.Data[3] == 0 || m.Data[4] == 0 {
 		return fmt.Errorf("Missing values")
 	}
-	d.Input(vg, m.Data[0])
+	im.d.Input(im.volts, m.Data[0])
 	if m.Data[1] < 0.0 {
-		d.Input(db.G_IN_CURRENT, 0.0)
-		d.Input(db.G_OUT_CURRENT, -m.Data[1])
+		im.d.Input(db.G_IN_CURRENT, 0.0)
+		im.d.Input(db.G_OUT_CURRENT, -m.Data[1])
 	} else {
-		d.Input(db.G_OUT_CURRENT, 0.0)
-		d.Input(db.G_IN_CURRENT, m.Data[1])
+		im.d.Input(db.G_OUT_CURRENT, 0.0)
+		im.d.Input(db.G_IN_CURRENT, m.Data[1])
 	}
 	// ImportEnergy
-	d.Input(db.D_IN_POWER, m.Data[3])
-	d.Input(db.A_IN_TOTAL, m.Data[3])
-	d.Input(db.A_IMPORT, m.Data[3])
+	im.d.Input(db.D_IN_POWER, m.Data[3])
+	im.d.Input(db.A_IN_TOTAL, m.Data[3])
+	im.d.Input(db.A_IMPORT, m.Data[3])
 	// ExportGrid
-	d.Input(db.D_OUT_POWER, m.Data[4])
-	d.Input(db.A_OUT_TOTAL, m.Data[4])
-	d.Input(db.A_EXPORT, m.Data[4])
+	im.d.Input(db.D_OUT_POWER, m.Data[4])
+	im.d.Input(db.A_OUT_TOTAL, m.Data[4])
+	im.d.Input(db.A_EXPORT, m.Data[4])
 	return nil
 }

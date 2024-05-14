@@ -72,6 +72,8 @@ type DbConfig struct {
 	Daylight   [2]int // Defines the limits of daylight hours
 }
 
+type statusPrinter func() string
+
 const defaultCheckpoint = 60 // Default time between checkpoints (seconds)
 const defaultStartHour = 5 // Default start of earliest daylight
 const defaultEndHour = 20  // Default end of latest daylight
@@ -95,6 +97,7 @@ type DB struct {
 	disabled   map[string]struct{}           // Map of disabled features
 	tickers    map[time.Duration]*lib.Ticker // Map of tickers
 	lastDay    int                           // Current day, to check for midnight processing
+	status	   map[string]statusPrinter		 // Map of status reporters
 }
 
 type input struct {
@@ -121,6 +124,7 @@ func NewDatabase(conf []byte) *DB {
 	d.checkpoint = make(map[string]string)
 	d.tickers = make(map[time.Duration]*lib.Ticker)
 	d.disabled = make(map[string]struct{})
+	d.status = make(map[string]statusPrinter)
 	d.StartHour = defaultStartHour
 	d.EndHour = defaultEndHour
 	d.input = make(chan input, 200)
@@ -290,6 +294,20 @@ func (d *DB) Execute(f func()) {
 		l.Done()
 	}
 	l.Wait()
+}
+
+// AddStatusPrinter adds a callback to return status of a feature
+func (d *DB) AddStatusPrinter(key string, cb func() string) {
+	d.status[key] = cb
+}
+
+// Must be called from the main thread
+func (d *DB) GetStatus() map[string]string {
+	m := make(map[string]string)
+	for k, v := range d.status {
+		m[k] = v()
+	}
+	return m
 }
 
 // checkForMidnight is the first callback for every ticker.
