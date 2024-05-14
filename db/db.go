@@ -69,14 +69,14 @@ import (
 type DbConfig struct {
 	Checkpoint string // Checkpoint file
 	Update     int    // Update interval for checkpoint in seconds
-	Freshness  int	  // Number of minutes before data is considered stale
+	Freshness  int    // Number of minutes before data is considered stale
 	Daylight   [2]int // Defines the limits of daylight hours
 }
 
 const defaultUpdate = 60
 const defaultFreshness = 10
-const defaultStartHour = 5	// Default start of earliest daylight
-const defaultEndHour = 20 // Default end of latest daylight
+const defaultStartHour = 5 // Default start of earliest daylight
+const defaultEndHour = 20  // Default end of latest daylight
 
 var freshness int
 
@@ -94,7 +94,7 @@ type DB struct {
 	run        chan func()               // Channel for callbacks
 	elements   map[string]Element        // Map of tags to elements
 	checkpoint map[string]string         // Initial checkpoint data
-    disabled   map[string]struct{}		 // Map of disabled features
+	disabled   map[string]struct{}       // Map of disabled features
 	tickers    map[time.Duration]*ticker // Map of tickers
 	lastDay    int                       // Current day, to check for midnight processing
 }

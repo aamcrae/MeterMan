@@ -18,7 +18,6 @@ package server
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -28,7 +27,11 @@ import (
 	"github.com/aamcrae/MeterMan/db"
 )
 
-var port = flag.Int("port", 0, "Port for API server")
+type ApiConfig struct {
+	Port int // HTTP port
+}
+
+const defaultPort = 8080
 
 type apiServer struct {
 	d *db.DB
@@ -58,8 +61,19 @@ func init() {
 // Initialise a http server.
 // The handlers are run from the main database context.
 func serverInit(d *db.DB) error {
-	if *port == 0 {
+	var conf ApiConfig
+	yaml, ok := d.Config["api"]
+	if !ok {
+		// No API server configured
 		return nil
+	}
+	err := yaml.Decode(&conf)
+	if err != nil {
+		return err
+	}
+	port := defaultPort
+	if conf.Port != 0 {
+		port = conf.Port
 	}
 	mux := http.NewServeMux()
 	s := &apiServer{d: d}
@@ -84,10 +98,12 @@ func serverInit(d *db.DB) error {
 			s.status(w, req)
 		})
 	})
-	go func() {
-		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *port), mux))
-	}()
-	log.Printf("Registered HTTP API and status server on port %d\n", *port)
+	if !d.Dryrun {
+		go func() {
+			log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), mux))
+		}()
+	}
+	log.Printf("Registered HTTP API and status server on port %d\n", port)
 	return nil
 }
 
