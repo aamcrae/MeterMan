@@ -31,7 +31,7 @@ db:
   checkpoint: <checkpoint file>
   update: <interval for writing checkpoint file in seconds>
   freshness: <duration before data is considered stale>
-  daylight: <start hour, end hour>
+  daylight: [<start hour>, <end hour>]
 ```
 
 The default ```update``` interval is 60 seconds.
