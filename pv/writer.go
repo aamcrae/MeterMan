@@ -32,7 +32,6 @@
 package pv
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -44,15 +43,15 @@ import (
 	"github.com/aamcrae/MeterMan/db"
 )
 
-var pvUpload = flag.Bool("pvupload", true, "Upload PV data")
-var pvLog = flag.Bool("pvlog", true, "Log upload parameters")
-var pvUpdateRate = flag.Int("pvupdate", 5, "pvoutput Update rate (in minutes)")
-
 type Pvoutput struct {
 	Apikey   string
 	Systemid string
 	Pvurl    string
+	Interval int
+	Trace    bool
 }
+
+const defaultInterval = 5 // Default update rate in minutes
 
 type pvWriter struct {
 	d      *db.DB
@@ -60,6 +59,7 @@ type pvWriter struct {
 	id     string
 	key    string
 	client *http.Client
+	trace  bool
 }
 
 func init() {
@@ -76,11 +76,15 @@ func pvoutputInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	p := &pvWriter{d: d, pvurl: conf.Pvurl, id: conf.Systemid, key: conf.Apikey, client: &http.Client{}}
-	if !d.Dryrun {
-		d.AddCallback(time.Minute*time.Duration(*pvUpdateRate), p.upload)
+	interval := defaultInterval
+	if conf.Interval != 0 {
+		interval = conf.Interval
 	}
-	log.Printf("Registered pvoutput uploader\n")
+	p := &pvWriter{d: d, pvurl: conf.Pvurl, id: conf.Systemid, key: conf.Apikey, client: &http.Client{}, trace: conf.Trace || d.Trace}
+	if !d.Dryrun {
+		d.AddCallback(time.Minute*time.Duration(interval), p.upload)
+	}
+	log.Printf("Registered pvoutput uploader (%d minute intervals)\n", interval)
 	return nil
 }
 
@@ -100,36 +104,36 @@ func (p *pvWriter) upload(now time.Time) {
 	val.Add("t", now.Format("15:04"))
 	if pv_daily_ok && daytime {
 		val.Add("v1", fmt.Sprintf("%d", int(pv_daily*1000)))
-		if p.d.Trace {
+		if p.trace {
 			log.Printf("v1 = %g", pv_daily)
 		}
-	} else if p.d.Trace {
+	} else if p.trace {
 		if !pv_daily_ok {
 			log.Printf("PV Energy not valid, v1 not updated\n")
 		}
 	}
 	if pv_power_ok && pv_power != 0 {
 		val.Add("v2", fmt.Sprintf("%d", int(pv_power*1000)))
-		if p.d.Trace {
+		if p.trace {
 			log.Printf("v2 = %g", pv_power)
 		}
-	} else if p.d.Trace {
+	} else if p.trace {
 		log.Printf("No PV power, v2 not updated\n")
 	}
 	if isValid(temp) && temp.Get() != 0 {
 		val.Add("v5", fmt.Sprintf("%.2f", temp.Get()))
-		if p.d.Trace {
+		if p.trace {
 			log.Printf("v5 = %.2f", temp.Get())
 		}
-	} else if p.d.Trace {
+	} else if p.trace {
 		log.Printf("No temperature, v5 not updated\n")
 	}
 	if isValid(volts) && volts.Get() != 0 {
 		val.Add("v6", fmt.Sprintf("%.2f", volts.Get()))
-		if p.d.Trace {
+		if p.trace {
 			log.Printf("v6 = %.2f", volts.Get())
 		}
-	} else if p.d.Trace {
+	} else if p.trace {
 		log.Printf("No Voltage, v6 not updated\n")
 	}
 	if isValid(imp) && isValid(exp) {
@@ -137,14 +141,14 @@ func (p *pvWriter) upload(now time.Time) {
 		// Daily PV generation may be out of date, but it is used regardless.
 		consumption += pv_daily
 		val.Add("v3", fmt.Sprintf("%d", int(consumption*1000)))
-		if p.d.Trace {
+		if p.trace {
 			log.Printf("v3 = %g, imp = %g, exp = %g", consumption, imp.Daily(), exp.Daily())
 			log.Printf("daily = %g", pv_daily)
 			if !pv_daily_ok {
 				log.Printf("Using old generation data")
 			}
 		}
-	} else if *pvLog || p.d.Trace {
+	} else if p.trace {
 		if exp == nil {
 			log.Printf("No export data\n")
 		} else if !isValid(exp) {
@@ -169,7 +173,7 @@ func (p *pvWriter) upload(now time.Time) {
 			cp = 0
 		}
 		val.Add("v4", fmt.Sprintf("%d", cp))
-		if p.d.Trace {
+		if p.trace {
 			log.Printf("v4 = %d", cp)
 		}
 	} else {
@@ -180,19 +184,17 @@ func (p *pvWriter) upload(now time.Time) {
 		log.Printf("NewRequest failed: %v", err)
 		return
 	}
-	if *pvLog {
+	if p.trace {
 		log.Printf("PV Uploading: %v", val)
 	}
 	req.Header.Add("X-Pvoutput-Apikey", p.key)
 	req.Header.Add("X-Pvoutput-SystemId", p.id)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if p.d.Trace || !*pvUpload {
+	if p.trace {
 		log.Printf("PV req: %s (size %d)", val.Encode(), req.ContentLength)
 	}
 	// Asynchronously send request to avoid blocking.
-	if *pvUpload {
-		go p.send(req)
-	}
+	go p.send(req)
 }
 
 // Send request to server.
@@ -203,7 +205,7 @@ func (p *pvWriter) send(req *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
-	if p.d.Trace {
+	if p.trace {
 		log.Printf("Response is: %s", resp.Status)
 	}
 	if resp.StatusCode != http.StatusOK {
@@ -220,7 +222,7 @@ func (p *pvWriter) getPVPower() (float64, bool) {
 	if isValid(pwr) {
 		return pwr.Get(), true
 	}
-	if p.d.Trace {
+	if p.trace {
 		log.Printf("%s not valid, trying sub-values", db.A_GEN_TOTAL)
 	}
 	for i := 0; i < 2; i++ {
@@ -229,7 +231,7 @@ func (p *pvWriter) getPVPower() (float64, bool) {
 			break
 		}
 		if isValid(pe) {
-			if p.d.Trace {
+			if p.trace {
 				log.Printf("Using 2 x %s/%d (value %g)", db.D_GEN_P, i, pe.Get())
 			}
 			return pe.Get() * 2, true
@@ -249,7 +251,7 @@ func (p *pvWriter) getPVDaily() (float64, bool) {
 	if isValid(pd) {
 		return pd.Daily(), true
 	}
-	if p.d.Trace {
+	if p.trace {
 		log.Printf("%s not valid, trying sub-values", db.A_GEN_TOTAL)
 	}
 	for i := 0; i < 2; i++ {
@@ -258,7 +260,7 @@ func (p *pvWriter) getPVDaily() (float64, bool) {
 			break
 		}
 		if isValid(pe) {
-			if p.d.Trace {
+			if p.trace {
 				log.Printf("Using 2 x %s/%d (value %g)", db.A_GEN_TOTAL, i, pe.Daily())
 			}
 			return pe.Daily() * 2, true
@@ -274,7 +276,7 @@ func (p *pvWriter) getPVDaily() (float64, bool) {
 func (p *pvWriter) getPower() (float64, error) {
 	d_in := p.d.GetElement(db.D_IN_POWER)
 	d_out := p.d.GetElement(db.D_OUT_POWER)
-	if p.d.Trace {
+	if p.trace {
 		log.Printf("IN-P  = %g, valid = %v", d_in.Get(), isValid(d_in))
 		log.Printf("OUT-P = %g, valid = %v", d_out.Get(), isValid(d_out))
 	}
