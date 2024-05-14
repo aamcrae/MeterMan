@@ -74,11 +74,6 @@ type DbConfig struct {
 
 type statusPrinter func() string
 
-const defaultCheckpoint = 60 // Default time between checkpoints (seconds)
-const defaultStartHour = 5   // Default start of earliest daylight
-const defaultEndHour = 20    // Default end of latest daylight
-const defaultFreshness = 10  // Default freshness is 10 minutes
-
 // DB contains the element database.
 type DB struct {
 	Config map[string]*yaml.Decoder // Decoded config
@@ -125,9 +120,9 @@ func NewDatabase(conf []byte) *DB {
 	d.tickers = make(map[time.Duration]*lib.Ticker)
 	d.disabled = make(map[string]struct{})
 	d.status = make(map[string]statusPrinter)
-	d.StartHour = defaultStartHour
-	d.EndHour = defaultEndHour
-	d.freshness = time.Minute * defaultFreshness
+	d.StartHour = 5                // 5AM
+	d.EndHour = 20                 // 8PM
+	d.freshness = time.Minute * 10 // Data has shelf life of 10 minutes
 	d.input = make(chan input, 200)
 	d.run = make(chan func(), 100)
 	return d
@@ -162,7 +157,6 @@ func (d *DB) Start() error {
 			log.Printf("YAML section %s = %v", k, v)
 		}
 	}
-	// If configured, read checkpoint file and set up regular updates.
 	var conf DbConfig
 	yaml, ok := d.Config["db"]
 	if ok {
@@ -171,13 +165,11 @@ func (d *DB) Start() error {
 			return err
 		}
 	}
-	// If configured, override the daylight hour limits
+	// Override defaults from configuration (if any)
 	d.StartHour = lib.ConfigOrDefault(conf.Daylight[0], d.StartHour)
 	d.EndHour = lib.ConfigOrDefault(conf.Daylight[1], d.EndHour)
-	// If configured, override the freshness timeout
-	d.freshness = time.Minute * time.Duration(lib.ConfigOrDefault(conf.Freshness, defaultFreshness))
-	// If configured, override the default checkpoint update interval
-	update := lib.ConfigOrDefault(conf.Update, defaultCheckpoint)
+	d.freshness = lib.ConfigOrDefault(time.Minute*time.Duration(conf.Freshness), d.freshness)
+	update := lib.ConfigOrDefault(conf.Update, 60) // default of 60 seconds
 	// If a checkpoint file is configured, read it, and set up a
 	// regular callback to write it. The checkpoint file must be
 	// read before the init hooks are called.
@@ -213,7 +205,7 @@ func (d *DB) Start() error {
 			return err
 		}
 	}
-	log.Printf("Freshness timeout = %d minutes, daylight start %d:00, end %d:00", d.freshness, d.StartHour, d.EndHour)
+	log.Printf("Freshness timeout = %s, daylight start %d:00, end %d:00", d.freshness.String(), d.StartHour, d.EndHour)
 	if d.Dryrun {
 		log.Fatalf("Dry run only, exiting")
 	}
