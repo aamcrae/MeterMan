@@ -15,7 +15,7 @@ hassi:
   update: <Seconds between updates>
 ```
 
-The default update rate can be set via the ```--hassRate``` flag.
+The default update rate can be set via the ```--hassiRate``` flag.
 
 ## Home Assistant integration
 

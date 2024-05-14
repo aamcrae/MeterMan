@@ -19,7 +19,7 @@
 //  hassi:
 //    apikey: <apikey from Home Assistant>
 //    url: <API endpoint>
-//    update: 60 # Update rate in seconds
+//    update: 60 # Update interval in seconds
 //
 // Values that are not stale are sent to Home assistant.
 
@@ -28,7 +28,6 @@ package hassi
 import (
 	"bytes"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -37,7 +36,7 @@ import (
 	"github.com/aamcrae/MeterMan/db"
 )
 
-var hassiRate = flag.Int("hassirate", 120, "Default Home Assistant update rate (seconds)")
+const hassiInterval = 120 // Default update interval (in seconds)
 
 type hassi struct {
 	d      *db.DB
@@ -68,15 +67,15 @@ func hassiInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	rate := *hassiRate
+	interval := hassiInterval
 	if conf.Update != 0 {
-		rate = conf.Update
+		interval = conf.Update
 	}
 	key := fmt.Sprintf("Bearer %s", conf.Apikey)
 	h := &hassi{d: d, url: conf.Url, key: key, client: &http.Client{}}
-	intv := time.Second * time.Duration(rate)
+	intv := time.Second * time.Duration(interval)
 	d.AddCallback(intv, h.send)
-	log.Printf("Registered Home Assistant uploader (%d seconds interval)", rate)
+	log.Printf("Registered Home Assistant uploader (%d seconds interval)", interval)
 	return nil
 }
 
