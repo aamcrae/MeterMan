@@ -41,6 +41,7 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
+	"github.com/aamcrae/MeterMan/lib"
 )
 
 type Pvoutput struct {
@@ -76,7 +77,7 @@ func pvoutputInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	interval := db.ConfigOrDefault(conf.Interval, defaultInterval)
+	interval := lib.ConfigOrDefault(conf.Interval, defaultInterval)
 	p := &pvWriter{d: d, pvurl: conf.Pvurl, id: conf.Systemid, key: conf.Apikey, client: &http.Client{}, trace: conf.Trace || d.Trace}
 	if !d.Dryrun {
 		d.AddCallback(time.Minute*time.Duration(interval), p.upload)

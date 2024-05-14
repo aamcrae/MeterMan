@@ -61,6 +61,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aamcrae/MeterMan/lib"
 	"gopkg.in/yaml.v3"
 )
 
@@ -166,11 +167,11 @@ func (d *DB) Start() error {
 		}
 	}
 	// If configured, override the daylight hour limits
-	d.StartHour = ConfigOrDefault(conf.Daylight[0], d.StartHour)
-	d.EndHour = ConfigOrDefault(conf.Daylight[1], d.EndHour)
+	d.StartHour = lib.ConfigOrDefault(conf.Daylight[0], d.StartHour)
+	d.EndHour = lib.ConfigOrDefault(conf.Daylight[1], d.EndHour)
 	// If configured, override the freshness timeout
 	// If configured, override the default checkpoint update interval
-	update := ConfigOrDefault(conf.Update, defaultUpdate)
+	update := lib.ConfigOrDefault(conf.Update, defaultUpdate)
 	// If a checkpoint file is configured, read it, and set up a
 	// regular callback to write it. The checkpoint file must be
 	// read before the init hooks are called.

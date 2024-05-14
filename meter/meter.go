@@ -50,6 +50,7 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
+	"github.com/aamcrae/MeterMan/lib"
 	"github.com/aamcrae/lcd"
 )
 
@@ -125,8 +126,8 @@ func meterReader(d *db.DB) error {
 // runReader is a loop that reads the image of the meter panel
 // from an image source, and decodes the LCD digits.
 func runReader(d *db.DB, r *Reader, conf *MeterConfig) {
-	sample := db.ConfigOrDefault(conf.Sample, defaultSample)
-	timeout := db.ConfigOrDefault(conf.Timeout, defaultTimeout)
+	sample := lib.ConfigOrDefault(conf.Sample, defaultSample)
+	timeout := lib.ConfigOrDefault(conf.Timeout, defaultTimeout)
 	delay := time.Duration(sample) * time.Millisecond
 	lastTime := time.Now()
 	client := http.Client{

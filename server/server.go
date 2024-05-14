@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
+	"github.com/aamcrae/MeterMan/lib"
 )
 
 type ApiConfig struct {
@@ -71,7 +72,7 @@ func serverInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	port := db.ConfigOrDefault(conf.Port, defaultPort)
+	port := lib.ConfigOrDefault(conf.Port, defaultPort)
 	mux := http.NewServeMux()
 	s := &apiServer{d: d}
 	apih := func(w http.ResponseWriter, req *http.Request) {
@@ -168,10 +169,10 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 	for _, k := range keys {
 		v := m[k]
 		fmt.Fprintf(w, "<tr><td><bold>%s</bold></td>", k)
-		fmt.Fprintf(w, "<td style=\"text-align:right\">%s</td>", db.FmtFloat(v.Get()))
+		fmt.Fprintf(w, "<td style=\"text-align:right\">%s</td>", lib.FmtFloat(v.Get()))
 		switch vt := v.(type) {
 		case db.Acc:
-			fmt.Fprintf(w, "<td style=\"text-align:right\">%s</td>", db.FmtFloat(vt.Daily()))
+			fmt.Fprintf(w, "<td style=\"text-align:right\">%s</td>", lib.FmtFloat(vt.Daily()))
 		default:
 			fmt.Fprintf(w, "<td> </td>")
 		}

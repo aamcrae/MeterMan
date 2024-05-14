@@ -41,6 +41,7 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
+	"github.com/aamcrae/MeterMan/lib"
 )
 
 type Iammeter struct {
@@ -66,7 +67,7 @@ func iamReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	poll := db.ConfigOrDefault(conf.Poll, defaultPoll)
+	poll := lib.ConfigOrDefault(conf.Poll, defaultPoll)
 	if len(conf.Meter) == 0 {
 		return fmt.Errorf("iammeter: missing URL")
 	}

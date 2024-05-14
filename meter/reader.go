@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aamcrae/MeterMan/db"
+	"github.com/aamcrae/MeterMan/lib"
 	"github.com/aamcrae/lcd"
 )
 
@@ -75,8 +75,8 @@ var measures map[string]*measure = map[string]*measure{
 // Creates a new reader.
 func NewReader(c *MeterConfig, trace bool) (*Reader, error) {
 	d, err := lcd.CreateLcdDecoder(c.LcdConfig)
-	d.History = db.ConfigOrDefault(c.History, d.History)
-	d.MaxLevels = db.ConfigOrDefault(c.MaxLevels, d.MaxLevels)
+	d.History = lib.ConfigOrDefault(c.History, d.History)
+	d.MaxLevels = lib.ConfigOrDefault(c.MaxLevels, d.MaxLevels)
 	if err != nil {
 		return nil, err
 	}
@@ -92,8 +92,8 @@ func NewReader(c *MeterConfig, trace bool) (*Reader, error) {
 		}
 	}
 	r := &Reader{trace: trace, decoder: d, limits: map[string]limit{}}
-	r.savedLevels = db.ConfigOrDefault(c.SavedLevels, 50)
-	r.recalInterval = db.ConfigOrDefault(c.RecalibrateInterval, 120)
+	r.savedLevels = lib.ConfigOrDefault(c.SavedLevels, 50)
+	r.recalInterval = lib.ConfigOrDefault(c.RecalibrateInterval, 120)
 	if len(c.Calibration) != 0 {
 		n, err := r.decoder.RestoreFromFile(c.Calibration)
 		if err != nil {

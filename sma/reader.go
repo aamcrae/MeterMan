@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
+	"github.com/aamcrae/MeterMan/lib"
 )
 
 type Sma []struct {
@@ -72,13 +73,13 @@ func inverterReader(d *db.DB) error {
 		return err
 	}
 	for _, e := range conf {
-		poll := db.ConfigOrDefault(e.Poll, defaultPoll)
-		retry := db.ConfigOrDefault(e.Retry, defaultRetry)
+		poll := lib.ConfigOrDefault(e.Poll, defaultPoll)
+		retry := lib.ConfigOrDefault(e.Retry, defaultRetry)
 		sma, err := NewSMA(e.Addr, e.Password)
 		if err != nil {
 			return err
 		}
-		sma.Timeout = db.ConfigOrDefault(e.Timeout, sma.Timeout)
+		sma.Timeout = lib.ConfigOrDefault(e.Timeout, sma.Timeout)
 		sma.Trace = e.Trace
 		sma.PktDump = e.Dump
 		s := &InverterReader{d: d, sma: sma}
