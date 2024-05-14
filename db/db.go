@@ -69,6 +69,7 @@ import (
 
 var verbose = flag.Bool("verbose", false, "Verbose tracing")
 var dryrun = flag.Bool("dryrun", false, "Validate config only")
+var disable = flag.String("disable", "", "Disable features")
 var startHour = flag.Int("starthour", 5, "Start hour for PV (e.g 6)")
 var endHour = flag.Int("endhour", 20, "End hour for PV (e.g 19)")
 var freshness = flag.Int("freshness", 10, "Default minutes until data is stale")
@@ -133,7 +134,16 @@ func (d *DB) Start() error {
 	if err != nil {
 		return err
 	}
+	disabled := make(map[string]struct{})
+	for _, feat := range strings.Split(*disable, ",") {
+		disabled[feat] = struct{}{}
+	}
 	for k, v := range m {
+		_, ok := disabled[k]
+		if ok {
+			log.Printf("Disabling feature %s", k)
+			continue
+		}
 		b, err := yaml.Marshal(v)
 		if err != nil {
 			return fmt.Errorf("YAML marshal of %s failed: %v", k, err)
