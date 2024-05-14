@@ -25,4 +25,3 @@ The default ```pvurl``` is ```https://pvoutput.org/service/r2/addstatus.jsp```.
 MeterMan will attempt to upload the solar PV daily generation, the current PV power,
 the daily energy consumption, the current power consumption, the voltage and the temperature.
 If any of the values are not fresh or valid, they are not uploaded.
-
