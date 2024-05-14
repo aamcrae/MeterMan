@@ -73,13 +73,6 @@ func (m *MultiElement) Timestamp() time.Time {
 	return timestamp
 }
 
-// Set all subelements to this freshness
-func (m *MultiElement) SetFreshness(s time.Duration) {
-	for _, e := range m.elements {
-		e.SetFreshness(s)
-	}
-}
-
 // Return true only if all subelements are fresh
 func (m *MultiElement) Fresh() bool {
 	for _, e := range m.elements {

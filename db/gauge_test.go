@@ -22,7 +22,7 @@ import (
 )
 
 func TestGauge(t *testing.T) {
-	g := NewGauge("100.0 10")
+	g := NewGauge("100.0 10", time.Minute*10)
 	v := g.Get()
 	if !cmp(v, 100) {
 		t.Errorf("NewGauge: got %v want %v\n", v, 100.0)

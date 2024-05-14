@@ -20,13 +20,12 @@ import (
 
 // Element represents a data item in the database.
 type Element interface {
-	Update(float64, time.Time)  // Update element with new value.
-	Midnight()                  // Called when it is midnight for end-of-day processing
-	Get() float64               // Get the element's value
-	SetFreshness(time.Duration) // Set the time for value freshness
-	Timestamp() time.Time       // Return the timestamp of the last update.
-	Fresh() bool                // Value is still fresh.
-	Checkpoint() string         // Return a checkpoint string.
+	Update(float64, time.Time) // Update element with new value.
+	Midnight()                 // Called when it is midnight for end-of-day processing
+	Get() float64              // Get the element's value
+	Timestamp() time.Time      // Return the timestamp of the last update.
+	Fresh() bool               // Value is still fresh.
+	Checkpoint() string        // Return a checkpoint string.
 }
 
 // Acc is a common interface for accumulators.
@@ -46,7 +45,7 @@ func (d *DB) AddSubGauge(base string, average bool) string {
 	}
 	m := el.(*MultiElement)
 	tag := m.NextTag()
-	g := NewGauge(d.checkpoint[tag])
+	g := NewGauge(d.checkpoint[tag], d.freshness)
 	m.Add(g)
 	d.elements[tag] = g
 	return tag
@@ -63,7 +62,7 @@ func (d *DB) AddSubDiff(base string, average bool) string {
 	}
 	m := el.(*MultiElement)
 	tag := m.NextTag()
-	nd := NewDiff(d.checkpoint[tag], time.Minute*5)
+	nd := NewDiff(d.checkpoint[tag], time.Minute*5, d.freshness)
 	m.Add(nd)
 	d.elements[tag] = nd
 	return tag
@@ -80,7 +79,7 @@ func (d *DB) AddSubAccum(base string, resettable bool) string {
 	}
 	m := el.(*MultiAccum)
 	tag := m.NextTag()
-	a := NewAccum(d.checkpoint[tag], resettable)
+	a := NewAccum(d.checkpoint[tag], resettable, d.freshness)
 	m.Add(a)
 	d.elements[tag] = a
 	return tag
@@ -88,17 +87,17 @@ func (d *DB) AddSubAccum(base string, resettable bool) string {
 
 // AddGauge adds a new gauge to the database.
 func (d *DB) AddGauge(name string) {
-	d.elements[name] = NewGauge(d.checkpoint[name])
+	d.elements[name] = NewGauge(d.checkpoint[name], d.freshness)
 }
 
 // AddDiff adds a new Diff element to the database.
 func (d *DB) AddDiff(name string, window time.Duration) {
-	d.elements[name] = NewDiff(d.checkpoint[name], window)
+	d.elements[name] = NewDiff(d.checkpoint[name], window, d.freshness)
 }
 
 // AddAccum adds a new accumulator to the database.
 func (d *DB) AddAccum(name string, resettable bool) {
-	d.elements[name] = NewAccum(d.checkpoint[name], resettable)
+	d.elements[name] = NewAccum(d.checkpoint[name], resettable, d.freshness)
 }
 
 // GetElement returns the named element.

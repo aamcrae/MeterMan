@@ -29,8 +29,9 @@ type Accum struct {
 	stale      time.Duration // Duration until stale
 }
 
-func NewAccum(cp string, resettable bool) *Accum {
+func NewAccum(cp string, resettable bool, shelfLife time.Duration) *Accum {
 	a := new(Accum)
+	a.stale = shelfLife
 	if len(cp) != 0 {
 		var sec int64
 		n, err := fmt.Sscanf(cp, "%f %f %d", &a.midnight, &a.value, &sec)
@@ -45,7 +46,6 @@ func NewAccum(cp string, resettable bool) *Accum {
 		a.midnight = a.value
 	}
 	a.resettable = resettable
-	a.SetFreshness(time.Minute * time.Duration(freshness))
 	return a
 }
 
@@ -77,10 +77,6 @@ func (a *Accum) Midnight() {
 
 func (a *Accum) Timestamp() time.Time {
 	return a.ts
-}
-
-func (a *Accum) SetFreshness(s time.Duration) {
-	a.stale = s
 }
 
 func (a *Accum) Fresh() bool {

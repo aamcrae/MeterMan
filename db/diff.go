@@ -35,9 +35,10 @@ type Diff struct {
 	stale    time.Duration // Duration until stale
 }
 
-func NewDiff(cp string, window time.Duration) *Diff {
+func NewDiff(cp string, window, shelfLife time.Duration) *Diff {
 	d := new(Diff)
 	d.window = window
+	d.stale = shelfLife
 	var p diffValue
 	var sec int64
 	fmt.Sscanf(cp, "%f %f %d", &d.value, &p.value, &sec)
@@ -45,7 +46,6 @@ func NewDiff(cp string, window time.Duration) *Diff {
 		p.ts = time.Unix(sec, 0)
 	}
 	d.previous = append(d.previous, p)
-	d.SetFreshness(time.Minute * time.Duration(freshness))
 	return d
 }
 
@@ -72,10 +72,6 @@ func (d *Diff) Get() float64 {
 
 func (d *Diff) Timestamp() time.Time {
 	return d.previous[len(d.previous)-1].ts
-}
-
-func (d *Diff) SetFreshness(s time.Duration) {
-	d.stale = s
 }
 
 func (d *Diff) Fresh() bool {

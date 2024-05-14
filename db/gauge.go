@@ -27,14 +27,14 @@ type Gauge struct {
 	stale time.Duration // Duration until stale
 }
 
-func NewGauge(cp string) *Gauge {
+func NewGauge(cp string, shelfLife time.Duration) *Gauge {
 	g := new(Gauge)
+	g.stale = shelfLife
 	var sec int64
 	fmt.Sscanf(cp, "%f %d", &g.value, &sec)
 	if sec != 0 {
 		g.ts = time.Unix(sec, 0)
 	}
-	g.SetFreshness(time.Minute * time.Duration(freshness))
 	return g
 }
 
@@ -52,10 +52,6 @@ func (g *Gauge) Get() float64 {
 
 func (g *Gauge) Timestamp() time.Time {
 	return g.ts
-}
-
-func (g *Gauge) SetFreshness(s time.Duration) {
-	g.stale = s
 }
 
 func (g *Gauge) Fresh() bool {
