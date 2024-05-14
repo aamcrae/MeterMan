@@ -152,9 +152,9 @@ func (im *imeter) fetch() error {
 		fmt.Fprintf(&b, "Malformed data from meter")
 		return fmt.Errorf("malformed data from meter")
 	}
+	fmt.Fprintf(&b, "OK - Volts: %s, current %s, power %s", lib.FmtFloat(m.Data[0]), lib.FmtFloat(m.Data[1]), lib.FmtFloat(m.Data[2]))
+	fmt.Fprintf(&b, ", Imp: %s, Exp %s", lib.FmtFloat(m.Data[3]), lib.FmtFloat(m.Data[4]))
 	if im.d.Trace {
-		fmt.Fprintf(&b, "OK - Volts: %s, current %s, power %s", lib.FmtFloat(m.Data[0]), lib.FmtFloat(m.Data[1]), lib.FmtFloat(m.Data[2]))
-		fmt.Fprintf(&b, ", Imp: %s, Exp %s", lib.FmtFloat(m.Data[3]), lib.FmtFloat(m.Data[4]))
 		log.Printf("iammeter: version %s, serial number %s", m.Version, m.Serial)
 		log.Printf("iammeter: Volts %gV, current %gA, power %gW", m.Data[0], m.Data[1], m.Data[2])
 		log.Printf("iammeter: Import %gkWh, Export %gkWh", m.Data[3], m.Data[4])

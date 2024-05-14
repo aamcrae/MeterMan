@@ -63,8 +63,7 @@ type pvWriter struct {
 	key    string
 	client *http.Client
 	trace  bool
-	lastUpdate string
-	lastUpdateTime time.Time
+	status string
 }
 
 func init() {
@@ -82,7 +81,7 @@ func pvoutputInit(d *db.DB) error {
 		return err
 	}
 	interval := lib.ConfigOrDefault(conf.Interval, defaultInterval)
-	p := &pvWriter{d: d, pvurl: conf.Pvurl, id: conf.Systemid, key: conf.Apikey, client: &http.Client{}, trace: conf.Trace || d.Trace}
+	p := &pvWriter{d: d, pvurl: conf.Pvurl, id: conf.Systemid, key: conf.Apikey, client: &http.Client{}, trace: conf.Trace || d.Trace, status: "init"}
 	if !d.Dryrun {
 		d.AddCallback(time.Minute*time.Duration(interval), p.upload)
 	}
@@ -93,6 +92,8 @@ func pvoutputInit(d *db.DB) error {
 
 // Run creates a post request to pvoutput.org to upload the current data.
 func (p *pvWriter) upload(now time.Time) {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s: ", now.Format("2006-01-02 15:04"))
 	pv_power, pv_power_ok := p.getPVPower()
 	pv_daily, pv_daily_ok := p.getPVDaily()
 	temp := p.d.GetElement(db.G_TEMP)
@@ -185,13 +186,14 @@ func (p *pvWriter) upload(now time.Time) {
 	req, err := http.NewRequest("POST", p.pvurl, strings.NewReader(val.Encode()))
 	if err != nil {
 		log.Printf("NewRequest failed: %v", err)
+		fmt.Fprintf(&b, "NewRequest err: %v", err)
+		p.status = b.String()
 		return
 	}
 	if p.trace {
 		log.Printf("PV Uploading: %v", val)
 	}
-	p.lastUpdateTime = now
-	p.lastUpdate = fmt.Sprintf("%v", val)
+	fmt.Fprintf(&b, "Upload: %v", val)
 	req.Header.Add("X-Pvoutput-Apikey", p.key)
 	req.Header.Add("X-Pvoutput-SystemId", p.id)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -199,18 +201,20 @@ func (p *pvWriter) upload(now time.Time) {
 		log.Printf("PV req: %s (size %d)", val.Encode(), req.ContentLength)
 	}
 	// Asynchronously send request to avoid blocking.
-	go p.send(req)
+	go p.send(req, &b)
 }
 
 func (p *pvWriter) Status() string {
-	return fmt.Sprintf("last update at %s: %s", p.lastUpdateTime.Format("2006-01-02 15:04"), p.lastUpdate)
+	return p.status
 }
 
 // Send request to server.
-func (p *pvWriter) send(req *http.Request) {
+func (p *pvWriter) send(req *http.Request, b *strings.Builder) {
+	defer func() {p.status = b.String()}()
 	resp, err := p.client.Do(req)
 	if err != nil {
-		log.Printf("Request failed: %v", err)
+		log.Printf(" - Request failed: %v", err)
+		fmt.Fprintf(b, "Req err: %v", err)
 		return
 	}
 	defer resp.Body.Close()
@@ -220,6 +224,9 @@ func (p *pvWriter) send(req *http.Request) {
 	if resp.StatusCode != http.StatusOK {
 		body, _ := ioutil.ReadAll(resp.Body)
 		log.Printf("Error: %s: %s", resp.Status, body)
+		fmt.Fprintf(b, "Resp err: %s", resp.Status)
+	} else {
+		fmt.Fprintf(b, " - OK")
 	}
 }
 
