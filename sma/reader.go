@@ -38,7 +38,10 @@ type Sma []struct {
 	Password string
 	Poll     int
 	Retry    int
-	Volts	 bool
+	Timeout  int
+	Volts    bool
+	Trace    bool
+	Dump     bool
 }
 
 // InverterReader polls the inverter(s)
@@ -81,6 +84,11 @@ func inverterReader(d *db.DB) error {
 		if err != nil {
 			return err
 		}
+		if e.Timeout != 0 {
+			sma.Timeout = e.Timeout
+		}
+		sma.Trace = e.Trace
+		sma.PktDump = e.Dump
 		s := &InverterReader{d: d, sma: sma}
 		// Allocate gauges etc. for the inverter.
 		s.genP = d.AddSubGauge(db.G_GEN_P, false)

@@ -19,7 +19,6 @@ package sma
 import (
 	"bytes"
 	"encoding/binary"
-	"flag"
 	"fmt"
 	"log"
 	"math/rand"
@@ -28,11 +27,8 @@ import (
 	"time"
 )
 
-var smatimeout = flag.Int("inverter-timeout", 10, "Inverter timeout in seconds")
-var trace = flag.Bool("inverter-trace", false, "Enable trace of record processing")
-var pktTrace = flag.Bool("packet-trace", false, "Enable packet dumps")
-
 const maxPacketSize = 8 * 1024
+const defaultTimeout = 10
 
 var packet_header = []byte{'S', 'M', 'A', 0, 0, 0x04, 0x02, 0xA0, 0, 0, 0, 0x01, 0, 0}
 
@@ -93,6 +89,10 @@ type record struct {
 
 // SMA represents a single SMA SunnyBoy inverter.
 type SMA struct {
+	Timeout int  // Timeout (seconds)
+	Trace   bool // Trace packets
+	PktDump bool // Dump packet contents
+
 	name      string       // device name or IP address
 	password  []byte       // device password
 	conn      *net.UDPConn // UDP connection
@@ -179,7 +179,7 @@ func (s *SMA) Logon() (uint16, uint32, error) {
 	}
 	s.susyid = binary.LittleEndian.Uint16(pkt[28:])
 	s.serial = binary.LittleEndian.Uint32(pkt[30:])
-	if *trace {
+	if s.Trace {
 		log.Printf("Successful logon to inverter %s, susyid = %d, serial = %d",
 			s.name, s.susyid, s.serial)
 	}
@@ -209,7 +209,7 @@ func (s *SMA) DeviceStatus() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("device status: %v", err)
 	}
-	if *trace {
+	if s.Trace {
 		dumpRecords("Device status", recs)
 	}
 	rl, ok := recs[0x2148]
@@ -277,7 +277,7 @@ func (s *SMA) getValue(cmd uint32, id uint16, scale float64) (float64, error) {
 	if ok {
 		return float64(v[0].value) / scale, nil
 	} else {
-		if *trace {
+		if s.Trace {
 			log.Printf("%s: getValue: missing record (0x%04x)", s.name, id)
 		}
 		return 0, fmt.Errorf("getValue: missing record")
@@ -295,11 +295,11 @@ func (s *SMA) getRecords(code, a1, a2 uint32) (map[uint16][]*record, error) {
 	if err != nil {
 		return nil, fmt.Errorf("getrecords: %v", err)
 	}
-	m, err := unpackRecords(code, b)
+	m, err := s.unpackRecords(code, b)
 	if err != nil {
 		return nil, fmt.Errorf("unpackRecords: %v", err)
 	}
-	if *trace {
+	if s.Trace {
 		dumpRecords("GetRecords", m)
 	}
 	return m, nil
@@ -311,7 +311,7 @@ func (s *SMA) cmdPacket(cmd, first, last uint32) (*request, error) {
 	binary.Write(r.buf, binary.LittleEndian, cmd)
 	binary.Write(r.buf, binary.LittleEndian, first)
 	binary.Write(r.buf, binary.LittleEndian, last)
-	if *trace {
+	if s.Trace {
 		log.Printf("%s: Sending cmd 0x%08x, first 0x%08x, last 0x%08x", s.name, cmd, first, last)
 	}
 	err := s.send(r)
@@ -323,7 +323,7 @@ func (s *SMA) cmdPacket(cmd, first, last uint32) (*request, error) {
 
 // response receives the response packet(s) from the inverter and verifies them.
 func (s *SMA) response(req *request) ([]*bytes.Buffer, error) {
-	tout := time.Now().Add(time.Duration(*smatimeout) * time.Second)
+	tout := time.Now().Add(time.Duration(s.Timeout) * time.Second)
 	var bList []*bytes.Buffer
 	pkt_id := req.packet_id
 	for {
@@ -331,7 +331,7 @@ func (s *SMA) response(req *request) ([]*bytes.Buffer, error) {
 		if err != nil {
 			return nil, fmt.Errorf("response: %v", err)
 		}
-		if *pktTrace {
+		if s.PktDump {
 			log.Printf("%s: Read buf, len %d", s.name, b.Len())
 			dumpPacket(b)
 		}
@@ -349,7 +349,7 @@ func (s *SMA) response(req *request) ([]*bytes.Buffer, error) {
 		rx_id := binary.LittleEndian.Uint16(pkt[40:])
 		if rx_id != pkt_id {
 			/* Some leftover packets may be seen at the start */
-			if *pktTrace || len(bList) != 0 {
+			if s.PktDump || len(bList) != 0 {
 				log.Printf("%s: RX id %04x, looking for %04x", s.name, rx_id, pkt_id)
 			}
 			continue
@@ -390,7 +390,7 @@ func (s *SMA) send(r *request) error {
 	len := r.buf.Len() - (6 + len(packet_header))
 	binary.BigEndian.PutUint16(r.buf.Bytes()[12:], uint16(len))
 
-	if *pktTrace {
+	if s.PktDump {
 		log.Printf("%s: Sending pkt ID: %04x, length %d", s.name, r.packet_id, r.buf.Len())
 		dumpPacket(r.buf)
 	}
@@ -415,12 +415,12 @@ func (s *SMA) read(timeout time.Duration) (*bytes.Buffer, error) {
 }
 
 // Unpack records from the buffer.
-func unpackRecords(cmd uint32, bList []*bytes.Buffer) (map[uint16][]*record, error) {
+func (s *SMA) unpackRecords(cmd uint32, bList []*bytes.Buffer) (map[uint16][]*record, error) {
 	m := make(map[uint16][]*record)
 	for pn, b := range bList {
 		// Skip headers.
 		b.Next(54)
-		if *pktTrace {
+		if s.PktDump {
 			log.Printf("Unpacking pkt %d:", pn)
 			dumpPacket(b)
 		}
@@ -480,7 +480,7 @@ func unpackRecords(cmd uint32, bList []*bytes.Buffer) (map[uint16][]*record, err
 				return m, fmt.Errorf("cmd 0x%08x code 0x%04x, unknown data type: 0x%02x", cmd, r.code, r.dataType)
 			}
 			b.Next(size - done)
-			if *trace {
+			if s.Trace {
 				log.Printf("Rec # %d, code: %04x, record size %d", len(m), r.code, size)
 			}
 			m[r.code] = append(m[r.code], r)

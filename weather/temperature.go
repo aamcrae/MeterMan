@@ -46,7 +46,7 @@ const darkskyUrl = "https://api.darksky.net/forecast/%s/%s,%s?exclude=minutely,h
 var defaultPoll = 120
 
 type Weather struct {
-	Poll        int		// Poll interval time (seconds)
+	Poll        int // Poll interval time (seconds)
 	Tempservice string
 	Bom         string
 	Tempid      string
