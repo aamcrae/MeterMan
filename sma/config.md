@@ -22,6 +22,8 @@ sma:
   ...
 ```
 
+The inverter name may be a host name or an IP address.
+
 The default poll interval is 90 seconds, and default retry time is 61 seconds.
 The timeout default is 10 seconds. Enabling ```trace``` and ```dump``` will turn
 on logging of packet connections to the inverter and dumping of packets.
