@@ -9,8 +9,12 @@ This is configured in the MeterMan YAML configuration file as:
 #
 # CSV configuration
 #
-csv: <base directory>
+csv:
+  base: <base directory>
+  interval: <update interval in minutes>
 ```
+
+The default update interval is 5 minutes
 
 The base directory (e.g ```/var/lib/MeterMan/csv```) is used to store files in the format:
 ```

@@ -22,7 +22,6 @@ package csv
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -32,7 +31,12 @@ import (
 	"github.com/aamcrae/MeterMan/db"
 )
 
-var csvUpdateRate = flag.Int("csvupdate", 5, "CSV update rate (in minutes)")
+var defaultInterval = 5
+
+type CsvConfig struct {
+	Base     string
+	Interval int
+}
 
 type writer struct {
 	name string
@@ -58,20 +62,24 @@ func init() {
 
 // Returns a writer that writes daily CSV files in the form path/year/month/day
 func csvInit(d *db.DB) error {
-	var p string
-	conf, ok := d.Config["csv"]
+	var conf CsvConfig
+	yaml, ok := d.Config["csv"]
 	if !ok {
 		return nil
 	}
-	err := conf.Decode(&p)
+	err := yaml.Decode(&conf)
 	if err != nil {
 		return err
 	}
-	if !d.Dryrun {
-		c := &csv{d: d, fpath: p}
-		d.AddCallback(time.Minute*time.Duration(*csvUpdateRate), c.Run)
+	interval := defaultInterval
+	if conf.Interval != 0 {
+		interval = conf.Interval
 	}
-	log.Printf("Registered CSV as writer (updated every %d minutes)\n", *csvUpdateRate)
+	if !d.Dryrun {
+		c := &csv{d: d, fpath: conf.Base}
+		d.AddCallback(time.Minute*time.Duration(interval), c.Run)
+	}
+	log.Printf("Registered CSV as writer, base directory %s, updating every %d minutes\n", conf.Base, interval)
 	return nil
 }
 
