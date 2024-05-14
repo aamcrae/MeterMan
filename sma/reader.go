@@ -24,16 +24,22 @@
 package sma
 
 import (
-	"flag"
 	"log"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
 )
 
-var smaPoll = flag.Int("inverter-poll", 90, "Default inverter poll time (seconds)")
-var smaRetry = flag.Int("inverter-retry", 61, "Inverter poll retry time (seconds)")
-var smaVolts = flag.Bool("inverter-volts", false, "Send inverter Volts reading")
+const defaultRetry = 61
+const defaultPoll = 90
+
+type Sma []struct {
+	Addr     string
+	Password string
+	Poll     int
+	Retry    int
+	Volts	 bool
+}
 
 // InverterReader polls the inverter(s)
 type InverterReader struct {
@@ -45,13 +51,6 @@ type InverterReader struct {
 	volts    string // Gauge for current voltage (V)
 	genDaily string // Accum for daily yield (KwH)
 	genT     string // Accum for lifetime yield (KwH)
-}
-
-type Sma []struct {
-	Addr     string
-	Password string
-	Poll     int
-	Retry    int
 }
 
 func init() {
@@ -70,8 +69,8 @@ func inverterReader(d *db.DB) error {
 		return err
 	}
 	for _, e := range conf {
-		poll := *smaPoll
-		retry := *smaRetry
+		poll := defaultPoll
+		retry := defaultRetry
 		if e.Poll != 0 {
 			poll = e.Poll
 		}
@@ -85,7 +84,7 @@ func inverterReader(d *db.DB) error {
 		s := &InverterReader{d: d, sma: sma}
 		// Allocate gauges etc. for the inverter.
 		s.genP = d.AddSubGauge(db.G_GEN_P, false)
-		if *smaVolts {
+		if e.Volts {
 			s.volts = d.AddSubGauge(db.G_VOLTS, true)
 		}
 		s.genDaily = d.AddSubAccum(db.A_GEN_DAILY, true)
@@ -147,7 +146,7 @@ func (s *InverterReader) poll(daytime bool) error {
 		s.d.Input(s.genDP, t)
 	}
 	if daytime {
-		if *smaVolts {
+		if len(s.volts) != 0 {
 			v, err := s.sma.Voltage()
 			if err != nil {
 				return err
