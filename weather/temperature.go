@@ -31,7 +31,6 @@ package weather
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -44,9 +43,10 @@ import (
 const weatherUrl = "http://api.openweathermap.org/data/2.5/weather?id=%s&units=metric&appid=%s"
 const darkskyUrl = "https://api.darksky.net/forecast/%s/%s,%s?exclude=minutely,hourly,daily,alerts,flags&units=si"
 
-var weatherpoll = flag.Int("weather-poll", 120, "Weather poll time (seconds)")
+var defaultPoll = 120
 
 type Weather struct {
+	Poll        int		// Poll interval time (seconds)
 	Tempservice string
 	Bom         string
 	Tempid      string
@@ -70,6 +70,10 @@ func weatherReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
+	poll := defaultPoll
+	if conf.Poll != 0 {
+		poll = conf.Poll
+	}
 	var get func() (float64, error)
 	switch conf.Tempservice {
 	default:
@@ -89,15 +93,15 @@ func weatherReader(d *db.DB) error {
 			return Darksky(url)
 		}
 	}
-	log.Printf("Registered temperature reader using service %s, polling every %d seconds\n", conf.Tempservice, *weatherpoll)
+	log.Printf("Registered temperature reader using service %s, polling every %d seconds\n", conf.Tempservice, poll)
 	d.AddGauge(db.G_TEMP)
 	if !d.Dryrun {
-		go reader(d, get)
+		go reader(d, poll, get)
 	}
 	return nil
 }
 
-func reader(d *db.DB, get func() (float64, error)) {
+func reader(d *db.DB, poll int, get func() (float64, error)) {
 	for {
 		t, err := get()
 		if err != nil {
@@ -108,7 +112,7 @@ func reader(d *db.DB, get func() (float64, error)) {
 			}
 			d.Input(db.G_TEMP, t)
 		}
-		time.Sleep(time.Duration(*weatherpoll) * time.Second)
+		time.Sleep(time.Duration(poll) * time.Second)
 	}
 }
 
