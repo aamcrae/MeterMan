@@ -72,7 +72,7 @@ type DbConfig struct {
 	Daylight   [2]int // Defines the limits of daylight hours
 }
 
-const defaultUpdate = 60
+const defaultCheckpoint = 60 // Default time between checkpoints (seconds)
 const defaultStartHour = 5 // Default start of earliest daylight
 const defaultEndHour = 20  // Default end of latest daylight
 
@@ -171,7 +171,7 @@ func (d *DB) Start() error {
 	d.EndHour = lib.ConfigOrDefault(conf.Daylight[1], d.EndHour)
 	// If configured, override the freshness timeout
 	// If configured, override the default checkpoint update interval
-	update := lib.ConfigOrDefault(conf.Update, defaultUpdate)
+	update := lib.ConfigOrDefault(conf.Update, defaultCheckpoint)
 	// If a checkpoint file is configured, read it, and set up a
 	// regular callback to write it. The checkpoint file must be
 	// read before the init hooks are called.
