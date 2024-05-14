@@ -74,11 +74,10 @@ type DbConfig struct {
 }
 
 const defaultUpdate = 60
-const defaultFreshness = 10
 const defaultStartHour = 5 // Default start of earliest daylight
 const defaultEndHour = 20  // Default end of latest daylight
 
-var freshness int
+var freshness int = 10 // Number of minutes before data is considered stale
 
 // DB contains the element database.
 type DB struct {
@@ -175,6 +174,10 @@ func (d *DB) Start() error {
 	if conf.Daylight[1] != 0 {
 		d.EndHour = conf.Daylight[1]
 	}
+	// If configured, override the freshness timeout
+	if conf.Freshness != 0 {
+		freshness = conf.Freshness
+	}
 	// If configured, override the default checkpoint update interval
 	update := defaultUpdate
 	if conf.Update != 0 {
@@ -215,6 +218,7 @@ func (d *DB) Start() error {
 			return err
 		}
 	}
+	log.Printf("Freshness timeout = %d minutes, daylight start %d:00, end %d:00", freshness, d.StartHour, d.EndHour)
 	if d.Dryrun {
 		log.Fatalf("Dry run only, exiting")
 	}
