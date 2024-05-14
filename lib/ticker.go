@@ -12,49 +12,65 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package db
+package lib
 
 import (
 	"log"
 	"time"
 )
 
-type callback func(time.Time)
+// The callbacks are passed the time the ticker ticked over
+type Callback func(time.Time)
 
 // ticker holds callbacks to be invoked at the specified period (e.g every 5 minutes)
-type ticker struct {
-	tick      time.Duration // Interval time
-	callbacks []callback    // List of callbacks
+type Ticker struct {
+	tick      time.Duration // Interval duration
+	callbacks []Callback    // List of callbacks
 }
 
-// event is sent from the goroutine when each interval ticks over
-type event struct {
-	now    time.Time
-	ticker *ticker
+// Event is sent from the goroutine when each interval ticks over
+type Event struct {
+	Now    time.Time
+	Ticker *Ticker
+}
+
+// NewTicker creates and initialises a new ticker
+func NewTicker(tick time.Duration) *Ticker {
+	return &Ticker{tick: tick}
 }
 
 // Initialise and start the ticker.
-func (t *ticker) Start(ec chan<- event, last time.Time) {
+func (t *Ticker) Start(ec chan<- Event, last time.Time) {
 	log.Printf("Initialising ticker interval %s", t.tick.String())
 	// Initialise the tickers with the previous saved tick.
 	// Start goroutines that send events for each ticker interval.
-	go func(ec chan<- event, t *ticker) {
-		var tv event
-		tv.ticker = t
+	go func(ec chan<- Event, t *Ticker) {
+		var tv Event
+		tv.Ticker = t
 		for {
 			// Calculate the next time an event should be sent, and
 			// sleep until then.
 			now := time.Now()
-			tv.now = now.Add(t.tick).Truncate(t.tick)
-			time.Sleep(tv.now.Sub(now))
+			tv.Now = now.Add(t.tick).Truncate(t.tick)
+			time.Sleep(tv.Now.Sub(now))
 			ec <- tv
 		}
 	}(ec, t)
 }
 
-// ticked handles a tick event by invoking the callbacks registered on this ticker.
-func (t *ticker) ticked(now time.Time) {
-	for _, cb := range t.callbacks {
-		cb(now)
+// AddCB adds a callback to this ticker's callbacks
+func (t *Ticker) AddCB(cb Callback) {
+	t.callbacks = append(t.callbacks, cb)
+}
+
+// Tick returns the interval duration for this ticker.
+func (t *Ticker) Tick() time.Duration {
+	return t.tick
+}
+
+// Dispatch handles a tick event by invoking the callbacks registered on the ticker.
+func (e *Event) Dispatch() {
+	for _, cb := range e.Ticker.callbacks {
+		cb(e.Now)
 	}
 }

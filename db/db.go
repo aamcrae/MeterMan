@@ -87,14 +87,14 @@ type DB struct {
 	StartHour int
 	EndHour   int
 
-	yaml       []byte                    // YAML config
-	input      chan input                // Channel for tagged data
-	run        chan func()               // Channel for callbacks
-	elements   map[string]Element        // Map of tags to elements
-	checkpoint map[string]string         // Initial checkpoint data
-	disabled   map[string]struct{}       // Map of disabled features
-	tickers    map[time.Duration]*ticker // Map of tickers
-	lastDay    int                       // Current day, to check for midnight processing
+	yaml       []byte                        // YAML config
+	input      chan input                    // Channel for tagged data
+	run        chan func()                   // Channel for callbacks
+	elements   map[string]Element            // Map of tags to elements
+	checkpoint map[string]string             // Initial checkpoint data
+	disabled   map[string]struct{}           // Map of disabled features
+	tickers    map[time.Duration]*lib.Ticker // Map of tickers
+	lastDay    int                           // Current day, to check for midnight processing
 }
 
 type input struct {
@@ -119,7 +119,7 @@ func NewDatabase(conf []byte) *DB {
 	d.yaml = conf
 	d.elements = make(map[string]Element)
 	d.checkpoint = make(map[string]string)
-	d.tickers = make(map[time.Duration]*ticker)
+	d.tickers = make(map[time.Duration]*lib.Ticker)
 	d.disabled = make(map[string]struct{})
 	d.StartHour = defaultStartHour
 	d.EndHour = defaultEndHour
@@ -211,11 +211,17 @@ func (d *DB) Start() error {
 	if d.Dryrun {
 		log.Fatalf("Dry run only, exiting")
 	}
+	if d.Trace {
+		// Add a callback dump the state of the database every minute
+		d.AddCallback(time.Minute*time.Duration(1), func(now time.Time) {
+			d.dumpDB()
+		})
+	}
 	// Register some signal handlers for graceful termination
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 	// Start the tickers.
-	ec := make(chan event, 10)
+	ec := make(chan lib.Event, 10)
 	for _, t := range d.tickers {
 		t.Start(ec, last)
 	}
@@ -230,10 +236,10 @@ func (d *DB) Start() error {
 				log.Printf("Unknown tag: %s\n", r.tag)
 			}
 		case ev := <-ec:
-			// Event from ticker
-			d.tick_event(ev)
+			// Event from ticker, run the callbacks in this thread
+			ev.Dispatch()
 		case f := <-d.run:
-			// Request to run callback from main thread
+			// Request to run callback in main thread
 			f()
 		case <-sigc:
 			// Signal caught, write checkpoint file and exit.
@@ -255,14 +261,23 @@ func (d *DB) Input(tag string, value float64) {
 }
 
 // AddCallback adds a callback to be regularly invoked at the interval specified.
-func (d *DB) AddCallback(tick time.Duration, cb callback) {
+func (d *DB) AddCallback(tick time.Duration, cb lib.Callback) {
 	t, ok := d.tickers[tick]
 	if !ok {
-		t = new(ticker)
-		t.tick = tick
+		t = lib.NewTicker(tick)
+		if d.Trace {
+			t.AddCB(func(now time.Time) {
+				log.Printf("Ticker triggered at %s for interval %s\n", now.Format("15:04"), t.Tick().String())
+			})
+		}
+		// Add an initial callback to test for day reset before
+		// any other callback runs
+		t.AddCB(func(now time.Time) {
+			d.checkForMidnight(now, t)
+		})
 		d.tickers[tick] = t
 	}
-	t.callbacks = append(t.callbacks, cb)
+	t.AddCB(cb)
 }
 
 // Execute runs a function in the main thread, blocking until
@@ -277,27 +292,30 @@ func (d *DB) Execute(f func()) {
 	l.Wait()
 }
 
-// tick_event handles a new ticker event with common processing:
+// checkForMidnight is the first callback for every ticker.
 // - If a new day, call Midnight() on all the database elements.
 // - Invoke the update functions.
-func (d *DB) tick_event(ev event) {
-	t := ev.ticker
+// It is called from the main select loop.
+// Since it cannot be guaranteed which ticker will fire first, this common
+// processing will always check for midnight and run the new-day
+// processing before anything else.
+func (d *DB) checkForMidnight(now time.Time, t *lib.Ticker) {
 	// Check for daily reset processing which occurs at midnight.
-	midnight := ev.now.YearDay() != d.lastDay
-	if midnight {
-		d.lastDay = ev.now.YearDay()
+	atMidnight := now.YearDay() != d.lastDay
+	if atMidnight {
+		d.lastDay = now.YearDay()
 		for _, el := range d.elements {
 			el.Midnight()
 		}
-	}
-	if d.Trace {
-		log.Printf("Updating at %s for interval %s\n", ev.now.Format("15:04"), t.tick.String())
-		if midnight {
-			log.Printf("New day reset")
-		}
-		for tag, el := range d.elements {
-			log.Printf("Output: Tag: %5s, value: %g, timestamp: %s\n", tag, el.Get(), el.Timestamp().Format(time.UnixDate))
+		if d.Trace {
+			log.Printf("Day reset!")
 		}
 	}
-	t.ticked(ev.now)
+}
+
+// dumpDB Dumps the current state of the database.
+func (d *DB) dumpDB() {
+	for tag, el := range d.elements {
+		log.Printf("Tag: %5s, value: %g, timestamp: %s\n", tag, el.Get(), el.Timestamp().Format(time.UnixDate))
+	}
 }
