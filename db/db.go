@@ -53,7 +53,6 @@ package db
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -71,13 +70,13 @@ type DbConfig struct {
 	Checkpoint string // Checkpoint file
 	Update     int    // Update interval for checkpoint in seconds
 	Freshness  int	  // Number of minutes before data is considered stale
+	Daylight   [2]int // Defines the limits of daylight hours
 }
 
 const defaultUpdate = 60
 const defaultFreshness = 10
-
-var startHour = flag.Int("starthour", 5, "Start hour for PV (e.g 6)")
-var endHour = flag.Int("endhour", 20, "End hour for PV (e.g 19)")
+const defaultStartHour = 5	// Default start of earliest daylight
+const defaultEndHour = 20 // Default end of latest daylight
 
 var freshness int
 
@@ -86,7 +85,7 @@ type DB struct {
 	Config map[string]*yaml.Decoder // Decoded config
 	Trace  bool                     // If true, provide tracing
 	Dryrun bool                     // If true, validate only
-	// StartHour and EndHour define the hours of daylight.
+	// StartHour and EndHour define the limit of daylight hours.
 	StartHour int
 	EndHour   int
 
@@ -124,8 +123,8 @@ func NewDatabase(conf []byte) *DB {
 	d.checkpoint = make(map[string]string)
 	d.tickers = make(map[time.Duration]*ticker)
 	d.disabled = make(map[string]struct{})
-	d.StartHour = *startHour
-	d.EndHour = *endHour
+	d.StartHour = defaultStartHour
+	d.EndHour = defaultEndHour
 	d.input = make(chan input, 200)
 	d.run = make(chan func(), 100)
 	return d
@@ -169,10 +168,21 @@ func (d *DB) Start() error {
 			return err
 		}
 	}
+	// If configured, override the daylight hour limits
+	if conf.Daylight[0] != 0 {
+		d.StartHour = conf.Daylight[0]
+	}
+	if conf.Daylight[1] != 0 {
+		d.EndHour = conf.Daylight[1]
+	}
+	// If configured, override the default checkpoint update interval
 	update := defaultUpdate
 	if conf.Update != 0 {
 		update = conf.Update
 	}
+	// If a checkpoint file is configured, read it, and set up a
+	// regular callback to write it. The checkpoint file must be
+	// read before the init hooks are called.
 	if len(conf.Checkpoint) != 0 {
 		log.Printf("Checkpoint file %s, updated every %d seconds", conf.Checkpoint, update)
 		if !d.Dryrun {
@@ -183,12 +193,6 @@ func (d *DB) Start() error {
 			d.AddCallback(time.Second*time.Duration(update), func(now time.Time) {
 				d.writeCheckpoint(conf.Checkpoint, now)
 			})
-		}
-	}
-	// Call the init hooks, which initialises all the registered modules.
-	for _, h := range initHook {
-		if err := h(d); err != nil {
-			return err
 		}
 	}
 	// Get the last saved time from the checkpoint file.
@@ -205,6 +209,15 @@ func (d *DB) Start() error {
 		}
 	}
 	d.lastDay = last.YearDay()
+	// Call the init hooks, which initialises all the registered features.
+	for _, h := range initHook {
+		if err := h(d); err != nil {
+			return err
+		}
+	}
+	if d.Dryrun {
+		log.Fatalf("Dry run only, exiting")
+	}
 	// Register some signal handlers for graceful termination
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
@@ -212,9 +225,6 @@ func (d *DB) Start() error {
 	ec := make(chan event, 10)
 	for _, t := range d.tickers {
 		t.Start(ec, last)
-	}
-	if d.Dryrun {
-		log.Fatalf("Dryrun only, exiting")
 	}
 	for {
 		select {
