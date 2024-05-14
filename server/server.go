@@ -159,16 +159,21 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, "<html><head></head><body>")
 	fmt.Fprintf(w, "<h1>Status</h1>")
 	sm := s.d.GetStatus()
+	keys := []string{}
+	for k := range sm {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
 	fmt.Fprintf(w, "<table border=\"1\"><tr><th>Module</th><th>Status</th></tr>")
-	for k, v := range sm {
-		fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td></tr>", k, v)
+	for _, k := range keys {
+		fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td></tr>", k, sm[k])
 	}
 	fmt.Fprintf(w, "</table>")
 	fmt.Fprintf(w, "<h1>Database</h1>")
 	fmt.Fprintf(w, "<table border=\"1\"><tr><th>Tag</th><th>Value</th><th>Daily</th><th>Fresh</th><th>Timestamp</th><th>Age</tr>")
 	m := s.d.GetElements()
 	// Sort in key order.
-	var keys []string
+	keys = []string{}
 	for k := range m {
 		keys = append(keys, k)
 	}
