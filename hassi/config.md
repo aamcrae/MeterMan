@@ -1,16 +1,23 @@
 # MeterMan Home Assistant upload
 
-MeterMan allows upload of data via REST to Home Assistant.
-This is configured in the MeterMan configuration as:
+## MeterMan Configuration
 
-```
+MeterMan allows upload of data via REST to Home Assistant.
+This is configured in the MeterMan YAML configuration file as:
+
+```yaml
 #
 # Home Assistant integration
 #
-[hassi]
-url=http://my-home-assistant.com:8123/api/states/sensor.meterman
-apikey=<long term api key>
+hassi:
+  url: http://my-home-assistant.com:8123/api/states/sensor.meterman
+  apikey: <long term api key>
+  update: <Seconds between updates>
 ```
+
+The default update rate can be set via the ```--hassRate``` flag.
+
+## Home Assistant integration
 
 The template platform can be used to wrap the data so that it can be stored and graphed.
 For example, in configuration.yaml:
