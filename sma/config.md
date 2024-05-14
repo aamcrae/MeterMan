@@ -15,10 +15,10 @@ sma:
     password: <password>
     poll: <poll-seconds>
     retry: <poll-retry-seconds>
-	timeout: <timeout-seconds>
-	volts: <true/false>
-	trace: <true/false>
-	dump: <true/false>
+    timeout: <timeout-seconds>
+    volts: <true/false>
+    trace: <true/false>
+    dump: <true/false>
   ...
 ```
 
