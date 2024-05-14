@@ -30,7 +30,7 @@ The configuration and flags for each the features are documented in:
 * [Meter](meter/config.md) - Reading of LCD displays on electricity meters via a webcam.
 * [CSV](csv/config.md) - 5 minute snapshots of data to daily [Comma Separated Values](https://en.wikipedia.org/wiki/Comma-separated_values) files.
 * [Home Assistant](hassi/config.md) - Uploading of data to a [Home Assistant](http://www.home-assistant.io) instance.
-* [PvOutput](pvoutput/config.md) - Uploading 5 minute interval data to [PVOutput](http://pvoutput.org).
+* [PvOutput](pv/config.md) - Uploading 5 minute interval data to [PVOutput](http://pvoutput.org).
 * [API](server/config.md) - JSON API for export of monitored data.
 
 ## Building and Running
