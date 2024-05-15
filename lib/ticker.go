@@ -19,16 +19,13 @@ import (
 	"time"
 )
 
-// The callbacks are passed the time the ticker ticked over
-type Callback func(time.Time)
-
-// ticker holds callbacks to be invoked at the specified period (e.g every 5 minutes)
+// Ticker holds callbacks to be invoked at the specified period (e.g every 5 minutes)
 type Ticker struct {
-	tick      time.Duration // Interval duration
-	callbacks []Callback    // List of callbacks
+	tick      time.Duration     // Interval duration
+	callbacks []func(time.Time) // List of callbacks
 }
 
-// Event is sent from the goroutine when each interval ticks over
+// Event is sent from the per-ticker goroutine to a common channel when the ticker interval ticks over
 type Event struct {
 	Now    time.Time
 	Ticker *Ticker
@@ -39,11 +36,12 @@ func NewTicker(tick time.Duration) *Ticker {
 	return &Ticker{tick: tick}
 }
 
-// Initialise and start the ticker.
-func (t *Ticker) Start(ec chan<- Event, last time.Time) {
-	log.Printf("Initialising ticker interval %s", t.tick.String())
-	// Initialise the tickers with the previous saved tick.
-	// Start goroutines that send events for each ticker interval.
+// Start initialises and starts the ticker by
+// launching a goroutine that waits for the ticker
+// interval, and then sends an event on the channel provided.
+func (t *Ticker) Start(ec chan<- Event) {
+	log.Printf("Starting ticker for interval %s", t.tick.String())
+	// Start a goroutine that sends an event for each ticker interval.
 	go func(ec chan<- Event, t *Ticker) {
 		var tv Event
 		tv.Ticker = t
@@ -59,7 +57,7 @@ func (t *Ticker) Start(ec chan<- Event, last time.Time) {
 }
 
 // AddCB adds a callback to this ticker's callbacks
-func (t *Ticker) AddCB(cb Callback) {
+func (t *Ticker) AddCB(cb func(time.Time)) {
 	t.callbacks = append(t.callbacks, cb)
 }
 

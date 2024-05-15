@@ -219,9 +219,9 @@ func (d *DB) Start() error {
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 	// Start the tickers.
-	ec := make(chan lib.Event, 10)
+	eventChan := make(chan lib.Event, 10)
 	for _, t := range d.tickers {
-		t.Start(ec, last)
+		t.Start(eventChan)
 	}
 	for {
 		select {
@@ -233,8 +233,8 @@ func (d *DB) Start() error {
 			} else {
 				log.Printf("Unknown tag: %s\n", r.tag)
 			}
-		case ev := <-ec:
-			// Event from ticker, run the callbacks in this thread
+		case ev := <-eventChan:
+			// Event from ticker, run the callbacks on the main thread
 			ev.Dispatch()
 		case f := <-d.run:
 			// Request to run callback in main thread
@@ -259,7 +259,7 @@ func (d *DB) Input(tag string, value float64) {
 }
 
 // AddCallback adds a callback to be regularly invoked at the interval specified.
-func (d *DB) AddCallback(tick time.Duration, cb lib.Callback) {
+func (d *DB) AddCallback(tick time.Duration, cb func(time.Time)) {
 	t, ok := d.tickers[tick]
 	if !ok {
 		t = lib.NewTicker(tick)
