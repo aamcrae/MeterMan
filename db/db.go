@@ -265,7 +265,7 @@ func (d *DB) AddCallback(tick time.Duration, cb lib.Callback) {
 		t = lib.NewTicker(tick)
 		if d.Trace {
 			t.AddCB(func(now time.Time) {
-				log.Printf("Ticker triggered at %s for interval %s\n", now.Format("15:04"), t.Tick().String())
+				log.Printf("Ticker triggered at %s for interval %s\n", now.Format("15:04:05"), t.Tick().String())
 			})
 		}
 		// Add an initial callback to test for day reset before
