@@ -28,7 +28,6 @@ import (
 )
 
 const maxPacketSize = 8 * 1024
-const defaultTimeout = 10
 
 var packet_header = []byte{'S', 'M', 'A', 0, 0, 0x04, 0x02, 0xA0, 0, 0, 0, 0x01, 0, 0}
 
@@ -89,17 +88,16 @@ type record struct {
 
 // SMA represents a single SMA SunnyBoy inverter.
 type SMA struct {
-	Timeout int  // Timeout (seconds)
-	Trace   bool // Trace packets
-	PktDump bool // Dump packet contents
+	Timeout time.Duration // Timeout
+	Trace   bool          // Trace packets
+	PktDump bool          // Dump packet contents
 
 	name      string       // device name or IP address
 	password  []byte       // device password
 	conn      *net.UDPConn // UDP connection
-	timeout   time.Duration
-	appSusyid uint16 // Application system ID
-	susyid    uint16 // System ID from device
-	serial    uint32 // Serial number of device
+	appSusyid uint16       // Application system ID
+	susyid    uint16       // System ID from device
+	serial    uint32       // Serial number of device
 }
 
 type request struct {
@@ -138,7 +136,7 @@ func NewSMA(inverter string, password string) (*SMA, error) {
 	}
 	s := &SMA{name: inverter, password: enc, conn: conn}
 	s.appSusyid = 125
-	s.Timeout = defaultTimeout
+	s.Timeout = time.Second * 10 // Default 10 second timeout
 	return s, nil
 }
 
@@ -324,7 +322,7 @@ func (s *SMA) cmdPacket(cmd, first, last uint32) (*request, error) {
 
 // response receives the response packet(s) from the inverter and verifies them.
 func (s *SMA) response(req *request) ([]*bytes.Buffer, error) {
-	tout := time.Now().Add(time.Duration(s.Timeout) * time.Second)
+	tout := time.Now().Add(s.Timeout)
 	var bList []*bytes.Buffer
 	pkt_id := req.packet_id
 	for {

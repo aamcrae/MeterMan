@@ -44,8 +44,6 @@ import (
 const weatherUrl = "http://api.openweathermap.org/data/2.5/weather?id=%s&units=metric&appid=%s"
 const darkskyUrl = "https://api.darksky.net/forecast/%s/%s,%s?exclude=minutely,hourly,daily,alerts,flags&units=si"
 
-var defaultPoll = 120
-
 type Weather struct {
 	Poll        int // Poll interval time (seconds)
 	Tempservice string
@@ -71,7 +69,7 @@ func weatherReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	poll := lib.ConfigOrDefault(conf.Poll, defaultPoll)
+	poll := lib.ConfigOrDefault(conf.Poll, 120) // Default poll interval of 120 seconds
 	var get func() (float64, error)
 	switch conf.Tempservice {
 	default:

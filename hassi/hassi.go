@@ -38,8 +38,6 @@ import (
 	"github.com/aamcrae/MeterMan/lib"
 )
 
-const defaultInterval = 120 // Default update interval (in seconds)
-
 const moduleName = "hassi"
 
 type hassi struct {
@@ -72,7 +70,7 @@ func hassiInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	interval := lib.ConfigOrDefault(conf.Update, defaultInterval)
+	interval := lib.ConfigOrDefault(conf.Update, 120) // Default update of 120 seconds
 	key := fmt.Sprintf("Bearer %s", conf.Apikey)
 	h := &hassi{d: d, url: conf.Url, key: key, client: &http.Client{}, status: "init"}
 	intv := time.Second * time.Duration(interval)

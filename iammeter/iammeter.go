@@ -50,8 +50,6 @@ type Iammeter struct {
 	Poll  int
 }
 
-const defaultPoll = 15 // Default poll interval in seconds
-
 const moduleName = "iammeter"
 
 type imeter struct {
@@ -78,13 +76,13 @@ func iamReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	poll := lib.ConfigOrDefault(conf.Poll, defaultPoll)
+	poll := lib.ConfigOrDefault(conf.Poll, 30) // Default poll of 30 seconds
 	if len(conf.Meter) == 0 {
 		return fmt.Errorf("iammeter: missing URL")
 	}
 	im := &imeter{d: d, url: conf.Meter, status: "init"}
 	im.client = http.Client{
-		Timeout: time.Duration(time.Second * 10),
+		Timeout: time.Duration(time.Second * 10), // 10 second timeout
 	}
 	im.d.AddStatusPrinter(moduleName, im.Status)
 	log.Printf("Registered IAMMETER reader (polling interval %d seconds)\n", poll)

@@ -44,9 +44,6 @@ type Sma []struct {
 	Dump     bool
 }
 
-const defaultRetry = 61
-const defaultPoll = 90
-
 // InverterReader polls the inverter(s)
 type InverterReader struct {
 	d   *db.DB // Database
@@ -76,13 +73,13 @@ func inverterReader(d *db.DB) error {
 		return err
 	}
 	for _, e := range conf {
-		poll := lib.ConfigOrDefault(e.Poll, defaultPoll)
-		retry := lib.ConfigOrDefault(e.Retry, defaultRetry)
+		poll := lib.ConfigOrDefault(e.Poll, 90)   // Default poll interval of 90 seconds
+		retry := lib.ConfigOrDefault(e.Retry, 61) // Default retry 61 seconds
 		sma, err := NewSMA(e.Addr, e.Password)
 		if err != nil {
 			return err
 		}
-		sma.Timeout = lib.ConfigOrDefault(e.Timeout, sma.Timeout)
+		sma.Timeout = lib.ConfigOrDefault(time.Second*time.Duration(e.Timeout), sma.Timeout)
 		sma.Trace = e.Trace
 		sma.PktDump = e.Dump
 		s := &InverterReader{d: d, sma: sma}
@@ -96,7 +93,7 @@ func inverterReader(d *db.DB) error {
 		s.genDP = d.AddSubDiff(db.D_GEN_P, false)
 		nm := strings.Split(e.Addr, ":")[0]
 		d.AddStatusPrinter(fmt.Sprintf("SMA-%s", nm), s.Status)
-		log.Printf("Registered SMA inverter reader for %s (poll interval %d seconds, retry %d seconds, timeout %d seconds)\n", s.sma.Name(), poll, retry, s.sma.Timeout)
+		log.Printf("Registered SMA inverter reader for %s (poll interval %d seconds, retry %d seconds, timeout %s)\n", s.sma.Name(), poll, retry, s.sma.Timeout.String())
 		if !d.Dryrun {
 			go s.run(time.Duration(poll)*time.Second, time.Duration(retry)*time.Second)
 		}

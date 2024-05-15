@@ -52,8 +52,6 @@ type Pvoutput struct {
 	Trace    bool
 }
 
-const defaultInterval = 5 // Default update rate in minutes
-
 const moduleName = "pvoutput"
 
 type pvWriter struct {
@@ -80,7 +78,7 @@ func pvoutputInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	interval := lib.ConfigOrDefault(conf.Interval, defaultInterval)
+	interval := lib.ConfigOrDefault(conf.Interval, 5) // Default update of 5 minutes
 	url := lib.ConfigOrDefault(conf.Pvurl, "https://pvoutput.org/service/r2/addstatus.jsp")
 	p := &pvWriter{d: d, pvurl: url, id: conf.Systemid, key: conf.Apikey, client: &http.Client{}, trace: conf.Trace || d.Trace, status: "init"}
 	if !d.Dryrun {

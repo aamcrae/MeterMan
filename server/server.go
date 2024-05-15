@@ -32,8 +32,6 @@ type ApiConfig struct {
 	Port int // HTTP port
 }
 
-const defaultPort = 8080
-
 type apiServer struct {
 	d *db.DB
 }
@@ -72,7 +70,7 @@ func serverInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	port := lib.ConfigOrDefault(conf.Port, defaultPort)
+	port := lib.ConfigOrDefault(conf.Port, 8080) // Default port is 8080
 	mux := http.NewServeMux()
 	s := &apiServer{d: d}
 	apih := func(w http.ResponseWriter, req *http.Request) {

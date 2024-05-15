@@ -44,8 +44,6 @@ type writer struct {
 	buf  *bufio.Writer
 }
 
-const defaultInterval = 5
-
 const header = "#date,time"
 
 var elements []string = []string{"GEN-P", "VOLTS", "TEMP", "IN-P", "OUT-P", "D-GEN-P"}
@@ -77,7 +75,7 @@ func csvInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	interval := lib.ConfigOrDefault(conf.Interval, defaultInterval)
+	interval := lib.ConfigOrDefault(conf.Interval, 5) // Default of 5 minutes
 	c := &csv{d: d, fpath: conf.Base, status: "init"}
 	if !d.Dryrun {
 		d.AddCallback(time.Minute*time.Duration(interval), c.Run)

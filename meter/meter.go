@@ -74,9 +74,6 @@ type MeterConfig struct {
 	RecalibrateInterval int    // Recalibrate interval in seconds
 }
 
-const defaultSample = 4900 // sample interval in milliseconds
-const defaultTimeout = 20  // Default source timeout
-
 // Maps meter label to database tag.
 var tagMap map[string][]string = map[string][]string{
 	"1NtL": {db.A_OUT_TOTAL, db.D_OUT_POWER},
@@ -126,12 +123,11 @@ func meterReader(d *db.DB) error {
 // runReader is a loop that reads the image of the meter panel
 // from an image source, and decodes the LCD digits.
 func runReader(d *db.DB, r *Reader, conf *MeterConfig) {
-	sample := lib.ConfigOrDefault(conf.Sample, defaultSample)
-	timeout := lib.ConfigOrDefault(conf.Timeout, defaultTimeout)
-	delay := time.Duration(sample) * time.Millisecond
+	delay := time.Millisecond * time.Duration(lib.ConfigOrDefault(conf.Sample, 4900))            // Sample rate in milliseconds
+	timeout := time.Second * time.Duration(lib.ConfigOrDefault(time.Duration(conf.Timeout), 20)) // Timeout in seconds
 	lastTime := time.Now()
 	client := http.Client{
-		Timeout: time.Duration(timeout) * time.Second,
+		Timeout: timeout,
 	}
 	for {
 		time.Sleep(delay - time.Now().Sub(lastTime))
