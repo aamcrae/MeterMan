@@ -71,6 +71,15 @@ based configuration file.
 An internal database allows input and output modules to be added independently, and multiple values to
 be averaged, summed and managed.
 
+A main thread is used for most processing, and only this thread can access the internal database to avoid
+any concurrency issues.
+Modules that provide data to the database do so by sending updates via a channel. These modules should run in separate
+goroutines, and not as part of the main thread (otherwise there may be potential for deadlock with updates being sent to the channel
+without being read). To access the database elements, modules can request functions to be executed from the main thread.
+Timer callbacks can be registered, and these are aligned to the wall time e.g if a callback is requested every minute, this is
+invoked on the minute (i.e seconds = 0). No I/O or extended processing should be performed in these callbacks (typically
+any I/O is dispatched via a separate goroutine).
+
 ## Disclaimer
 
 This is not an officially supported Google product.
