@@ -86,6 +86,32 @@ func csvInit(d *db.DB) error {
 }
 
 func (c *csv) Run(now time.Time) {
+	// Generate the line to be written.
+	var line strings.Builder
+	fmt.Fprint(&line, now.Format("2006-01-02,15:04"))
+	for _, s := range elements {
+		g := c.d.GetElement(s)
+		fmt.Fprint(&line, ",")
+		if g != nil && g.Fresh() {
+			fmt.Fprintf(&line, "%s", lib.FmtFloat(g.Get()))
+		}
+	}
+	for _, s := range accums {
+		a := c.d.GetAccum(s)
+		fmt.Fprint(&line, ",")
+		if a != nil && a.Fresh() {
+			fmt.Fprintf(&line, "%s,%s", lib.FmtFloat(a.Get()), lib.FmtFloat(a.Daily()))
+		} else {
+			fmt.Fprint(&line, ",")
+		}
+	}
+	// Delegate writing the line to a separate goroutine.
+	go c.write(now, line.String())
+}
+
+// write writes the line to the CSV file, and if necessary
+// creating a new file.
+func (c *csv) write(now time.Time, l string) {
 	var b strings.Builder
 	defer func() { c.status = b.String() }()
 	fmt.Fprintf(&b, "%s: ", now.Format("2006-01-02 15:04"))
@@ -119,27 +145,10 @@ func (c *csv) Run(now time.Time) {
 	}
 	// Write values into file.
 	if c.d.Trace {
-		log.Printf("Writing CSV data to %s\n", c.writer.name)
+		log.Printf("Writing CSV line to %s\n", c.writer.name)
 	}
 	c.lines++
-	fmt.Fprint(c.writer, now.Format("2006-01-02,15:04"))
-	for _, s := range elements {
-		g := c.d.GetElement(s)
-		fmt.Fprint(c.writer, ",")
-		if g != nil && g.Fresh() {
-			fmt.Fprintf(c.writer, "%s", lib.FmtFloat(g.Get()))
-		}
-	}
-	for _, s := range accums {
-		a := c.d.GetAccum(s)
-		fmt.Fprint(c.writer, ",")
-		if a != nil && a.Fresh() {
-			fmt.Fprintf(c.writer, "%s,%s", lib.FmtFloat(a.Get()), lib.FmtFloat(a.Daily()))
-		} else {
-			fmt.Fprint(c.writer, ",")
-		}
-	}
-	fmt.Fprint(c.writer, "\n")
+	fmt.Fprint(c.writer, "%s\n", l)
 	fmt.Fprintf(&b, "OK - file %s, lines %d", c.writer.name, c.lines)
 	c.writer.Flush()
 }
