@@ -241,7 +241,9 @@ func (d *DB) Start() error {
 			f()
 		case <-sigc:
 			// Signal caught, write checkpoint file and exit.
-			d.writeCheckpoint(conf.Checkpoint, time.Now())
+			if len(conf.Checkpoint) != 0 {
+				d.writeCheckpoint(conf.Checkpoint, time.Now())
+			}
 			log.Fatalf("Signal received, exiting")
 		}
 	}
