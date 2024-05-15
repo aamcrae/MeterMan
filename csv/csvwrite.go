@@ -148,7 +148,7 @@ func (c *csv) write(now time.Time, l string) {
 		log.Printf("Writing CSV line to %s\n", c.writer.name)
 	}
 	c.lines++
-	fmt.Fprint(c.writer, "%s\n", l)
+	fmt.Fprintf(c.writer, "%s\n", l)
 	fmt.Fprintf(&b, "OK - file %s, lines %d", c.writer.name, c.lines)
 	c.writer.Flush()
 }
