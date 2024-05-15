@@ -133,7 +133,7 @@ func NewDatabase(conf []byte) *DB {
 // and then enters a select loop processing the tag data inputs and tick events.
 func (d *DB) Start() error {
 	// Generate separate subsections for the YAML configuration
-	m := make(map[string]interface{})
+	m := make(map[string]any)
 	err := yaml.Unmarshal(d.yaml, &m)
 	if err != nil {
 		return err

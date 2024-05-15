@@ -170,7 +170,7 @@ func BOM(url string) (float64, error) {
 	return m.Observations.Data[0].Air, nil
 }
 
-func fetch(url string, m interface{}) error {
+func fetch(url string, m any) error {
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
