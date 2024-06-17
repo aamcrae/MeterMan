@@ -1,5 +1,3 @@
-github.com/aamcrae/lcd v0.0.0-20240513072727-902cf18ab2da h1:BBl2OraAoEI8FfYHjOtPBNwLoe4JsvIYIKHYNR7TtOI=
-github.com/aamcrae/lcd v0.0.0-20240513072727-902cf18ab2da/go.mod h1:mXI9dt6/MPNEcdecF/0gZIhaQLWdIM3uJK0fPUSQYjU=
 github.com/aamcrae/lcd v0.1.0 h1:otDW5nGZrgxTdXGmpS2WBS6bI4Vcfu/Psy2E0KC+Fss=
 github.com/aamcrae/lcd v0.1.0/go.mod h1:mXI9dt6/MPNEcdecF/0gZIhaQLWdIM3uJK0fPUSQYjU=
 github.com/fogleman/gg v1.3.0 h1:/7zJX8F6AaYQc57WQCyN9cAIz+4bCJGO9B+dyW29am8=
