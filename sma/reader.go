@@ -37,7 +37,7 @@ type Sma []struct {
 	Addr     string
 	Password string
 	Poll     int
-	Retry    int
+	Offset   int
 	Timeout  int
 	Volts    bool
 	Trace    bool
@@ -73,8 +73,8 @@ func inverterReader(d *db.DB) error {
 		return err
 	}
 	for _, e := range conf {
-		poll := lib.ConfigOrDefault(e.Poll, 90)   // Default poll interval of 90 seconds
-		retry := lib.ConfigOrDefault(e.Retry, 61) // Default retry 61 seconds
+		poll := lib.ConfigOrDefault(e.Poll, 60)     // Default poll interval of 60 seconds
+		offset := lib.ConfigOrDefault(e.Offset, -5) // Default offset of -5 seconds
 		sma, err := NewSMA(e.Addr, e.Password)
 		if err != nil {
 			return err
@@ -93,9 +93,11 @@ func inverterReader(d *db.DB) error {
 		s.genDP = d.AddSubDiff(db.D_GEN_P, false)
 		nm := strings.Split(e.Addr, ":")[0]
 		d.AddStatusPrinter(fmt.Sprintf("SMA-%s", nm), s.Status)
-		log.Printf("Registered SMA inverter reader for %s (poll interval %d seconds, retry %d seconds, timeout %s)\n", s.sma.Name(), poll, retry, s.sma.Timeout.String())
+		log.Printf("Registered SMA inverter reader for %s (poll interval %d seconds, offset %d seconds, timeout %s)\n", s.sma.Name(), poll, offset, s.sma.Timeout.String())
 		if !d.Dryrun {
-			go s.run(time.Duration(poll)*time.Second, time.Duration(retry)*time.Second)
+			d.AddCallback(time.Second*time.Duration(poll), time.Second*time.Duration(offset), func(now time.Time) {
+				go s.cbPoll(now)
+			})
 		}
 	}
 	return nil
@@ -106,18 +108,11 @@ func (s *InverterReader) Status() string {
 	return s.status
 }
 
-// Polling loop for inverter.
-func (s *InverterReader) run(poll, retry time.Duration) {
-	defer s.sma.Close()
-	for {
-		hour := time.Now().Hour()
-		err := s.poll(hour >= s.d.StartHour && hour < s.d.EndHour)
-		if err != nil {
-			log.Printf("Inverter poll error:%s - %v", s.sma.Name(), err)
-			time.Sleep(retry)
-		} else {
-			time.Sleep(poll)
-		}
+func (s *InverterReader) cbPoll(now time.Time) {
+	hour := now.Hour()
+	err := s.poll(hour >= s.d.StartHour && hour < s.d.EndHour)
+	if err != nil {
+		log.Printf("Inverter poll error:%s - %v", s.sma.Name(), err)
 	}
 }
 

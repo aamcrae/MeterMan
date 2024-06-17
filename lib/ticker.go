@@ -22,6 +22,7 @@ import (
 // Ticker holds callbacks to be invoked at the specified period (e.g every 5 minutes)
 type Ticker struct {
 	tick      time.Duration     // Interval duration
+	offset    time.Duration     // Offset from interval (+ve or -ve)
 	callbacks []func(time.Time) // List of callbacks
 }
 
@@ -32,15 +33,15 @@ type Event struct {
 }
 
 // NewTicker creates and initialises a new ticker
-func NewTicker(tick time.Duration) *Ticker {
-	return &Ticker{tick: tick}
+func NewTicker(tick, offset time.Duration) *Ticker {
+	return &Ticker{tick: tick, offset: offset}
 }
 
 // Start initialises and starts the ticker by
 // launching a goroutine that waits for the ticker
 // interval, and then sends an event on the channel provided.
 func (t *Ticker) Start(ec chan<- Event) {
-	log.Printf("Starting ticker for interval %s", t.tick.String())
+	log.Printf("Starting ticker for interval %s, offset %s", t.tick.String(), t.offset.String())
 	// Start a goroutine that sends an event for each ticker interval.
 	go func(ec chan<- Event, t *Ticker) {
 		var tv Event
@@ -49,7 +50,7 @@ func (t *Ticker) Start(ec chan<- Event) {
 			// Calculate the next time an event should be sent, and
 			// sleep until then.
 			now := time.Now()
-			tv.Now = now.Add(t.tick).Truncate(t.tick)
+			tv.Now = now.Add(t.tick).Add(-t.offset).Truncate(t.tick).Add(t.offset)
 			time.Sleep(tv.Now.Sub(now))
 			ec <- tv
 		}

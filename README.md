@@ -76,8 +76,9 @@ any concurrency issues.
 Modules that provide data to the database do so by sending updates via a channel. These modules should run in separate
 goroutines, and not as part of the main thread (otherwise there may be potential for deadlock with updates being sent to the channel
 without being read). To access the database elements, modules can request functions to be executed from the main thread.
-Timer callbacks can be registered, and these are aligned to the wall time e.g if a callback is requested every minute, this is
-invoked on the minute (i.e seconds = 0). No I/O or extended processing should be performed in these callbacks (typically
+Timer callbacks can be registered, and these are aligned to the wall time with an optional offset e.g if a callback is requested
+every minute with a -5 second offset, this is
+invoked on 5 seconds before the minute (i.e seconds = 55). No I/O or extended processing should be performed in these callbacks (typically
 any I/O is dispatched via a separate goroutine).
 
 ## Disclaimer

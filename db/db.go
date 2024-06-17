@@ -36,7 +36,7 @@
 //  db.Start()
 //             -> MyInit(db)
 //                   -> Initialise module, save input channel, start producer goroutine
-//                   -> db.AddCallback(interval, MyConsumer)  [to register consumer]
+//                   -> db.AddCallback(interval, offset, MyConsumer)  [to register consumer]
 //     ...
 //  <processing loop>
 //                                  <- MyProducer db.Input()
@@ -74,6 +74,11 @@ type DbConfig struct {
 
 type statusPrinter func() string
 
+type tickKey struct {
+	tick time.Duration
+	offs time.Duration
+}
+
 // DB contains the element database.
 type DB struct {
 	Config map[string]*yaml.Decoder // Decoded config
@@ -83,16 +88,16 @@ type DB struct {
 	StartHour int
 	EndHour   int
 
-	yaml       []byte                        // YAML config
-	input      chan input                    // Channel for tagged data
-	run        chan func()                   // Channel for callbacks
-	elements   map[string]Element            // Map of tags to elements
-	checkpoint map[string]string             // Initial checkpoint data
-	disabled   map[string]struct{}           // Map of disabled features
-	tickers    map[time.Duration]*lib.Ticker // Map of tickers
-	lastDay    int                           // Current day, to check for midnight processing
-	freshness  time.Duration                 // shelf life of data
-	status     map[string]statusPrinter      // Map of status reporters
+	yaml       []byte                   // YAML config
+	input      chan input               // Channel for tagged data
+	run        chan func()              // Channel for callbacks
+	elements   map[string]Element       // Map of tags to elements
+	checkpoint map[string]string        // Initial checkpoint data
+	disabled   map[string]struct{}      // Map of disabled features
+	tickers    map[tickKey]*lib.Ticker  // Map of tickers
+	lastDay    int                      // Current day, to check for midnight processing
+	freshness  time.Duration            // shelf life of data
+	status     map[string]statusPrinter // Map of status reporters
 }
 
 type input struct {
@@ -117,7 +122,7 @@ func NewDatabase(conf []byte) *DB {
 	d.yaml = conf
 	d.elements = make(map[string]Element)
 	d.checkpoint = make(map[string]string)
-	d.tickers = make(map[time.Duration]*lib.Ticker)
+	d.tickers = make(map[tickKey]*lib.Ticker)
 	d.disabled = make(map[string]struct{})
 	d.status = make(map[string]statusPrinter)
 	d.StartHour = 5                // 5AM
@@ -180,7 +185,7 @@ func (d *DB) Start() error {
 				return err
 			}
 			// Add a callback to checkpoint the database at the specified interval.
-			d.AddCallback(time.Second*time.Duration(update), func(now time.Time) {
+			d.AddCallback(time.Second*time.Duration(update), 0, func(now time.Time) {
 				d.writeCheckpoint(conf.Checkpoint, now)
 			})
 		}
@@ -211,7 +216,7 @@ func (d *DB) Start() error {
 	}
 	if d.Trace {
 		// Add a callback dump the state of the database every minute
-		d.AddCallback(time.Minute*time.Duration(1), func(now time.Time) {
+		d.AddCallback(time.Minute*time.Duration(1), 0, func(now time.Time) {
 			d.dumpDB()
 		})
 	}
@@ -261,10 +266,11 @@ func (d *DB) Input(tag string, value float64) {
 }
 
 // AddCallback adds a callback to be regularly invoked at the interval specified.
-func (d *DB) AddCallback(tick time.Duration, cb func(time.Time)) {
-	t, ok := d.tickers[tick]
+func (d *DB) AddCallback(tick, offset time.Duration, cb func(time.Time)) {
+	key := tickKey{tick, offset}
+	t, ok := d.tickers[key]
 	if !ok {
-		t = lib.NewTicker(tick)
+		t = lib.NewTicker(tick, offset)
 		if d.Trace {
 			t.AddCB(func(now time.Time) {
 				log.Printf("Ticker triggered at %s for interval %s\n", now.Format("15:04:05"), t.Tick().String())
@@ -275,7 +281,7 @@ func (d *DB) AddCallback(tick time.Duration, cb func(time.Time)) {
 		t.AddCB(func(now time.Time) {
 			d.checkForMidnight(now, t)
 		})
-		d.tickers[tick] = t
+		d.tickers[key] = t
 	}
 	t.AddCB(cb)
 }

@@ -75,7 +75,7 @@ func hassiInit(d *db.DB) error {
 	h := &hassi{d: d, url: conf.Url, key: key, client: &http.Client{}, status: "init"}
 	intv := time.Second * time.Duration(interval)
 	if !d.Dryrun {
-		d.AddCallback(intv, h.send)
+		d.AddCallback(intv, 0, h.send)
 	}
 	d.AddStatusPrinter(moduleName, h.Status)
 	log.Printf("Registered Home Assistant uploader (%d seconds interval)", interval)

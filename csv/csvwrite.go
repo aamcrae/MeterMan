@@ -78,7 +78,7 @@ func csvInit(d *db.DB) error {
 	interval := lib.ConfigOrDefault(conf.Interval, 5) // Default of 5 minutes
 	c := &csv{d: d, fpath: conf.Base, status: "init"}
 	if !d.Dryrun {
-		d.AddCallback(time.Minute*time.Duration(interval), c.Run)
+		d.AddCallback(time.Minute*time.Duration(interval), 0, c.Run)
 	}
 	d.AddStatusPrinter(moduleName, c.Status)
 	log.Printf("Registered CSV as writer, base directory %s, updating every %d minutes\n", conf.Base, interval)

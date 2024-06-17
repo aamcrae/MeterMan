@@ -46,8 +46,9 @@ import (
 )
 
 type Iammeter struct {
-	Meter string
-	Poll  int
+	Meter  string
+	Poll   int
+	Offset int
 }
 
 const moduleName = "iammeter"
@@ -76,7 +77,8 @@ func iamReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	poll := lib.ConfigOrDefault(conf.Poll, 30) // Default poll of 30 seconds
+	poll := lib.ConfigOrDefault(conf.Poll, 30)     // Default poll of 30 seconds
+	offset := lib.ConfigOrDefault(conf.Offset, -5) // Default offset -5 seconds
 	if len(conf.Meter) == 0 {
 		return fmt.Errorf("iammeter: missing URL")
 	}
@@ -85,7 +87,7 @@ func iamReader(d *db.DB) error {
 		Timeout: time.Duration(time.Second * 10), // 10 second timeout
 	}
 	im.d.AddStatusPrinter(moduleName, im.Status)
-	log.Printf("Registered IAMMETER reader (polling interval %d seconds)\n", poll)
+	log.Printf("Registered IAMMETER reader (polling interval %d seconds, offset %d)\n", poll, offset)
 	if !d.Dryrun {
 		im.volts = d.AddSubGauge(db.G_VOLTS, true)
 		im.d.AddGauge(db.G_IN_CURRENT)
@@ -96,26 +98,22 @@ func iamReader(d *db.DB) error {
 		im.d.AddAccum(db.A_OUT_TOTAL, true)
 		im.d.AddAccum(db.A_IMPORT, true)
 		im.d.AddAccum(db.A_EXPORT, true)
-		go im.meterReader(time.Duration(poll) * time.Second)
+		im.d.AddCallback(time.Second*time.Duration(poll), time.Second*time.Duration(offset), func(now time.Time) {
+			go im.poll()
+		})
 	}
 	return nil
 }
 
-// meterReader is a loop that reads the data from the energy meter.
-func (im *imeter) meterReader(delay time.Duration) {
-	lastTime := time.Now()
-	for {
-		time.Sleep(delay - time.Now().Sub(lastTime))
-		lastTime = time.Now()
-		err := im.fetch()
-		if err != nil {
-			log.Printf("iammeter: %v", err)
-		}
-	}
-}
-
 func (im *imeter) Status() string {
 	return im.status
+}
+
+func (im *imeter) poll() {
+	err := im.fetch()
+	if err != nil {
+		log.Printf("iammeter: %v", err)
+	}
 }
 
 func (im *imeter) fetch() error {
