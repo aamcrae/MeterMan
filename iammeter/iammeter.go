@@ -161,9 +161,9 @@ func (im *imeter) fetch() error {
 		return fmt.Errorf("Missing values")
 	}
 	im.d.Input(im.volts, m.Data[0])
-	if m.Data[1] < 0.0 {
+	if m.Data[2] < 0.0 {
 		im.d.Input(db.G_IN_CURRENT, 0.0)
-		im.d.Input(db.G_OUT_CURRENT, -m.Data[1])
+		im.d.Input(db.G_OUT_CURRENT, m.Data[1])
 	} else {
 		im.d.Input(db.G_OUT_CURRENT, 0.0)
 		im.d.Input(db.G_IN_CURRENT, m.Data[1])
