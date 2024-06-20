@@ -106,6 +106,12 @@ func (h *hassi) send(now time.Time) {
 		} else {
 			b.State = "importing"
 		}
+		gen_p := h.d.GetElement(db.D_GEN_P)
+		consumption := in_p.Get() - out_p.Get()
+		if gen_p.Fresh() {
+			consumption += gen_p.Get()
+		}
+		b.Attr["consumption"] = consumption
 	}
 	h.add(db.G_VOLTS, "volts", b.Attr)
 	h.add(db.D_GEN_P, "gen_power", b.Attr)
