@@ -90,7 +90,7 @@ func inverterReader(d *db.DB) error {
 		}
 		s.genDaily = d.AddSubAccum(db.A_GEN_DAILY, true)
 		s.genT = d.AddSubAccum(db.A_GEN_TOTAL, false)
-		s.genDP = d.AddSubDiff(db.D_GEN_P, false)
+		s.genDP = d.AddSubDiff(db.D_GEN_P, false, time.Second*150)
 		nm := strings.Split(e.Addr, ":")[0]
 		d.AddStatusPrinter(fmt.Sprintf("SMA-%s", nm), s.Status)
 		log.Printf("Registered SMA inverter reader for %s (poll interval %d seconds, offset %d seconds, timeout %s)\n", s.sma.Name(), poll, offset, s.sma.Timeout.String())
