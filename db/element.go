@@ -54,7 +54,7 @@ func (d *DB) AddSubGauge(base string, average bool) string {
 // AddSubDiff adds a sub-diff to a holding element.
 // If average is true, values are averaged, otherwise they are summed.
 // The tag of the new Diff is returned.
-func (d *DB) AddSubDiff(base string, average bool, window time.Duration) string {
+func (d *DB) AddSubDiff(base string, average bool) string {
 	el, ok := d.elements[base]
 	if !ok {
 		el = NewMultiElement(base, average)
@@ -62,7 +62,7 @@ func (d *DB) AddSubDiff(base string, average bool, window time.Duration) string 
 	}
 	m := el.(*MultiElement)
 	tag := m.NextTag()
-	nd := NewDiff(d.checkpoint[tag], window, d.freshness)
+	nd := NewDiff(d.checkpoint[tag], d.freshness)
 	m.Add(nd)
 	d.elements[tag] = nd
 	return tag
@@ -91,8 +91,8 @@ func (d *DB) AddGauge(name string) {
 }
 
 // AddDiff adds a new Diff element to the database.
-func (d *DB) AddDiff(name string, window time.Duration) {
-	d.elements[name] = NewDiff(d.checkpoint[name], window, d.freshness)
+func (d *DB) AddDiff(name string) {
+	d.elements[name] = NewDiff(d.checkpoint[name], d.freshness)
 }
 
 // AddAccum adds a new accumulator to the database.

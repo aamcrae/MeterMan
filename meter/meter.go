@@ -105,8 +105,8 @@ func meterReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	d.AddDiff(db.D_IN_POWER, time.Second*150)
-	d.AddDiff(db.D_OUT_POWER, time.Second*150)
+	d.AddDiff(db.D_IN_POWER)
+	d.AddDiff(db.D_OUT_POWER)
 	d.AddAccum(db.A_IN_TOTAL, true)
 	d.AddAccum(db.A_OUT_TOTAL, true)
 	d.AddSubAccum(db.A_IMPORT, true)

@@ -19,48 +19,37 @@ import (
 	"time"
 )
 
-type diffValue struct {
-	value float64
-	ts    time.Time
-}
-
-// Diff is a value representing a value derived from an accumulator.
+// Diff is a value representing a value derived from an accumulator, based on hours.
 // Typical use would be deriving current Kw from KwH accumulators.
-// The window duration defines how long to hold the values before calculating
-// the difference.
 type Diff struct {
-	value    float64 // Current calculated value
-	window   time.Duration
-	previous []diffValue
-	stale    time.Duration // Duration until stale
+	value         float64 // Current calculated value
+	previousValue float64
+	previousTime  time.Time
+	stale         time.Duration // Duration until stale
 }
 
-func NewDiff(cp string, window, shelfLife time.Duration) *Diff {
+func NewDiff(cp string, shelfLife time.Duration) *Diff {
 	d := new(Diff)
-	d.window = window
 	d.stale = shelfLife
-	var p diffValue
 	var sec int64
-	fmt.Sscanf(cp, "%f %f %d", &d.value, &p.value, &sec)
+	fmt.Sscanf(cp, "%f %f %d", &d.value, &d.previousValue, &sec)
 	if sec != 0 {
-		p.ts = time.Unix(sec, 0)
+		d.previousTime = time.Unix(sec, 0)
 	}
-	d.previous = append(d.previous, p)
 	return d
 }
 
 func (d *Diff) Update(current float64, ts time.Time) {
-	t := ts.Add(-d.window)
-	// Remove elements that are outside the time window.
-	for len(d.previous) > 0 && !d.previous[0].ts.After(t) {
-		d.previous = d.previous[1:]
+	// Calculate value if the previous value is valid
+	if current >= d.previousValue && !d.previousTime.IsZero() {
+		td := ts.Sub(d.previousTime)
+		if td.Seconds() > 1 {
+			// Skip if samples are too close together.
+			d.value = (current - d.previousValue) / td.Hours()
+		}
 	}
-	d.previous = append(d.previous, diffValue{current, ts})
-	// Calculate value if there are at least 2 items.
-	if len(d.previous) >= 2 {
-		td := ts.Sub(d.previous[0].ts)
-		d.value = (current - d.previous[0].value) / td.Hours()
-	}
+	d.previousValue = current
+	d.previousTime = ts
 }
 
 func (d *Diff) Midnight() {
@@ -71,13 +60,13 @@ func (d *Diff) Get() float64 {
 }
 
 func (d *Diff) Timestamp() time.Time {
-	return d.previous[len(d.previous)-1].ts
+	return d.previousTime
 }
 
 func (d *Diff) Fresh() bool {
-	return !d.Timestamp().Before(time.Now().Add(-d.stale))
+	return !d.previousTime.Before(time.Now().Add(-d.stale))
 }
 
 func (d *Diff) Checkpoint() string {
-	return fmt.Sprintf("%g %g %d", d.value, d.previous[0].value, d.previous[0].ts.Unix())
+	return fmt.Sprintf("%g %g %d", d.value, d.previousValue, d.previousTime.Unix())
 }

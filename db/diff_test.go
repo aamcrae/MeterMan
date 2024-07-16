@@ -22,14 +22,14 @@ import (
 )
 
 func TestDiff(t *testing.T) {
-	g := NewDiff("10.0 100.0 10", time.Minute*5, time.Minute*10)
+	g := NewDiff("10.0 100.0 10", time.Minute*10)
 	v := g.Get()
 	if !diffCmp(v, 10) {
 		t.Errorf("Diff: got %v want %v\n", v, 10.0)
 	}
 	ts := g.Timestamp()
 	if ts != time.Unix(10, 0) {
-		t.Errorf("Diff: got %v want %v\n", ts, 10)
+		t.Errorf("Diff: got %v want %v\n", ts.Unix(), 10)
 	}
 	// Add 1KwH in 1 minute.
 	g.Update(101.0, time.Unix(10+60, 0))
@@ -42,11 +42,11 @@ func TestDiff(t *testing.T) {
 	if !diffCmp(v, 60) {
 		t.Errorf("Diff: got %v want %v\n", v, 60.0)
 	}
-	// Add 4KwH in 2 minutes
+	// Add 4KwH in 2 minutes, power should be 120Kw
 	g.Update(105.0, time.Unix(70+120, 0))
 	v = g.Get()
-	if !diffCmp(v, 100) {
-		t.Errorf("Diff: got %v want %v\n", v, 100.0)
+	if !diffCmp(v, 120) {
+		t.Errorf("Diff: got %v want %v\n", v, 120.0)
 	}
 }
 
