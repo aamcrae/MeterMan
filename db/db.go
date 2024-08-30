@@ -203,18 +203,18 @@ func (d *DB) Start() error {
 			log.Printf("Last time saved was %s\n", last.Format(time.UnixDate))
 		}
 	}
-	// Add a callback for daily midnight updating
-	d.AddCallback(time.Hour*24, 0, d.newDay)
 	// Call the init hooks, which initialises all the registered features.
 	for _, h := range initHook {
 		if err := h(d); err != nil {
 			return err
 		}
 	}
-	// Check if checkpoint was from previous day
-	if time.Now().YearDay() != last.YearDay() {
-		d.newDay(time.Now())
-	}
+	d.lastDay = last.YearDay()
+	// Add a callback to check for daily midnight updating. This is done
+	// every 30 minutes (for timezones that are not a multiple of 60 minutes).
+	d.AddCallback(time.Minute*30, 0, d.newDay)
+	// Check for midnight rollover from checkpoint
+	d.newDay(time.Now())
 	log.Printf("Freshness timeout = %s, daylight start %d:00, end %d:00", d.freshness.String(), d.StartHour, d.EndHour)
 	if d.Dryrun {
 		log.Fatalf("Dry run only, exiting")
@@ -313,13 +313,18 @@ func (d *DB) GetStatus() map[string]string {
 	return m
 }
 
-// newDay runs the Midnight method on all the elements.
+// newDay checks whether it is a new day, and if so,
+// runs the Midnight method on all the elements.
 func (d *DB) newDay(now time.Time) {
-	for _, el := range d.elements {
-		el.Midnight()
-	}
-	if d.Trace {
-		log.Printf("Day reset!")
+	today := now.YearDay()
+	if today != d.lastDay {
+		d.lastDay = today
+		for _, el := range d.elements {
+			el.Midnight()
+		}
+		if d.Trace {
+			log.Printf("Day reset!")
+		}
 	}
 }
 

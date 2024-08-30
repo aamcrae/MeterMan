@@ -49,14 +49,9 @@ func (t *Ticker) Start(ec chan<- Event) {
 		tv.ticker = t
 		for {
 			// Calculate the next time an event should be sent, and
-			// sleep until then. Use local time to ensure the
-			// local day times are honoured (e.g midnight).
+			// sleep until then.
 			now := time.Now()
-			_, offs := now.Zone()
-			localOffs := time.Duration(offs) * time.Second
-			localNow := now.Add(localOffs)
-			localTarget := localNow.Add(t.tick).Add(-t.offset).Truncate(t.tick).Add(t.offset)
-			tv.target = localTarget.Add(-localOffs) // reset back to std time
+			tv.target = now.Add(t.tick).Add(-t.offset).Truncate(t.tick).Add(t.offset)
 			t.next = tv.target
 			time.Sleep(tv.target.Sub(now))
 			ec <- tv
