@@ -15,7 +15,7 @@
 package lib
 
 import (
-	"log"
+	"fmt"
 	"time"
 )
 
@@ -23,13 +23,15 @@ import (
 type Ticker struct {
 	tick      time.Duration     // Interval duration
 	offset    time.Duration     // Offset from interval (+ve or -ve)
+	next      time.Time         // Target time of next trigger
+	fired     int               // Number of times fired
 	callbacks []func(time.Time) // List of callbacks
 }
 
 // Event is sent from the per-ticker goroutine to a common channel when the ticker interval ticks over
 type Event struct {
-	Now    time.Time
-	Ticker *Ticker
+	target time.Time
+	ticker *Ticker
 }
 
 // NewTicker creates and initialises a new ticker
@@ -41,18 +43,24 @@ func NewTicker(tick, offset time.Duration) *Ticker {
 // launching a goroutine that waits for the ticker
 // interval, and then sends an event on the channel provided.
 func (t *Ticker) Start(ec chan<- Event) {
-	log.Printf("Starting ticker for interval %s, offset %s", t.tick.String(), t.offset.String())
 	// Start a goroutine that sends an event for each ticker interval.
 	go func(ec chan<- Event, t *Ticker) {
 		var tv Event
-		tv.Ticker = t
+		tv.ticker = t
 		for {
 			// Calculate the next time an event should be sent, and
-			// sleep until then.
+			// sleep until then. Use local time to ensure the
+			// local day times are honoured (e.g midnight).
 			now := time.Now()
-			tv.Now = now.Add(t.tick).Add(-t.offset).Truncate(t.tick).Add(t.offset)
-			time.Sleep(tv.Now.Sub(now))
+			_, offs := now.Zone()
+			localOffs := time.Duration(offs) * time.Second
+			localNow := now.Add(localOffs)
+			localTarget := localNow.Add(t.tick).Add(-t.offset).Truncate(t.tick).Add(t.offset)
+			tv.target = localTarget.Add(-localOffs) // reset back to std time
+			t.next = tv.target
+			time.Sleep(tv.target.Sub(now))
 			ec <- tv
+			t.fired++
 		}
 	}(ec, t)
 }
@@ -67,9 +75,13 @@ func (t *Ticker) Tick() time.Duration {
 	return t.tick
 }
 
+func (t *Ticker) String() string {
+	return fmt.Sprintf("interval %s, offset %s, callbacks %d, fired %d, next firing %s", t.tick, t.offset, len(t.callbacks), t.fired, t.next)
+}
+
 // Dispatch handles a tick event by invoking the callbacks registered on the ticker.
 func (e *Event) Dispatch() {
-	for _, cb := range e.Ticker.callbacks {
-		cb(e.Now)
+	for _, cb := range e.ticker.callbacks {
+		cb(e.target)
 	}
 }

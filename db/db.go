@@ -87,6 +87,7 @@ type DB struct {
 	// StartHour and EndHour define the limit of daylight hours.
 	StartHour int
 	EndHour   int
+	Tickers   map[tickKey]*lib.Ticker // Map of tickers
 
 	yaml       []byte                   // YAML config
 	input      chan input               // Channel for tagged data
@@ -94,7 +95,6 @@ type DB struct {
 	elements   map[string]Element       // Map of tags to elements
 	checkpoint map[string]string        // Initial checkpoint data
 	disabled   map[string]struct{}      // Map of disabled features
-	tickers    map[tickKey]*lib.Ticker  // Map of tickers
 	lastDay    int                      // Current day, to check for midnight processing
 	freshness  time.Duration            // shelf life of data
 	status     map[string]statusPrinter // Map of status reporters
@@ -122,7 +122,7 @@ func NewDatabase(conf []byte) *DB {
 	d.yaml = conf
 	d.elements = make(map[string]Element)
 	d.checkpoint = make(map[string]string)
-	d.tickers = make(map[tickKey]*lib.Ticker)
+	d.Tickers = make(map[tickKey]*lib.Ticker)
 	d.disabled = make(map[string]struct{})
 	d.status = make(map[string]statusPrinter)
 	d.StartHour = 5                // 5AM
@@ -203,12 +203,17 @@ func (d *DB) Start() error {
 			log.Printf("Last time saved was %s\n", last.Format(time.UnixDate))
 		}
 	}
-	d.lastDay = last.YearDay()
+	// Add a callback for daily midnight updating
+	d.AddCallback(time.Hour*24, 0, d.newDay)
 	// Call the init hooks, which initialises all the registered features.
 	for _, h := range initHook {
 		if err := h(d); err != nil {
 			return err
 		}
+	}
+	// Check if checkpoint was from previous day
+	if time.Now().YearDay() != last.YearDay() {
+		d.newDay(time.Now())
 	}
 	log.Printf("Freshness timeout = %s, daylight start %d:00, end %d:00", d.freshness.String(), d.StartHour, d.EndHour)
 	if d.Dryrun {
@@ -225,8 +230,9 @@ func (d *DB) Start() error {
 	signal.Notify(sigc, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 	// Start the tickers.
 	eventChan := make(chan lib.Event, 10)
-	for _, t := range d.tickers {
+	for _, t := range d.Tickers {
 		t.Start(eventChan)
+		log.Printf("Starting ticker: %s", t.String())
 	}
 	for {
 		select {
@@ -268,7 +274,7 @@ func (d *DB) Input(tag string, value float64) {
 // AddCallback adds a callback to be regularly invoked at the interval specified.
 func (d *DB) AddCallback(tick, offset time.Duration, cb func(time.Time)) {
 	key := tickKey{tick, offset}
-	t, ok := d.tickers[key]
+	t, ok := d.Tickers[key]
 	if !ok {
 		t = lib.NewTicker(tick, offset)
 		if d.Trace {
@@ -276,12 +282,7 @@ func (d *DB) AddCallback(tick, offset time.Duration, cb func(time.Time)) {
 				log.Printf("Ticker triggered at %s for interval %s\n", now.Format("15:04:05"), t.Tick().String())
 			})
 		}
-		// Add an initial callback to test for day reset before
-		// any other callback runs
-		t.AddCB(func(now time.Time) {
-			d.checkForMidnight(now, t)
-		})
-		d.tickers[key] = t
+		d.Tickers[key] = t
 	}
 	t.AddCB(cb)
 }
@@ -312,24 +313,13 @@ func (d *DB) GetStatus() map[string]string {
 	return m
 }
 
-// checkForMidnight is the first callback for every ticker.
-// - If a new day, call Midnight() on all the database elements.
-// - Invoke the update functions.
-// It is called from the main select loop.
-// Since it cannot be guaranteed which ticker will fire first, this common
-// processing will always check for midnight and run the new-day
-// processing before anything else.
-func (d *DB) checkForMidnight(now time.Time, t *lib.Ticker) {
-	// Check for daily reset processing which occurs at midnight.
-	atMidnight := now.YearDay() != d.lastDay
-	if atMidnight {
-		d.lastDay = now.YearDay()
-		for _, el := range d.elements {
-			el.Midnight()
-		}
-		if d.Trace {
-			log.Printf("Day reset!")
-		}
+// newDay runs the Midnight method on all the elements.
+func (d *DB) newDay(now time.Time) {
+	for _, el := range d.elements {
+		el.Midnight()
+	}
+	if d.Trace {
+		log.Printf("Day reset!")
 	}
 }
 

@@ -167,6 +167,10 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td></tr>", k, sm[k])
 	}
 	fmt.Fprintf(w, "</table>")
+	fmt.Fprintf(w, "<h1>Timers</h1>")
+	for _, t := range s.d.Tickers {
+		fmt.Fprintf(w, "%s<br>", t.String())
+	}
 	fmt.Fprintf(w, "<h1>Database</h1>")
 	fmt.Fprintf(w, "<table border=\"1\"><tr><th>Tag</th><th>Value</th><th>Daily</th><th>Fresh</th><th>Timestamp</th><th>Age</tr>")
 	m := s.d.GetElements()
