@@ -129,7 +129,7 @@ func (p *pvWriter) upload(now time.Time) {
 			log.Printf("v5 = %.2f", temp.Get())
 		}
 	} else if p.trace {
-		log.Printf("No temperature, v5 not updated\n")
+		log.Printf("pvoutput: No temperature, v5 not updated\n")
 	}
 	if isValid(volts) && volts.Get() != 0 {
 		val.Add("v6", fmt.Sprintf("%.2f", volts.Get()))
@@ -137,7 +137,7 @@ func (p *pvWriter) upload(now time.Time) {
 			log.Printf("v6 = %.2f", volts.Get())
 		}
 	} else if p.trace {
-		log.Printf("No Voltage, v6 not updated\n")
+		log.Printf("pvoutput: No Voltage, v6 not updated\n")
 	}
 	if isValid(imp) && isValid(exp) {
 		consumption := imp.Daily() - exp.Daily()
@@ -153,16 +153,16 @@ func (p *pvWriter) upload(now time.Time) {
 		}
 	} else if p.trace {
 		if exp == nil {
-			log.Printf("No export data\n")
+			log.Printf("pvoutput: No export data\n")
 		} else if !isValid(exp) {
-			log.Printf("Export data not fresh\n")
+			log.Printf("pvoutput: Export data not fresh\n")
 		}
 		if imp == nil {
-			log.Printf("No import data\n")
+			log.Printf("pvoutput: No import data\n")
 		} else if !isValid(imp) {
-			log.Printf("Import data not fresh\n")
+			log.Printf("pvoutput: Import data not fresh\n")
 		}
-		log.Printf("No consumption data, v3 not updated\n")
+		log.Printf("pvoutput: No consumption data, v3 not updated\n")
 	}
 	tp, err := p.getPower()
 	if err == nil {
@@ -172,7 +172,7 @@ func (p *pvWriter) upload(now time.Time) {
 		}
 		cp := int(g*1000 + tp)
 		if cp < 0 {
-			log.Printf("Negative power consumption (%d), v4 set to 0, gen = %d, meter = %d\n", cp, int(g*1000), int(tp))
+			log.Printf("pvoutput: Negative power consumption (%d), v4 set to 0, gen = %d, meter = %d\n", cp, int(g*1000), int(tp))
 			cp = 0
 		}
 		val.Add("v4", fmt.Sprintf("%d", cp))
@@ -180,11 +180,11 @@ func (p *pvWriter) upload(now time.Time) {
 			log.Printf("v4 = %d", cp)
 		}
 	} else {
-		log.Printf("Invalid total power, v4 not sent: %v\n", err)
+		log.Printf("pvoutput: Invalid total power, v4 not sent: %v\n", err)
 	}
 	req, err := http.NewRequest("POST", p.pvurl, strings.NewReader(val.Encode()))
 	if err != nil {
-		log.Printf("NewRequest failed: %v", err)
+		log.Printf("pvoutput: NewRequest failed: %v", err)
 		fmt.Fprintf(&b, "NewRequest err: %v", err)
 		p.status = b.String()
 		return
@@ -212,8 +212,8 @@ func (p *pvWriter) send(req *http.Request, b *strings.Builder) {
 	defer func() { p.status = b.String() }()
 	resp, err := p.client.Do(req)
 	if err != nil {
-		log.Printf(" - Request failed: %v", err)
-		fmt.Fprintf(b, "Req err: %v", err)
+		log.Printf("pvoutput: Request failed: %v", err)
+		fmt.Fprintf(b, " - %v", err)
 		return
 	}
 	defer resp.Body.Close()
@@ -222,8 +222,8 @@ func (p *pvWriter) send(req *http.Request, b *strings.Builder) {
 	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := ioutil.ReadAll(resp.Body)
-		log.Printf("Error: %s: %s", resp.Status, body)
-		fmt.Fprintf(b, "Resp err: %s", resp.Status)
+		log.Printf("pvoutput: %s: %s", resp.Status, body)
+		fmt.Fprintf(b, " - err: %s", resp.Status)
 	} else {
 		fmt.Fprintf(b, " - OK")
 	}
