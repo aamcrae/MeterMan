@@ -33,6 +33,7 @@ const (
 	D_OUT_POWER   = "OUT-P" // Derived Out power (Kw)
 	G_IN_CURRENT  = "IN-C"  // Current from grid to house (A)
 	G_OUT_CURRENT = "OUT-C" // Current from house to grid (A)
+	G_FREQ        = "FREQ"  // Current frequency
 	// Values read from inverter,
 	A_GEN_TOTAL = "GEN-T"   // Total energy generated from PV (KwH)
 	A_GEN_DAILY = "GEN-D"   // Daily energy generated from PV (KWH)

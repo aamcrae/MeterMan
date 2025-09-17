@@ -114,6 +114,7 @@ func (h *hassi) send(now time.Time) {
 		b.Attr["consumption"] = consumption
 	}
 	h.add(db.G_VOLTS, "volts", b.Attr)
+	h.add(db.G_FREQ, "frequency", b.Attr)
 	h.add(db.D_GEN_P, "gen_power", b.Attr)
 	h.daily(db.A_OUT_TOTAL, "out", b.Attr)
 	h.daily(db.A_IN_TOTAL, "in", b.Attr)

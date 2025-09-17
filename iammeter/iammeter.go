@@ -29,6 +29,7 @@
 // Power (kWh) -> ignored
 // Import (kWh) -> D_IN_POWER, A_IN_TOTAL, A_IMPORT
 // Export (kWh) -> D_OUT_POWER, A_OUT_TOTAL, A_EXPORT
+// Optionally Frequency (Hertz) -> G_FREQ
 
 package iammeter
 
@@ -98,6 +99,7 @@ func iamReader(d *db.DB) error {
 		im.d.AddAccum(db.A_OUT_TOTAL, true)
 		im.d.AddAccum(db.A_IMPORT, true)
 		im.d.AddAccum(db.A_EXPORT, true)
+		im.d.AddGauge(db.G_FREQ)
 		im.d.AddCallback(time.Second*time.Duration(poll), time.Second*time.Duration(offset), func(now time.Time) {
 			go im.poll()
 		})
@@ -182,5 +184,8 @@ func (im *imeter) fetch() error {
 	im.d.Input(db.D_OUT_POWER, m.Data[4])
 	im.d.Input(db.A_OUT_TOTAL, m.Data[4])
 	im.d.Input(db.A_EXPORT, m.Data[4])
+	if len(m.Data) == 7 {
+		im.d.Input(db.G_FREQ, m.Data[5])
+	}
 	return nil
 }
