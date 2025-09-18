@@ -46,8 +46,26 @@ type writer struct {
 
 const header = "#date,time"
 
-var elements []string = []string{"GEN-P", "VOLTS", "TEMP", "IN-P", "OUT-P", "D-GEN-P"}
-var accums []string = []string{"IMP", "EXP", "GEN-T", "GEN-D", "IN", "OUT"}
+type field struct {
+	name string
+	accum bool
+}
+
+var fields []field = []field {
+	{ "GEN-P", false },
+	{ "VOLTS", false },
+	{ "TEMP", false },
+	{ "IN-P", false },
+	{ "OUT-P", false },
+	{ "D-GEN-P", false },
+	{ "IMP", true },
+	{ "EXP", true },
+	{ "GEN-T", true },
+	{ "GEN-D", true },
+	{ "IN", true },
+	{ "OUT", true },
+	{ "FREQ", false },
+}
 
 const moduleName = "csv"
 
@@ -89,18 +107,17 @@ func (c *csv) Run(now time.Time) {
 	// Generate the line to be written.
 	var line strings.Builder
 	fmt.Fprint(&line, now.Format("2006-01-02,15:04"))
-	for _, s := range elements {
-		g := c.d.GetElement(s)
-		fmt.Fprint(&line, ",")
-		if g != nil && g.Fresh() {
-			fmt.Fprintf(&line, "%s", lib.FmtFloat(g.Get()))
-		}
-	}
-	for _, s := range accums {
-		a := c.d.GetAccum(s)
-		fmt.Fprint(&line, ",")
-		if a != nil && a.Fresh() {
-			fmt.Fprintf(&line, "%s,%s", lib.FmtFloat(a.Get()), lib.FmtFloat(a.Daily()))
+	for _, f := range fields {
+		e := c.d.GetElement(f.name)
+		if e != nil && e.Fresh() {
+			fmt.Fprintf(&line, ",%s", lib.FmtFloat(e.Get()))
+			// For accumulators, also store the daily accumulated value
+			if f.accum {
+				a := e.(db.Acc)
+				fmt.Fprintf(&line, ",%s", lib.FmtFloat(a.Daily()))
+			}
+		} else if f.accum {
+			fmt.Fprint(&line, ",,")
 		} else {
 			fmt.Fprint(&line, ",")
 		}
@@ -132,11 +149,11 @@ func (c *csv) write(now time.Time, l string) {
 		}
 		if created {
 			fmt.Fprint(c.writer, header)
-			for _, s := range elements {
-				fmt.Fprintf(c.writer, ",%s", s)
-			}
-			for _, s := range accums {
-				fmt.Fprintf(c.writer, ",%s,%s-DAILY", s, s)
+			for _, f := range fields {
+				fmt.Fprintf(c.writer, ",%s", f.name)
+				if f.accum {
+					fmt.Fprintf(c.writer, ",%s-DAILY", f.name)
+				}
 			}
 			fmt.Fprint(c.writer, "\n")
 			c.lines++
