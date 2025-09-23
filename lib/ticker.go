@@ -31,7 +31,7 @@ type Ticker struct {
 }
 
 // Event is sent from the per-ticker goroutine to a common channel when the ticker interval ticks over
-type Event struct {
+type event struct {
 	target time.Time
 	ticker *Ticker
 }
@@ -42,7 +42,7 @@ type tickKey struct {
 	offs time.Duration
 }
 
-var waitChan chan Event
+var waitChan chan event
 var evOnce sync.Once
 var Tickers map[tickKey]*Ticker = map[tickKey]*Ticker{}
 
@@ -51,12 +51,13 @@ func NewTicker(tick, offset time.Duration) *Ticker {
 	key := tickKey{tick, offset}
 	t, ok := Tickers[key]
 	if !ok {
+		// New ticker entry
 		t = &Ticker{tick: tick, offset: offset}
 		Tickers[key] = t
 		// Start a goroutine that sends an event for each ticker interval.
 		go func() {
 			ec := getChan()
-			var tv Event
+			var tv event
 			tv.ticker = t
 			for {
 				// Calculate the next time an event should be sent, and
@@ -73,25 +74,20 @@ func NewTicker(tick, offset time.Duration) *Ticker {
 	return t
 }
 
-func getChan() chan Event {
+func getChan() chan event {
 	evOnce.Do(func() {
-		waitChan = make(chan Event, 10)
+		waitChan = make(chan event, 10)
 	})
 	return waitChan
 }
 
-func WaitChan() <- chan Event {
+func WaitChan() <- chan event {
 	return getChan()
 }
 
 // AddCB adds a callback to this ticker's callbacks
 func (t *Ticker) AddCB(cb func(time.Time)) {
 	t.callbacks = append(t.callbacks, cb)
-}
-
-// Tick returns the interval duration for this ticker.
-func (t *Ticker) Tick() time.Duration {
-	return t.tick
 }
 
 func (t *Ticker) String() string {
@@ -104,7 +100,7 @@ func (t *Ticker) String() string {
 }
 
 // Dispatch handles a tick event by invoking the callbacks registered on the ticker.
-func (e *Event) Dispatch() {
+func (e *event) Dispatch() {
 	for _, cb := range e.ticker.callbacks {
 		cb(e.target)
 	}
