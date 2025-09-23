@@ -16,6 +16,7 @@ package lib
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -71,7 +72,12 @@ func (t *Ticker) Tick() time.Duration {
 }
 
 func (t *Ticker) String() string {
-	return fmt.Sprintf("interval %s, offset %s, callbacks %d, fired %d, next firing %s", t.tick, t.offset, len(t.callbacks), t.fired, t.next)
+	var b strings.Builder
+	fmt.Fprintf(&b, "interval %s, offset %s, callbacks %d, fired %d", t.tick, t.offset, len(t.callbacks), t.fired)
+	if !t.next.IsZero() {
+		fmt.Fprintf(&b, ", next firing %s", t.next)
+	}
+	return b.String()
 }
 
 // Dispatch handles a tick event by invoking the callbacks registered on the ticker.
