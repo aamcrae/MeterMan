@@ -168,7 +168,7 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 	}
 	fmt.Fprintf(w, "</table>")
 	fmt.Fprintf(w, "<h1>Timers</h1>")
-	for _, t := range s.d.Tickers {
+	for _, t := range lib.Tickers {
 		fmt.Fprintf(w, "%s<br>", t.String())
 	}
 	fmt.Fprintf(w, "<h1>Database</h1>")

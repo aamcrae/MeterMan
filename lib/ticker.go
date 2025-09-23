@@ -17,6 +17,7 @@ package lib
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -35,30 +36,52 @@ type Event struct {
 	ticker *Ticker
 }
 
-// NewTicker creates and initialises a new ticker
-func NewTicker(tick, offset time.Duration) *Ticker {
-	return &Ticker{tick: tick, offset: offset}
+// Key for map
+type tickKey struct {
+	tick time.Duration
+	offs time.Duration
 }
 
-// Start initialises and starts the ticker by
-// launching a goroutine that waits for the ticker
-// interval, and then sends an event on the channel provided.
-func (t *Ticker) Start(ec chan<- Event) {
-	// Start a goroutine that sends an event for each ticker interval.
-	go func(ec chan<- Event, t *Ticker) {
-		var tv Event
-		tv.ticker = t
-		for {
-			// Calculate the next time an event should be sent, and
-			// sleep until then.
-			now := time.Now()
-			tv.target = now.Add(t.tick).Add(-t.offset).Truncate(t.tick).Add(t.offset)
-			t.next = tv.target
-			time.Sleep(tv.target.Sub(now))
-			ec <- tv
-			t.fired++
-		}
-	}(ec, t)
+var waitChan chan Event
+var evOnce sync.Once
+var Tickers map[tickKey]*Ticker = map[tickKey]*Ticker{}
+
+// NewTicker creates and starts (if necessary) a new ticker.
+func NewTicker(tick, offset time.Duration) *Ticker {
+	key := tickKey{tick, offset}
+	t, ok := Tickers[key]
+	if !ok {
+		t = &Ticker{tick: tick, offset: offset}
+		Tickers[key] = t
+		// Start a goroutine that sends an event for each ticker interval.
+		go func() {
+			ec := getChan()
+			var tv Event
+			tv.ticker = t
+			for {
+				// Calculate the next time an event should be sent, and
+				// sleep until then.
+				now := time.Now()
+				tv.target = now.Add(t.tick).Add(-t.offset).Truncate(t.tick).Add(t.offset)
+				t.next = tv.target
+				time.Sleep(tv.target.Sub(now))
+				ec <- tv
+				t.fired++
+			}
+		}()
+	}
+	return t
+}
+
+func getChan() chan Event {
+	evOnce.Do(func() {
+		waitChan = make(chan Event, 10)
+	})
+	return waitChan
+}
+
+func WaitChan() <- chan Event {
+	return getChan()
 }
 
 // AddCB adds a callback to this ticker's callbacks

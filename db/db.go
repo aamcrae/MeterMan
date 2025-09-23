@@ -74,11 +74,6 @@ type DbConfig struct {
 
 type statusPrinter func() string
 
-type tickKey struct {
-	tick time.Duration
-	offs time.Duration
-}
-
 // DB contains the element database.
 type DB struct {
 	Config map[string]*yaml.Decoder // Decoded config
@@ -87,7 +82,6 @@ type DB struct {
 	// StartHour and EndHour define the limit of daylight hours.
 	StartHour int
 	EndHour   int
-	Tickers   map[tickKey]*lib.Ticker // Map of tickers
 
 	yaml       []byte                   // YAML config
 	input      chan input               // Channel for tagged data
@@ -122,7 +116,6 @@ func NewDatabase(conf []byte) *DB {
 	d.yaml = conf
 	d.elements = make(map[string]Element)
 	d.checkpoint = make(map[string]string)
-	d.Tickers = make(map[tickKey]*lib.Ticker)
 	d.disabled = make(map[string]struct{})
 	d.status = make(map[string]statusPrinter)
 	d.StartHour = 5                // 5AM
@@ -228,12 +221,7 @@ func (d *DB) Start() error {
 	// Register some signal handlers for graceful termination
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
-	// Start the tickers.
-	eventChan := make(chan lib.Event, 10)
-	for _, t := range d.Tickers {
-		t.Start(eventChan)
-		log.Printf("Starting ticker: %s", t.String())
-	}
+	echan := lib.WaitChan()
 	for {
 		select {
 		case r := <-d.input:
@@ -244,7 +232,7 @@ func (d *DB) Start() error {
 			} else {
 				log.Printf("Unknown tag: %s\n", r.tag)
 			}
-		case ev := <-eventChan:
+		case ev := <-echan:
 			// Event from ticker, run the callbacks on the main thread
 			ev.Dispatch()
 		case f := <-d.run:
@@ -273,18 +261,7 @@ func (d *DB) Input(tag string, value float64) {
 
 // AddCallback adds a callback to be regularly invoked at the interval specified.
 func (d *DB) AddCallback(tick, offset time.Duration, cb func(time.Time)) {
-	key := tickKey{tick, offset}
-	t, ok := d.Tickers[key]
-	if !ok {
-		t = lib.NewTicker(tick, offset)
-		if d.Trace {
-			t.AddCB(func(now time.Time) {
-				log.Printf("Ticker triggered at %s for interval %s\n", now.Format("15:04:05"), t.Tick().String())
-			})
-		}
-		d.Tickers[key] = t
-	}
-	t.AddCB(cb)
+	lib.NewTicker(tick, offset).AddCB(cb)
 }
 
 // Execute runs a function in the main thread, blocking until
