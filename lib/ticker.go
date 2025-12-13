@@ -81,7 +81,7 @@ func getChan() chan event {
 	return waitChan
 }
 
-func WaitChan() <- chan event {
+func WaitChan() <-chan event {
 	return getChan()
 }
 

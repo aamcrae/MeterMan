@@ -30,6 +30,7 @@ import (
 	_ "github.com/aamcrae/MeterMan/meter"
 	_ "github.com/aamcrae/MeterMan/pv"
 	_ "github.com/aamcrae/MeterMan/server"
+	_ "github.com/aamcrae/MeterMan/sigenergy"
 	_ "github.com/aamcrae/MeterMan/sma"
 	_ "github.com/aamcrae/MeterMan/weather"
 )

@@ -40,6 +40,13 @@ const (
 	G_GEN_P     = "GEN-P"   // Current PV power (Kw)
 	G_VOLTS     = "VOLTS"   // Current AC voltage (V)
 	D_GEN_P     = "D-GEN-P" // Derived PV power (Kw)
+	// Values read from battery,
+	A_CHARGE_TOTAL    = "CHARGE-T" // Lifetime total charge
+	A_DISCHARGE_TOTAL = "DISC-T"   // Lifetime total discharge
+	G_BATT_POWER      = "BATT-P"   // Current battery power (Kw) (-ve discharging)
+	G_BATT_SIZE       = "BATT-SZ"  // Battery size (Kw)
+	G_BATT_PERCENT    = "BATT-C"   // Current state of charge (percent)
+	G_BATT_STATUS     = "BATT-ST"  // Current battery status (see enum)
 	// Values read from weather service.
 	G_TEMP = "TEMP" // Current temperature (degrees C)
 	// Special values.

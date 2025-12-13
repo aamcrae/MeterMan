@@ -111,8 +111,18 @@ func (h *hassi) send(now time.Time) {
 		if gen_p.Fresh() {
 			consumption += gen_p.Get()
 		}
+		bp := h.d.GetElement(db.G_BATT_POWER)
+		if bp.Fresh() {
+			bpower := bp.Get()
+			if bpower < 0.0 {
+				consumption += -bpower
+			}
+		}
 		b.Attr["consumption"] = consumption
 	}
+	h.add(db.G_BATT_POWER, "batt_power", b.Attr)
+	h.add(db.G_BATT_SIZE, "batt_size", b.Attr)
+	h.add(db.G_BATT_PERCENT, "batt_percent", b.Attr)
 	h.add(db.G_VOLTS, "volts", b.Attr)
 	h.add(db.G_FREQ, "frequency", b.Attr)
 	h.add(db.D_GEN_P, "gen_power", b.Attr)
@@ -121,6 +131,8 @@ func (h *hassi) send(now time.Time) {
 	h.daily(db.A_GEN_TOTAL, "gen", b.Attr)
 	h.daily(db.A_IMPORT, "import", b.Attr)
 	h.daily(db.A_EXPORT, "export", b.Attr)
+	h.daily(db.A_CHARGE_TOTAL, "batt_charge", b.Attr)
+	h.daily(db.A_DISCHARGE_TOTAL, "batt_discharge", b.Attr)
 	// Send request asynchronously.
 	go func() {
 		var str strings.Builder

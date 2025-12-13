@@ -22,6 +22,12 @@
 // v4 - Current power consumption (w)
 // v5 - Temperature (C)
 // v6 - AC voltage (V)
+// b1 - battery power (w), -ve is discharge
+// b2 - state of charge (percent)
+// b3 - battery size (wH)
+// b4 - lifetime charge (wH)
+// b5 - lifetime discharge (wH)
+// b6 - battery status (see enum)
 //
 // The package is configured as a section in the YAML config file:
 //  pvoutput:
@@ -99,6 +105,12 @@ func (p *pvWriter) upload(now time.Time) {
 	volts := p.d.GetElement(db.G_VOLTS)
 	imp := p.d.GetAccum(db.A_IN_TOTAL)
 	exp := p.d.GetAccum(db.A_OUT_TOTAL)
+	b_total_charge := p.d.GetAccum(db.A_CHARGE_TOTAL)
+	b_total_discharge := p.d.GetAccum(db.A_DISCHARGE_TOTAL)
+	b_status := p.d.GetElement(db.G_BATT_STATUS)
+	b_power := p.d.GetElement(db.G_BATT_POWER)
+	b_size := p.d.GetElement(db.G_BATT_SIZE)
+	b_percent := p.d.GetElement(db.G_BATT_PERCENT)
 	hour := now.Hour()
 	daytime := hour >= p.d.StartHour && hour < p.d.EndHour
 
@@ -182,6 +194,27 @@ func (p *pvWriter) upload(now time.Time) {
 	} else {
 		log.Printf("pvoutput: Invalid total power, v4 not sent: %v\n", err)
 	}
+
+	// Add battery values
+	if isValid(b_total_charge) {
+		val.Add("b4", fmt.Sprintf("%d", int(b_total_charge.Get()*1000.0)))
+	}
+	if isValid(b_total_discharge) {
+		val.Add("b5", fmt.Sprintf("%d", int(b_total_discharge.Get()*1000.0)))
+	}
+	if isValid(b_power) {
+		val.Add("b1", fmt.Sprintf("%d", int(b_power.Get()*1000.0)))
+	}
+	if isValid(b_size) {
+		val.Add("b3", fmt.Sprintf("%d", int(b_size.Get()*1000.0)))
+	}
+	if isValid(b_percent) {
+		val.Add("b2", fmt.Sprintf("%.1f", b_percent.Get()))
+	}
+	if isValid(b_status) {
+		val.Add("b6", fmt.Sprintf("%d", int(b_status.Get())))
+	}
+
 	req, err := http.NewRequest("POST", p.pvurl, strings.NewReader(val.Encode()))
 	if err != nil {
 		log.Printf("pvoutput: NewRequest failed: %v", err)

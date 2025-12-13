@@ -47,24 +47,24 @@ type writer struct {
 const header = "#date,time"
 
 type field struct {
-	name string
+	name  string
 	accum bool
 }
 
-var fields []field = []field {
-	{ "GEN-P", false },
-	{ "VOLTS", false },
-	{ "TEMP", false },
-	{ "IN-P", false },
-	{ "OUT-P", false },
-	{ "D-GEN-P", false },
-	{ "IMP", true },
-	{ "EXP", true },
-	{ "GEN-T", true },
-	{ "GEN-D", true },
-	{ "IN", true },
-	{ "OUT", true },
-	{ "FREQ", false },
+var fields []field = []field{
+	{"GEN-P", false},
+	{"VOLTS", false},
+	{"TEMP", false},
+	{"IN-P", false},
+	{"OUT-P", false},
+	{"D-GEN-P", false},
+	{"IMP", true},
+	{"EXP", true},
+	{"GEN-T", true},
+	{"GEN-D", true},
+	{"IN", true},
+	{"OUT", true},
+	{"FREQ", false},
 }
 
 const moduleName = "csv"
