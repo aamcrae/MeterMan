@@ -81,7 +81,6 @@ func (b *Battery) poll() error {
 		fields, _ := req.ExtractFields(resp, true)
 		for _, f := range fields {
 			switch findex {
-			default:
 			case 1:
 				b.grid_power = float64(f.Value.(int32)) / 1000.0
 			case 2:
