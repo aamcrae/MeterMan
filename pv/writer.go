@@ -184,9 +184,9 @@ func (p *pvWriter) upload(now time.Time) {
 		if pv_power_ok {
 			g = pv_power
 		}
-		// Add in battery power (-ve, charging)
+		// Add in battery power (-ve, discharging)
 		if isValid(b_power) {
-			tp += b_power.Get() * 1000.0
+			tp -= b_power.Get() * 1000.0
 		}
 		cp := int(g*1000 + tp)
 		if cp < 0 {
