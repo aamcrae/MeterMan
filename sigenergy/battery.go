@@ -16,7 +16,6 @@ package sigenergy
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/aldas/go-modbus-client"

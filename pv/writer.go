@@ -105,8 +105,8 @@ func (p *pvWriter) upload(now time.Time) {
 	volts := p.d.GetElement(db.G_VOLTS)
 	imp := p.d.GetAccum(db.A_IN_TOTAL)
 	exp := p.d.GetAccum(db.A_OUT_TOTAL)
-	b_total_charge := p.d.GetAccum(db.A_CHARGE_TOTAL)
-	b_total_discharge := p.d.GetAccum(db.A_DISCHARGE_TOTAL)
+	b_charge := p.d.GetAccum(db.A_CHARGE_TOTAL)
+	b_discharge := p.d.GetAccum(db.A_DISCHARGE_TOTAL)
 	b_status := p.d.GetElement(db.G_BATT_STATUS)
 	b_power := p.d.GetElement(db.G_BATT_POWER)
 	b_size := p.d.GetElement(db.G_BATT_SIZE)
@@ -155,6 +155,8 @@ func (p *pvWriter) upload(now time.Time) {
 		consumption := imp.Daily() - exp.Daily()
 		// Daily PV generation may be out of date, but it is used regardless.
 		consumption += pv_daily
+		// Add in battery charge/discharge, don't count battery charging as consumption
+		consumption += b_discharge.Daily() - b_charge.Daily()
 		val.Add("v3", fmt.Sprintf("%d", int(consumption*1000)))
 		if p.trace {
 			log.Printf("v3 = %g, imp = %g, exp = %g", consumption, imp.Daily(), exp.Daily())
@@ -182,6 +184,10 @@ func (p *pvWriter) upload(now time.Time) {
 		if pv_power_ok {
 			g = pv_power
 		}
+		// Add in battery power (-ve, charging)
+		if isValid(b_power) {
+			tp += b_power.Get() * 1000.0
+		}
 		cp := int(g*1000 + tp)
 		if cp < 0 {
 			log.Printf("pvoutput: Negative power consumption (%d), v4 set to 0, gen = %d, meter = %d\n", cp, int(g*1000), int(tp))
@@ -196,11 +202,11 @@ func (p *pvWriter) upload(now time.Time) {
 	}
 
 	// Add battery values
-	if isValid(b_total_charge) {
-		val.Add("b4", fmt.Sprintf("%d", int(b_total_charge.Get()*1000.0)))
+	if isValid(b_charge) {
+		val.Add("b4", fmt.Sprintf("%d", int(b_charge.Get()*1000.0)))
 	}
-	if isValid(b_total_discharge) {
-		val.Add("b5", fmt.Sprintf("%d", int(b_total_discharge.Get()*1000.0)))
+	if isValid(b_discharge) {
+		val.Add("b5", fmt.Sprintf("%d", int(b_discharge.Get()*1000.0)))
 	}
 	if isValid(b_power) {
 		val.Add("b1", fmt.Sprintf("%d", int(b_power.Get()*1000.0)))

@@ -113,10 +113,7 @@ func (h *hassi) send(now time.Time) {
 		}
 		bp := h.d.GetElement(db.G_BATT_POWER)
 		if bp.Fresh() {
-			bpower := bp.Get()
-			if bpower < 0.0 {
-				consumption += -bpower
-			}
+			consumption -= bp.Get()
 		}
 		b.Attr["consumption"] = consumption
 	}
