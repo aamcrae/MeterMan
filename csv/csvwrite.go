@@ -65,6 +65,10 @@ var fields []field = []field{
 	{"IN", true},
 	{"OUT", true},
 	{"FREQ", false},
+	{"CHARGE-T", true},
+	{"DISC-T", true},
+	{"BATT-P", false},
+	{"BATT-C", false},
 }
 
 const moduleName = "csv"

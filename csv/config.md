@@ -62,3 +62,10 @@ The columns are:
 | IN-DAILY | KwH | Daily total of imported energy from grid |
 | OUT | KwH | Lifetime total of exported energy to grid |
 | OUT-DAILY | KwH | Daily total exported energy to grid |
+| FREQ | Hz | Current grid frequency |
+| CHARGE-T | KwH | Lifetime total battery charging |
+| CHARGE-T-DAILY | KwH | Daily total battery charging |
+| DISC-T | KwH | Lifetime total battery discharging |
+| DISC-T-DAILY | KwH | Daily total battery discharging |
+| BATT-P | Kw | Battery power (-ve, discharging) |
+| BATT-C | % | Current battery capacity |
