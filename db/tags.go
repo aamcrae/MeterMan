@@ -29,8 +29,8 @@ const (
 	A_OUT_TOTAL   = "OUT"   // Total energy from PV to grid (KwH)
 	A_IMPORT      = "IMP"   // Sum of separate phases, energy from grid (KwH)
 	A_EXPORT      = "EXP"   // Sum of separate phases, energy to grid (KwH)
-	D_IN_POWER    = "IN-P"  // Derived In power (Kw)
-	D_OUT_POWER   = "OUT-P" // Derived Out power (Kw)
+	G_IN_POWER    = "IN-P"  // In power (Kw)
+	G_OUT_POWER   = "OUT-P" // Out power (Kw)
 	G_IN_CURRENT  = "IN-C"  // Current from grid to house (A)
 	G_OUT_CURRENT = "OUT-C" // Current from house to grid (A)
 	G_FREQ        = "FREQ"  // Current frequency

@@ -26,9 +26,9 @@
 // Volts (V) -> G_VOLTS (averaged)
 // +Current (A) -> G_IN_CURRENT
 // -Current (A) -> G_OUT_CURRENT
-// Power (kWh) -> ignored
-// Import (kWh) -> D_IN_POWER, A_IN_TOTAL, A_IMPORT
-// Export (kWh) -> D_OUT_POWER, A_OUT_TOTAL, A_EXPORT
+// Power (kWh) -> G_IN_POWER, G_OUT_POWER
+// Import (kWh) -> A_IN_TOTAL, A_IMPORT
+// Export (kWh) -> A_OUT_TOTAL, A_EXPORT
 // Optionally Frequency (Hertz) -> G_FREQ
 
 package iammeter
@@ -93,8 +93,8 @@ func iamReader(d *db.DB) error {
 		im.volts = d.AddSubGauge(db.G_VOLTS, true)
 		im.d.AddGauge(db.G_IN_CURRENT)
 		im.d.AddGauge(db.G_OUT_CURRENT)
-		im.d.AddDiff(db.D_IN_POWER)
-		im.d.AddDiff(db.D_OUT_POWER)
+		im.d.AddGauge(db.G_IN_POWER)
+		im.d.AddGauge(db.G_OUT_POWER)
 		im.d.AddAccum(db.A_IN_TOTAL, true)
 		im.d.AddAccum(db.A_OUT_TOTAL, true)
 		im.d.AddAccum(db.A_IMPORT, true)
@@ -171,17 +171,19 @@ func (im *imeter) fetch() error {
 	im.d.Input(im.volts, m.Data[0])
 	if m.Data[2] < 0.0 {
 		im.d.Input(db.G_IN_CURRENT, 0.0)
+		im.d.Input(db.G_IN_POWER, 0.0)
 		im.d.Input(db.G_OUT_CURRENT, m.Data[1])
+		im.d.Input(db.G_OUT_POWER, m.Data[2]/-1000.0)
 	} else {
+		im.d.Input(db.G_OUT_POWER, 0.0)
 		im.d.Input(db.G_OUT_CURRENT, 0.0)
 		im.d.Input(db.G_IN_CURRENT, m.Data[1])
+		im.d.Input(db.G_IN_POWER, m.Data[2]/1000.0)
 	}
 	// ImportEnergy
-	im.d.Input(db.D_IN_POWER, m.Data[3])
 	im.d.Input(db.A_IN_TOTAL, m.Data[3])
 	im.d.Input(db.A_IMPORT, m.Data[3])
 	// ExportGrid
-	im.d.Input(db.D_OUT_POWER, m.Data[4])
 	im.d.Input(db.A_OUT_TOTAL, m.Data[4])
 	im.d.Input(db.A_EXPORT, m.Data[4])
 	if len(m.Data) == 7 {

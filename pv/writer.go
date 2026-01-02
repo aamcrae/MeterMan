@@ -328,8 +328,8 @@ func (p *pvWriter) getPVDaily() (float64, bool) {
 
 // getPower returns the current import/export power (as Watts)
 func (p *pvWriter) getPower() (float64, error) {
-	d_in := p.d.GetElement(db.D_IN_POWER)
-	d_out := p.d.GetElement(db.D_OUT_POWER)
+	d_in := p.d.GetElement(db.G_IN_POWER)
+	d_out := p.d.GetElement(db.G_OUT_POWER)
 	if p.trace {
 		log.Printf("IN-P  = %g, valid = %v", d_in.Get(), isValid(d_in))
 		log.Printf("OUT-P = %g, valid = %v", d_out.Get(), isValid(d_out))

@@ -76,8 +76,8 @@ type MeterConfig struct {
 
 // Maps meter label to database tag.
 var tagMap map[string][]string = map[string][]string{
-	"1NtL": {db.A_OUT_TOTAL, db.D_OUT_POWER},
-	"EHtL": {db.A_IN_TOTAL, db.D_IN_POWER},
+	"1NtL": {db.A_OUT_TOTAL, db.G_OUT_POWER},
+	"EHtL": {db.A_IN_TOTAL, db.G_IN_POWER},
 	"EHL1": {db.A_IMPORT + "/0"},
 	"EHL2": {db.A_IMPORT + "/1"},
 	"1NL1": {db.A_EXPORT + "/0"},
@@ -105,8 +105,8 @@ func meterReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	d.AddDiff(db.D_IN_POWER)
-	d.AddDiff(db.D_OUT_POWER)
+	d.AddDiff(db.G_IN_POWER)
+	d.AddDiff(db.G_OUT_POWER)
 	d.AddAccum(db.A_IN_TOTAL, true)
 	d.AddAccum(db.A_OUT_TOTAL, true)
 	d.AddSubAccum(db.A_IMPORT, true)

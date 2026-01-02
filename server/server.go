@@ -109,9 +109,9 @@ func (s *apiServer) api(w http.ResponseWriter, req *http.Request) {
 		log.Printf("API: Request: %s", req.URL.String())
 	}
 	var c Data
-	c.Power = int((s.d.GetElement(db.D_IN_POWER).Get() - s.d.GetElement(db.D_OUT_POWER).Get()) * 1000.0)
-	s.daily(&c.Import, db.A_IMPORT, db.D_IN_POWER, 1000)
-	s.daily(&c.Export, db.A_EXPORT, db.D_OUT_POWER, 1000)
+	c.Power = int((s.d.GetElement(db.G_IN_POWER).Get() - s.d.GetElement(db.G_OUT_POWER).Get()) * 1000.0)
+	s.daily(&c.Import, db.A_IMPORT, db.G_IN_POWER, 1000)
+	s.daily(&c.Export, db.A_EXPORT, db.G_OUT_POWER, 1000)
 	s.daily(&c.Generated, db.A_GEN_TOTAL, db.D_GEN_P, 1000)
 	c.Consumption.Daily = c.Generated.Daily + c.Import.Daily - c.Export.Daily
 	c.Consumption.Total = c.Generated.Total + c.Import.Total - c.Export.Total

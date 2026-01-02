@@ -95,13 +95,15 @@ func (h *hassi) send(now time.Time) {
 	}
 	var b blk
 	b.Attr = make(map[string]float64)
-	h.add(db.D_IN_POWER, "in_power", b.Attr)
-	h.add(db.D_OUT_POWER, "out_power", b.Attr)
-	in_p := h.d.GetElement(db.D_IN_POWER)
-	out_p := h.d.GetElement(db.D_OUT_POWER)
+	h.add(db.G_IN_POWER, "in_power", b.Attr)
+	h.add(db.G_OUT_POWER, "out_power", b.Attr)
+	in_p := h.d.GetElement(db.G_IN_POWER)
+	out_p := h.d.GetElement(db.G_OUT_POWER)
 	if in_p.Fresh() && out_p.Fresh() {
 		b.Attr["meter_power"] = in_p.Get() - out_p.Get()
-		if in_p.Get() <= out_p.Get() {
+		if in_p.Get() == out_p.Get() {
+			b.State = "nil"
+		} else if in_p.Get() <= out_p.Get() {
 			b.State = "exporting"
 		} else {
 			b.State = "importing"
