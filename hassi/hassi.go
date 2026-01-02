@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,6 +40,8 @@ import (
 )
 
 const moduleName = "hassi"
+
+type jsonFloat float64
 
 type hassi struct {
 	d      *db.DB
@@ -90,17 +93,17 @@ func (h *hassi) Status() string {
 // Upload any updated tags to Home Assistant.
 func (h *hassi) send(now time.Time) {
 	type blk struct {
-		State string             `json:"state"`
-		Attr  map[string]float64 `json:"attributes"`
+		State string               `json:"state"`
+		Attr  map[string]jsonFloat `json:"attributes"`
 	}
 	var b blk
-	b.Attr = make(map[string]float64)
+	b.Attr = make(map[string]jsonFloat)
 	h.add(db.G_IN_POWER, "in_power", b.Attr)
 	h.add(db.G_OUT_POWER, "out_power", b.Attr)
 	in_p := h.d.GetElement(db.G_IN_POWER)
 	out_p := h.d.GetElement(db.G_OUT_POWER)
 	if in_p.Fresh() && out_p.Fresh() {
-		b.Attr["meter_power"] = in_p.Get() - out_p.Get()
+		b.Attr["meter_power"] = jsonFloat(in_p.Get() - out_p.Get())
 		if in_p.Get() == out_p.Get() {
 			b.State = "nil"
 		} else if in_p.Get() <= out_p.Get() {
@@ -110,14 +113,14 @@ func (h *hassi) send(now time.Time) {
 		}
 		gen_p := h.d.GetElement(db.D_GEN_P)
 		consumption := in_p.Get() - out_p.Get()
-		if gen_p.Fresh() {
+		if gen_p != nil && gen_p.Fresh() {
 			consumption += gen_p.Get()
 		}
 		bp := h.d.GetElement(db.G_BATT_POWER)
 		if bp.Fresh() {
 			consumption -= bp.Get()
 		}
-		b.Attr["consumption"] = consumption
+		b.Attr["consumption"] = jsonFloat(consumption)
 	}
 	h.add(db.G_BATT_POWER, "batt_power", b.Attr)
 	h.add(db.G_BATT_SIZE, "batt_size", b.Attr)
@@ -147,6 +150,9 @@ func (h *hassi) send(now time.Time) {
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", h.key)
+		if h.d.Trace {
+			log.Printf("hassi: req %v", req)
+		}
 		res, err := h.client.Do(req)
 		if err != nil {
 			log.Printf("Req (%s) failed: %v", h.url, err)
@@ -161,24 +167,29 @@ func (h *hassi) send(now time.Time) {
 			fmt.Fprintf(&str, "OK")
 		}
 		if h.d.Trace {
-			log.Printf("hassi: Sent req %s, resp %s", h.url, res.Status)
+			log.Printf("hassi: Sent url %s, resp %s", h.url, res.Status)
 		}
 	}()
 }
 
-func (h *hassi) add(tag, attr string, m map[string]float64) bool {
+func (h *hassi) add(tag, attr string, m map[string]jsonFloat) bool {
 	e := h.d.GetElement(tag)
-	if e.Fresh() {
-		m[attr] = e.Get()
+	if e != nil && e.Fresh() {
+		m[attr] = jsonFloat(e.Get())
 		return true
 	}
 	return false
 }
 
-func (h *hassi) daily(tag, attr string, m map[string]float64) {
+func (h *hassi) daily(tag, attr string, m map[string]jsonFloat) {
 	e := h.d.GetAccum(tag)
-	if e.Fresh() {
-		m[attr+"_daily"] = e.Daily()
-		m[attr+"_total"] = e.Get()
+	if e != nil && e.Fresh() {
+		m[attr+"_daily"] = jsonFloat(e.Daily())
+		m[attr+"_total"] = jsonFloat(e.Get())
 	}
+}
+
+func (f jsonFloat) MarshalJSON() ([]byte, error) {
+	s := strconv.FormatFloat(float64(f), 'f', 3, 64)
+	return []byte(s), nil
 }
