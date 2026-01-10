@@ -199,7 +199,7 @@ func (s *InverterReader) poll(daytime bool) error {
 			}
 			s.d.Input(s.mpttA, mptts[0])
 			s.d.Input(s.mpttB, mptts[1])
-			fmt.Fprintf(&b, ", MPPT-A %s, MPTT-B", lib.FmtFloat(mptts[0]), lib.FmtFloat(mptts[1]))
+			fmt.Fprintf(&b, ", MPPT-A %s, MPTT-B %s", lib.FmtFloat(mptts[0]), lib.FmtFloat(mptts[1]))
 		}
 	}
 	return nil
