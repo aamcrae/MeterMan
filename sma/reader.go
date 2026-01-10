@@ -54,6 +54,8 @@ type InverterReader struct {
 	volts    string // Gauge for current voltage (V)
 	genDaily string // Accum for daily yield (KwH)
 	genT     string // Accum for lifetime yield (KwH)
+	mpttA    string // MPTT A string
+	mpttB    string // MPTT B string
 	status   string // Current status
 }
 
@@ -72,7 +74,7 @@ func inverterReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	for _, e := range conf {
+	for index, e := range conf {
 		poll := lib.ConfigOrDefault(e.Poll, 60)     // Default poll interval of 60 seconds
 		offset := lib.ConfigOrDefault(e.Offset, -5) // Default offset of -5 seconds
 		sma, err := NewSMA(e.Addr, e.Password)
@@ -91,6 +93,11 @@ func inverterReader(d *db.DB) error {
 		s.genDaily = d.AddSubAccum(db.A_GEN_DAILY, true)
 		s.genT = d.AddSubAccum(db.A_GEN_TOTAL, false)
 		s.genDP = d.AddSubDiff(db.D_GEN_P, false)
+		mptt := fmt.Sprintf("%s-%d", db.G_MPTT, index)
+		s.mpttA = fmt.Sprintf("%s-A", mptt)
+		s.mpttB = fmt.Sprintf("%s-B", mptt)
+		d.AddGauge(s.mpttA)
+		d.AddGauge(s.mpttB)
 		nm := strings.Split(e.Addr, ":")[0]
 		d.AddStatusPrinter(fmt.Sprintf("SMA-%s", nm), s.Status)
 		log.Printf("Registered SMA inverter reader for %s (poll interval %d seconds, offset %d seconds, timeout %s)\n", s.sma.Name(), poll, offset, s.sma.Timeout.String())
@@ -179,6 +186,21 @@ func (s *InverterReader) poll(daytime bool) error {
 		}
 		s.d.Input(s.genP, pf)
 		fmt.Fprintf(&b, ", Power %s", lib.FmtFloat(pf))
+
+		mptts, err := s.sma.MPTT()
+		if err != nil {
+			return err
+		}
+		if len(mptts) != 2 {
+			log.Printf("sma:%s: wrong len of mptt: %d - ignored", s.sma.Name(), len(mptts))
+		} else {
+			if s.d.Trace {
+				log.Printf("Tag %s = %g, %s = %g", s.mpttA, mptts[0], s.mpttB, mptts[1])
+			}
+			s.d.Input(s.mpttA, mptts[0])
+			s.d.Input(s.mpttB, mptts[1])
+			fmt.Fprintf(&b, ", MPPT-A %s, MPTT-B", lib.FmtFloat(mptts[0]), lib.FmtFloat(mptts[1]))
+		}
 	}
 	return nil
 }

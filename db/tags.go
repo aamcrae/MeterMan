@@ -40,6 +40,7 @@ const (
 	G_GEN_P     = "GEN-P"   // Current PV power (Kw)
 	G_VOLTS     = "VOLTS"   // Current AC voltage (V)
 	D_GEN_P     = "D-GEN-P" // Derived PV power (Kw)
+	G_MPTT      = "MPTT"    // Individual string (Kw)
 	// Values read from battery,
 	A_CHARGE_TOTAL    = "CHARGE-T" // Lifetime total charge
 	A_DISCHARGE_TOTAL = "DISC-T"   // Lifetime total discharge

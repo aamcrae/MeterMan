@@ -253,6 +253,11 @@ func (s *SMA) Power() (float64, error) {
 	return s.getValue(CMD_AC_28, 0x263F, 1.0)
 }
 
+// Return DC strings power in Kw.
+func (s *SMA) MPTT() ([]float64, error) {
+	return s.getValues(CMD_DC_28, 0x251E, 1000.0)
+}
+
 // Debug code to retrieve all records.
 func (s *SMA) GetAll() error {
 	codes := []uint32{CMD_AC_28, CMD_AC_40, CMD_INV_40, CMD_DC_28, CMD_AC_16, CMD_INV_40}
@@ -267,19 +272,32 @@ func (s *SMA) GetAll() error {
 
 // Get a scaled float value.
 func (s *SMA) getValue(cmd uint32, id uint16, scale float64) (float64, error) {
-	recId := uint32(id) << 8
-	recs, err := s.getRecords(cmd, recId, recId|0xFF)
+	vs, err := s.getValues(cmd, id, scale)
 	if err != nil {
 		return 0, err
 	}
-	v, ok := recs[id]
+	return vs[0], nil
+}
+
+// Get a slice of scaled float values.
+func (s *SMA) getValues(cmd uint32, id uint16, scale float64) ([]float64, error) {
+	recId := uint32(id) << 8
+	recs, err := s.getRecords(cmd, recId, recId|0xFF)
+	if err != nil {
+		return nil, err
+	}
+	vr, ok := recs[id]
 	if ok {
-		return float64(v[0].value) / scale, nil
+		var vals []float64
+		for _, v := range vr {
+			vals = append(vals, float64(v.value)/scale)
+		}
+		return vals, nil
 	} else {
 		if s.Trace {
 			log.Printf("%s: getValue: missing record (0x%04x)", s.name, id)
 		}
-		return 0, fmt.Errorf("getValue: missing record")
+		return nil, fmt.Errorf("getValue: missing record")
 	}
 }
 
@@ -479,10 +497,10 @@ func (s *SMA) unpackRecords(cmd uint32, bList []*bytes.Buffer) (map[uint16][]*re
 				return m, fmt.Errorf("cmd 0x%08x code 0x%04x, unknown data type: 0x%02x", cmd, r.code, r.dataType)
 			}
 			b.Next(size - done)
+			m[r.code] = append(m[r.code], r)
 			if s.Trace {
 				log.Printf("Rec # %d, code: %04x, record size %d", len(m), r.code, size)
 			}
-			m[r.code] = append(m[r.code], r)
 		}
 	}
 	return m, nil

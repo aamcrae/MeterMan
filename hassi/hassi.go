@@ -51,7 +51,7 @@ type hassi struct {
 	key    string
 	client *http.Client
 	status string
-	extra map[string]string
+	extra  map[string]string
 }
 
 // Config structure
@@ -59,7 +59,7 @@ type Hassi struct {
 	Url    string
 	Apikey string
 	Update int
-	Extra map[string]string
+	Extra  map[string]string
 }
 
 func init() {

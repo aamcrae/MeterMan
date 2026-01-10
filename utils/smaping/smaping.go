@@ -35,6 +35,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("%s: %v", *inverter, err)
 	}
+	if *getall {
+		sma.Trace = true
+	}
 	id, serial, err := sma.Logon()
 	if err != nil {
 		log.Fatalf("Logon: %v", err)
@@ -65,6 +68,11 @@ func main() {
 		log.Fatalf("Voltage: %v", err)
 	}
 	log.Printf("volts = %g\n", v)
+	vs, err := sma.MPTT()
+	if err != nil {
+		log.Fatalf("MPTT: %v", err)
+	}
+	log.Printf("mptt_a = %g, mptt_b = %g\n", vs[0], vs[1])
 	if *getall {
 		sma.GetAll()
 	}
