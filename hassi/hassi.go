@@ -20,6 +20,8 @@
 //    apikey: <apikey from Home Assistant>
 //    url: <API endpoint>
 //    update: 60 # Update interval in seconds
+//    extra:
+//      tag: attribute
 //
 // Values that are not stale are sent to Home assistant.
 
@@ -49,6 +51,7 @@ type hassi struct {
 	key    string
 	client *http.Client
 	status string
+	extra map[string]string
 }
 
 // Config structure
@@ -56,6 +59,7 @@ type Hassi struct {
 	Url    string
 	Apikey string
 	Update int
+	Extra map[string]string
 }
 
 func init() {
@@ -75,8 +79,11 @@ func hassiInit(d *db.DB) error {
 	}
 	interval := lib.ConfigOrDefault(conf.Update, 120) // Default update of 120 seconds
 	key := fmt.Sprintf("Bearer %s", conf.Apikey)
-	h := &hassi{d: d, url: conf.Url, key: key, client: &http.Client{}, status: "init"}
+	h := &hassi{d: d, url: conf.Url, key: key, client: &http.Client{}, status: "init", extra: conf.Extra}
 	intv := time.Second * time.Duration(interval)
+	if d.Trace {
+		log.Printf("hassi: extra fields: %v", h.extra)
+	}
 	if !d.Dryrun {
 		d.AddCallback(intv, 0, h.send)
 	}
@@ -135,6 +142,14 @@ func (h *hassi) send(now time.Time) {
 	h.daily(db.A_EXPORT, "export", b.Attr)
 	h.daily(db.A_CHARGE_TOTAL, "batt_charge", b.Attr)
 	h.daily(db.A_DISCHARGE_TOTAL, "batt_discharge", b.Attr)
+	for ek, ev := range h.extra {
+		e := h.d.GetElement(ek)
+		if _, ok := e.(db.Acc); ok {
+			h.daily(ek, ev, b.Attr)
+		} else {
+			h.add(ek, ev, b.Attr)
+		}
+	}
 	// Send request asynchronously.
 	go func() {
 		var str strings.Builder

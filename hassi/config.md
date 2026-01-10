@@ -13,9 +13,13 @@ hassi:
   url: http://my-home-assistant.com:8123/api/states/sensor.meterman
   apikey: <long term api key>
   update: <Seconds between updates>
+  extra:
+    tag: attribute
+    ...
 ```
 
 The default update interval is 120 seconds.
+The `extra` config allows selecting a set of database tags to send to Home Assistant.
 
 ## Home Assistant integration
 
