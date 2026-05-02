@@ -127,7 +127,7 @@ func NewSMA(inverter string, password string) (*SMA, error) {
 	// The password is encoded.
 	pb := bytes.NewBufferString(password).Bytes()
 	var enc []byte
-	for i := 0; i < password_length; i++ {
+	for i := range password_length {
 		var c byte
 		if i < len(pb) {
 			c = pb[i]

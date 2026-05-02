@@ -1,7 +1,7 @@
 github.com/aamcrae/lcd v0.1.0 h1:otDW5nGZrgxTdXGmpS2WBS6bI4Vcfu/Psy2E0KC+Fss=
 github.com/aamcrae/lcd v0.1.0/go.mod h1:mXI9dt6/MPNEcdecF/0gZIhaQLWdIM3uJK0fPUSQYjU=
-github.com/aldas/go-modbus-client v0.0.0-20251107062754-643bf4ab3196 h1:8qd2xxrjEztKVzUCojUSwd1187Y9neS/s/8Hiyc+l7k=
-github.com/aldas/go-modbus-client v0.0.0-20251107062754-643bf4ab3196/go.mod h1:urRV2NreuNU+F27MOjJsBuFC8hg/W1OI5uiWEYmBx4k=
+github.com/aldas/go-modbus-client v0.5.0 h1:r4OxvtrwVchegKMFg9yflCVwAdTUV/0VTyfVb+8hQqc=
+github.com/aldas/go-modbus-client v0.5.0/go.mod h1:urRV2NreuNU+F27MOjJsBuFC8hg/W1OI5uiWEYmBx4k=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fogleman/gg v1.3.0 h1:/7zJX8F6AaYQc57WQCyN9cAIz+4bCJGO9B+dyW29am8=
@@ -14,6 +14,7 @@ github.com/stretchr/objx v0.5.2 h1:xuMeJ0Sdp5ZMRXx/aWO6RZxdr3beISkG5/G/aIRr3pY=
 github.com/stretchr/objx v0.5.2/go.mod h1:FRsXN1f5AsAjCGJKqEizvkpNtU+EGNCLh3NxZ/8L+MA=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
+golang.org/x/image v0.0.0-20210628002857-a66eb6448b8d h1:RNPAfi2nHY7C2srAV8A49jpsYr0ADedCk1wq6fTMTvs=
 golang.org/x/image v0.0.0-20210628002857-a66eb6448b8d/go.mod h1:023OzeP/+EPmXeapQh35lcL3II3LrY8Ic+EFFKVhULM=
 golang.org/x/image v0.38.0 h1:5l+q+Y9JDC7mBOMjo4/aPhMDcxEptsX+Tt3GgRQRPuE=
 golang.org/x/image v0.38.0/go.mod h1:/3f6vaXC+6CEanU4KJxbcUZyEePbyKbaLoDOe4ehFYY=

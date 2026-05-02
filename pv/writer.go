@@ -279,7 +279,7 @@ func (p *pvWriter) getPVPower() (float64, bool) {
 	if p.trace {
 		log.Printf("%s not valid, trying sub-values", db.A_GEN_TOTAL)
 	}
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		pe := p.d.GetElement(fmt.Sprintf("%s/%d", db.D_GEN_P, i))
 		if pe == nil {
 			break
@@ -308,7 +308,7 @@ func (p *pvWriter) getPVDaily() (float64, bool) {
 	if p.trace {
 		log.Printf("%s not valid, trying sub-values", db.A_GEN_TOTAL)
 	}
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		pe := p.d.GetAccum(fmt.Sprintf("%s/%d", db.A_GEN_TOTAL, i))
 		if pe == nil {
 			break
