@@ -61,7 +61,7 @@ func main() {
 	d := db.NewDatabase(conf)
 	d.Trace = *verbose
 	d.Dryrun = *dryrun
-	for _, feat := range strings.Split(*disable, ",") {
+	for feat := range strings.SplitSeq(*disable, ",") {
 		d.Disable(feat)
 	}
 	err = d.Start()
