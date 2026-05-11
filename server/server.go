@@ -123,7 +123,7 @@ func (s *apiServer) api(w http.ResponseWriter, req *http.Request) {
 	w.Write(m)
 }
 
-// Fill in item from the daily value of the accumlator
+// Fill in item from the daily value of the accumulator
 func (s *apiServer) daily(i *Item, n, p string, scale float64) {
 	e := s.d.GetAccum(n)
 	if e == nil {
