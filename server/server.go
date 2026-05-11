@@ -26,6 +26,7 @@ import (
 
 	"github.com/aamcrae/MeterMan/db"
 	"github.com/aamcrae/MeterMan/lib"
+	"github.com/aamcrae/statusz"
 )
 
 type ApiConfig struct {
@@ -71,32 +72,22 @@ func serverInit(d *db.DB) error {
 		return err
 	}
 	port := lib.ConfigOrDefault(conf.Port, 8080) // Default port is 8080
-	mux := http.NewServeMux()
 	s := &apiServer{d: d}
 	apih := func(w http.ResponseWriter, req *http.Request) {
 		s.d.Execute(func() {
 			s.api(w, req)
 		})
 	}
-	mux.HandleFunc("/api", apih)
-	mux.HandleFunc("/api/", apih)
-	mux.HandleFunc("/status", func(w http.ResponseWriter, req *http.Request) {
-		s.d.Execute(func() {
-			s.status(w, req)
-		})
-	})
-	mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		if req.URL.Path != "/" {
-			http.NotFound(w, req)
-			return
-		}
+	http.HandleFunc("/api", apih)
+	http.HandleFunc("/api/", apih)
+	statusz.RegisterLocalHandler(func(w http.ResponseWriter, req *http.Request) {
 		s.d.Execute(func() {
 			s.status(w, req)
 		})
 	})
 	if !d.Dryrun {
 		go func() {
-			log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), mux))
+			log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
 		}()
 	}
 	log.Printf("Registered HTTP API and status server on port %d\n", port)
@@ -153,9 +144,7 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 	if s.d.Trace {
 		log.Printf("Request: %s", req.URL.String())
 	}
-	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprintf(w, "<html><head></head><body>")
-	fmt.Fprintf(w, "<h1>Status</h1>")
+	fmt.Fprintf(w, "<h1>Module status</h1>")
 	sm := s.d.GetStatus()
 	keys := []string{}
 	for k := range sm {
@@ -204,5 +193,4 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 			fmt.Fprintf(w, "<td></td><td></td></tr>")
 		}
 	}
-	fmt.Fprintf(w, "</table></body>")
 }

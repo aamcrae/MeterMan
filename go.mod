@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/aamcrae/lcd v0.1.0
+	github.com/aamcrae/statusz v0.0.0-20260511020328-af7543e10230
 	github.com/aldas/go-modbus-client v0.5.0
 	gopkg.in/yaml.v3 v3.0.1
 )
