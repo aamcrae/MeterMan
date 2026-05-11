@@ -520,7 +520,7 @@ func dumpPacket(b *bytes.Buffer) {
 			s = s + "\n"
 		}
 	}
-	log.Printf(s)
+	log.Printf("%s", s)
 }
 
 func dumpRecords(req string, recs map[uint16][]*record) {
