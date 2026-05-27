@@ -80,7 +80,7 @@ func serverInit(d *db.DB) error {
 	}
 	http.HandleFunc("/api", apih)
 	http.HandleFunc("/api/", apih)
-	statusz.RegisterLocalHandler(func(w http.ResponseWriter, req *http.Request) {
+	statusz.RegisterExtension(func(w http.ResponseWriter, req *http.Request) {
 		s.d.Execute(func() {
 			s.status(w, req)
 		})

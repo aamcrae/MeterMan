@@ -1,7 +1,7 @@
 github.com/aamcrae/lcd v0.1.0 h1:otDW5nGZrgxTdXGmpS2WBS6bI4Vcfu/Psy2E0KC+Fss=
 github.com/aamcrae/lcd v0.1.0/go.mod h1:mXI9dt6/MPNEcdecF/0gZIhaQLWdIM3uJK0fPUSQYjU=
-github.com/aamcrae/statusz v0.0.0-20260511072020-69a1aea37462 h1:g2egnVbn+XQ/FG87jVg7LUi+vw9jH2jJ1RPCVtr5gl4=
-github.com/aamcrae/statusz v0.0.0-20260511072020-69a1aea37462/go.mod h1:u23oSpLgqR8rl7CxhGYl1MkMifnXXHIZ+mwhYYZ7FLg=
+github.com/aamcrae/statusz v0.0.0-20260526032023-4e3e6b87ba00 h1:CGpeKA/OLBM3elI1gGfQDw48lLCRESIwR9/Gu/grMYk=
+github.com/aamcrae/statusz v0.0.0-20260526032023-4e3e6b87ba00/go.mod h1:u23oSpLgqR8rl7CxhGYl1MkMifnXXHIZ+mwhYYZ7FLg=
 github.com/aldas/go-modbus-client v0.5.0 h1:r4OxvtrwVchegKMFg9yflCVwAdTUV/0VTyfVb+8hQqc=
 github.com/aldas/go-modbus-client v0.5.0/go.mod h1:urRV2NreuNU+F27MOjJsBuFC8hg/W1OI5uiWEYmBx4k=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
