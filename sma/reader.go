@@ -33,6 +33,8 @@ import (
 	"github.com/aamcrae/MeterMan/lib"
 )
 
+const retries = 3
+
 type Sma []struct {
 	Addr     string
 	Password string
@@ -117,10 +119,16 @@ func (s *InverterReader) Status() string {
 
 func (s *InverterReader) cbPoll(now time.Time) {
 	hour := now.Hour()
-	err := s.poll(hour >= s.d.StartHour && hour < s.d.EndHour)
-	if err != nil {
-		log.Printf("Inverter poll error:%s - %v", s.sma.Name(), err)
+	daytime := hour >= s.d.StartHour && hour < s.d.EndHour
+	var err error
+	for _ = range retries {
+		err = s.poll(daytime)
+		if err == nil {
+			return
+		}
+		time.Sleep(time.Second * 5)
 	}
+	log.Printf("Inverter poll error:%s - %v", s.sma.Name(), err)
 }
 
 func (s *InverterReader) poll(daytime bool) error {
@@ -162,45 +170,46 @@ func (s *InverterReader) poll(daytime bool) error {
 		s.d.Input(s.genT, t)
 		s.d.Input(s.genDP, t)
 	}
-	if daytime {
-		if len(s.volts) != 0 {
-			v, err := s.sma.Voltage()
-			if err != nil {
-				return err
-			}
-			if v != 0 {
-				if s.d.Trace {
-					log.Printf("Tag %s volts = %g", s.volts, v)
-				}
-				s.d.Input(s.volts, v)
-				fmt.Fprintf(&b, ", Volts %s", lib.FmtFloat(v))
-			}
-		}
-		p, err := s.sma.Power()
+	if !daytime {
+		return nil // Some values are not available at night
+	}
+	if len(s.volts) != 0 {
+		v, err := s.sma.Voltage()
 		if err != nil {
 			return err
 		}
-		pf := float64(p) / 1000
-		if s.d.Trace {
-			log.Printf("Tag %s power = %g", s.genP, pf)
-		}
-		s.d.Input(s.genP, pf)
-		fmt.Fprintf(&b, ", Power %s", lib.FmtFloat(pf))
-
-		mptts, err := s.sma.MPTT()
-		if err != nil {
-			return err
-		}
-		if len(mptts) != 2 {
-			log.Printf("sma:%s: wrong len of mptt: %d - ignored", s.sma.Name(), len(mptts))
-		} else {
+		if v != 0 {
 			if s.d.Trace {
-				log.Printf("Tag %s = %g, %s = %g", s.mpttA, mptts[0], s.mpttB, mptts[1])
+				log.Printf("Tag %s volts = %g", s.volts, v)
 			}
-			s.d.Input(s.mpttA, mptts[0])
-			s.d.Input(s.mpttB, mptts[1])
-			fmt.Fprintf(&b, ", MPPT-A %s, MPTT-B %s", lib.FmtFloat(mptts[0]), lib.FmtFloat(mptts[1]))
+			s.d.Input(s.volts, v)
+			fmt.Fprintf(&b, ", Volts %s", lib.FmtFloat(v))
 		}
+	}
+	p, err := s.sma.Power()
+	if err != nil {
+		return err
+	}
+	pf := float64(p) / 1000
+	if s.d.Trace {
+		log.Printf("Tag %s power = %g", s.genP, pf)
+	}
+	s.d.Input(s.genP, pf)
+	fmt.Fprintf(&b, ", Power %s", lib.FmtFloat(pf))
+
+	mptts, err := s.sma.MPTT()
+	if err != nil {
+		return err
+	}
+	if len(mptts) != 2 {
+		log.Printf("sma:%s: wrong len of mptt: %d - ignored", s.sma.Name(), len(mptts))
+	} else {
+		if s.d.Trace {
+			log.Printf("Tag %s = %g, %s = %g", s.mpttA, mptts[0], s.mpttB, mptts[1])
+		}
+		s.d.Input(s.mpttA, mptts[0])
+		s.d.Input(s.mpttB, mptts[1])
+		fmt.Fprintf(&b, ", MPPT-A %s, MPTT-B %s", lib.FmtFloat(mptts[0]), lib.FmtFloat(mptts[1]))
 	}
 	return nil
 }

@@ -33,6 +33,7 @@ import (
 	_ "github.com/aamcrae/MeterMan/sigenergy"
 	_ "github.com/aamcrae/MeterMan/sma"
 	_ "github.com/aamcrae/MeterMan/weather"
+	"github.com/aamcrae/statusz"
 )
 
 var configFile = flag.String("config", "", "Config file")
@@ -49,6 +50,7 @@ func main() {
 		// Turn off date/time tags on logs
 		log.SetFlags(0)
 	}
+	statusz.Logs(20) // Start capturing logs immediately
 	conf, err := ioutil.ReadFile(*configFile)
 	if err != nil {
 		log.Fatalf("Can't read config %s: %v", *configFile, err)

@@ -193,4 +193,5 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 			fmt.Fprintf(w, "<td></td><td></td></tr>")
 		}
 	}
+	fmt.Fprintf(w, "</table>")
 }
