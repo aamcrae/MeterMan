@@ -50,7 +50,7 @@ func main() {
 		// Turn off date/time tags on logs
 		log.SetFlags(0)
 	}
-	statusz.Logs(20) // Start capturing logs immediately
+	statusz.StdLoggerDefault(20) // Start capturing logs immediately
 	conf, err := ioutil.ReadFile(*configFile)
 	if err != nil {
 		log.Fatalf("Can't read config %s: %v", *configFile, err)
