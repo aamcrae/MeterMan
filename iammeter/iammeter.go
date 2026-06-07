@@ -106,13 +106,14 @@ func (im *imeter) Status() string {
 }
 
 func (im *imeter) poll() {
+	var err error
 	for _ = range retries {
 		err := im.fetch()
 		if err == nil {
 			return
 		}
-		log.Printf("iammeter: %v", err)
 	}
+	log.Printf("iammeter: %v", err)
 }
 
 func (im *imeter) fetch() error {

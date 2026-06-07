@@ -88,13 +88,14 @@ func (s *SigenergyReader) Status() string {
 }
 
 func (s *SigenergyReader) cbPoll() {
+	var err error
 	for _ = range retries {
-		err := s.poll()
+		err = s.poll()
 		if err == nil {
 			return
 		}
-		log.Printf("Battery poll error: %v", err)
 	}
+	log.Printf("Battery poll error: %v", err)
 }
 
 func (s *SigenergyReader) poll() error {

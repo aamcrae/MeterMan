@@ -16,6 +16,7 @@ package sigenergy
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/aldas/go-modbus-client"
@@ -59,7 +60,7 @@ func NewBattery(addr string, unit uint8) (*Battery, error) {
 
 	client := modbus.NewTCPClient()
 	return &Battery{
-		Timeout:  time.Second * 5,
+		Timeout:  time.Second * 10,
 		Trace:    false,
 		addr:     addr,
 		requests: requests,
@@ -69,14 +70,14 @@ func NewBattery(addr string, unit uint8) (*Battery, error) {
 
 func (b *Battery) poll() error {
 	if err := b.client.Connect(context.Background(), b.addr); err != nil {
-		return err
+		return fmt.Errorf("connect to %s: %w", b.addr, err)
 	}
 	defer b.client.Close()
 	findex := 0
 	for _, req := range b.requests {
 		resp, err := b.client.Do(context.Background(), req)
 		if err != nil {
-			return err
+			return fmt.Errorf("req failed: %w", err)
 		}
 		fields, _ := req.ExtractFields(resp, true)
 		for _, f := range fields {
