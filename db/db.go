@@ -224,7 +224,7 @@ func (d *DB) Start() error {
 	// Initialize the export function callbacks
 	for t, fl := range d.exportMap {
 		if d.Trace {
-			log.Printf("Adding export, tick %v, offs %v, f count %d", t.tick, t.offs, len(fl))
+			log.Printf("Adding export, tick %v, offs %v, f count %d, poll count %d", t.tick, t.offs, len(fl), len(d.pollList))
 		}
 		d.AddCallback(t.tick, t.offs, func(now time.Time) {
 			go func() {
@@ -318,6 +318,7 @@ func (d *DB) processInput(r input) {
 	}
 }
 
+// Ensure that all pending inputs are read from the channel
 func (d *DB) drainInput() {
 	for {
 		select {
