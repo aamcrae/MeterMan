@@ -17,7 +17,6 @@
 //   sma:
 //     - addr: <inverter-name:udp-port>
 //       password: <password>
-//       poll: <poll-seconds>
 //       retry: <poll-retry-seconds>
 //     - ...
 
@@ -38,8 +37,6 @@ const retries = 3
 type Sma []struct {
 	Addr     string
 	Password string
-	Poll     int
-	Offset   int
 	Timeout  int
 	Volts    bool
 	Trace    bool
@@ -77,8 +74,6 @@ func inverterReader(d *db.DB) error {
 		return err
 	}
 	for index, e := range conf {
-		poll := lib.ConfigOrDefault(e.Poll, 60)     // Default poll interval of 60 seconds
-		offset := lib.ConfigOrDefault(e.Offset, -5) // Default offset of -5 seconds
 		sma, err := NewSMA(e.Addr, e.Password)
 		if err != nil {
 			return err
@@ -102,7 +97,7 @@ func inverterReader(d *db.DB) error {
 		d.AddGauge(s.mpttB)
 		nm := strings.Split(e.Addr, ":")[0]
 		d.AddStatusPrinter(fmt.Sprintf("SMA-%s", nm), s.Status)
-		log.Printf("Registered SMA inverter reader for %s (poll interval %d seconds, offset %d seconds, timeout %s)\n", s.sma.Name(), poll, offset, s.sma.Timeout.String())
+		log.Printf("Registered SMA inverter reader for %s (timeout %s)\n", s.sma.Name(), s.sma.Timeout.String())
 		if !d.Dryrun {
 			d.AddPoll(s.cbPoll)
 		}

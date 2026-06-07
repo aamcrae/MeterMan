@@ -59,7 +59,7 @@ func NewBattery(addr string, unit uint8) (*Battery, error) {
 
 	client := modbus.NewTCPClient()
 	return &Battery{
-		Timeout:  time.Second * 10,
+		Timeout:  time.Second * 5,
 		Trace:    false,
 		addr:     addr,
 		requests: requests,

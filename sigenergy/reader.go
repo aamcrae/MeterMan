@@ -32,8 +32,6 @@ type Sigenergy struct {
 	Addr    string
 	Unit    int
 	Size    float64
-	Poll    int
-	Offset  int
 	Timeout int
 	Trace   bool
 }
@@ -63,8 +61,6 @@ func batteryReader(d *db.DB) error {
 	}
 	unit := uint8(lib.ConfigOrDefault(conf.Unit, 247)) // Default poll interval of 60 seconds
 	size := lib.ConfigOrDefault(conf.Size, 32.23)      // Default size of battery is around 32kWh
-	poll := lib.ConfigOrDefault(conf.Poll, 60)         // Default poll interval of 60 seconds
-	offset := lib.ConfigOrDefault(conf.Offset, -5)     // Default offset of -5 seconds
 	batt, err := NewBattery(conf.Addr, unit)
 	if err != nil {
 		return err
@@ -73,7 +69,7 @@ func batteryReader(d *db.DB) error {
 	batt.Trace = conf.Trace
 	s := &SigenergyReader{d: d, size: size, batt: batt}
 	d.AddStatusPrinter("Battery", s.Status)
-	log.Printf("Registered SigEnergy battery reader for %s (poll interval %d seconds, offset %d seconds, timeout %s)\n", conf.Addr, poll, offset, s.batt.Timeout.String())
+	log.Printf("Registered SigEnergy battery reader for %s (timeout %s)\n", conf.Addr, s.batt.Timeout.String())
 	if !d.Dryrun {
 		d.AddGauge(db.G_BATT_POWER)
 		d.AddGauge(db.G_BATT_SIZE)

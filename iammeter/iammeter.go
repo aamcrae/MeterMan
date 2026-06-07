@@ -16,11 +16,9 @@
 // The package is configured as a section in the YAML config file:
 //   iammeter:
 //     meter: <url to retrieve data>
-//     poll: <polling interval in seconds>
 // e.g
 // iammeter:
 //   meter: http://admin:admin@meter-hostname/monitorjson
-//   poll: 30
 //
 // The energy meter is polled, and the following values are extracted:
 // Volts (V) -> G_VOLTS (averaged)
@@ -50,8 +48,6 @@ const retries = 3
 
 type Iammeter struct {
 	Meter  string
-	Poll   int
-	Offset int
 }
 
 const moduleName = "iammeter"
@@ -80,17 +76,15 @@ func iamReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	poll := lib.ConfigOrDefault(conf.Poll, 30)     // Default poll of 30 seconds
-	offset := lib.ConfigOrDefault(conf.Offset, -5) // Default offset -5 seconds
 	if len(conf.Meter) == 0 {
 		return fmt.Errorf("iammeter: missing URL")
 	}
 	im := &imeter{d: d, url: conf.Meter, status: "init"}
 	im.client = http.Client{
-		Timeout: time.Duration(time.Second * 10), // 10 second timeout
+		Timeout: time.Duration(time.Second * 5), // 5 second timeout
 	}
 	im.d.AddStatusPrinter(moduleName, im.Status)
-	log.Printf("Registered IAMMETER reader (polling interval %d seconds, offset %d)\n", poll, offset)
+	log.Printf("Registered IAMMETER reader")
 	if !d.Dryrun {
 		im.volts = d.AddSubGauge(db.G_VOLTS, true)
 		d.AddGauge(db.G_IN_CURRENT)
