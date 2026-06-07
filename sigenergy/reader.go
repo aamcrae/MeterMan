@@ -26,6 +26,8 @@ import (
 	"github.com/aamcrae/MeterMan/lib"
 )
 
+const retries = 3
+
 type Sigenergy struct {
 	Addr    string
 	Unit    int
@@ -73,15 +75,13 @@ func batteryReader(d *db.DB) error {
 	d.AddStatusPrinter("Battery", s.Status)
 	log.Printf("Registered SigEnergy battery reader for %s (poll interval %d seconds, offset %d seconds, timeout %s)\n", conf.Addr, poll, offset, s.batt.Timeout.String())
 	if !d.Dryrun {
-		s.d.AddGauge(db.G_BATT_POWER)
-		s.d.AddGauge(db.G_BATT_SIZE)
-		s.d.AddGauge(db.G_BATT_PERCENT)
-		s.d.AddGauge(db.G_BATT_STATUS)
-		s.d.AddAccum(db.A_CHARGE_TOTAL, false)
-		s.d.AddAccum(db.A_DISCHARGE_TOTAL, false)
-		d.AddCallback(time.Second*time.Duration(poll), time.Second*time.Duration(offset), func(now time.Time) {
-			go s.cbPoll(now)
-		})
+		d.AddGauge(db.G_BATT_POWER)
+		d.AddGauge(db.G_BATT_SIZE)
+		d.AddGauge(db.G_BATT_PERCENT)
+		d.AddGauge(db.G_BATT_STATUS)
+		d.AddAccum(db.A_CHARGE_TOTAL, false)
+		d.AddAccum(db.A_DISCHARGE_TOTAL, false)
+		d.AddPoll(s.cbPoll)
 	}
 	return nil
 }
@@ -91,9 +91,12 @@ func (s *SigenergyReader) Status() string {
 	return s.status
 }
 
-func (s *SigenergyReader) cbPoll(now time.Time) {
-	err := s.poll()
-	if err != nil {
+func (s *SigenergyReader) cbPoll() {
+	for _ = range retries {
+		err := s.poll()
+		if err == nil {
+			return
+		}
 		log.Printf("Battery poll error: %v", err)
 	}
 }

@@ -85,7 +85,7 @@ func hassiInit(d *db.DB) error {
 		log.Printf("hassi: extra fields: %v", h.extra)
 	}
 	if !d.Dryrun {
-		d.AddCallback(intv, 0, h.send)
+		d.AddExport(intv, 0, h.send)
 	}
 	d.AddStatusPrinter(moduleName, h.Status)
 	log.Printf("Registered Home Assistant uploader (%d seconds interval)", interval)

@@ -46,6 +46,8 @@ import (
 	"github.com/aamcrae/MeterMan/lib"
 )
 
+const retries = 3
+
 type Iammeter struct {
 	Meter  string
 	Poll   int
@@ -91,18 +93,16 @@ func iamReader(d *db.DB) error {
 	log.Printf("Registered IAMMETER reader (polling interval %d seconds, offset %d)\n", poll, offset)
 	if !d.Dryrun {
 		im.volts = d.AddSubGauge(db.G_VOLTS, true)
-		im.d.AddGauge(db.G_IN_CURRENT)
-		im.d.AddGauge(db.G_OUT_CURRENT)
-		im.d.AddGauge(db.G_IN_POWER)
-		im.d.AddGauge(db.G_OUT_POWER)
-		im.d.AddAccum(db.A_IN_TOTAL, true)
-		im.d.AddAccum(db.A_OUT_TOTAL, true)
-		im.d.AddAccum(db.A_IMPORT, true)
-		im.d.AddAccum(db.A_EXPORT, true)
-		im.d.AddGauge(db.G_FREQ)
-		im.d.AddCallback(time.Second*time.Duration(poll), time.Second*time.Duration(offset), func(now time.Time) {
-			go im.poll()
-		})
+		d.AddGauge(db.G_IN_CURRENT)
+		d.AddGauge(db.G_OUT_CURRENT)
+		d.AddGauge(db.G_IN_POWER)
+		d.AddGauge(db.G_OUT_POWER)
+		d.AddAccum(db.A_IN_TOTAL, true)
+		d.AddAccum(db.A_OUT_TOTAL, true)
+		d.AddAccum(db.A_IMPORT, true)
+		d.AddAccum(db.A_EXPORT, true)
+		d.AddGauge(db.G_FREQ)
+		d.AddPoll(im.poll)
 	}
 	return nil
 }
@@ -112,8 +112,11 @@ func (im *imeter) Status() string {
 }
 
 func (im *imeter) poll() {
-	err := im.fetch()
-	if err != nil {
+	for _ = range retries {
+		err := im.fetch()
+		if err == nil {
+			return
+		}
 		log.Printf("iammeter: %v", err)
 	}
 }

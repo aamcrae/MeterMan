@@ -104,9 +104,7 @@ func inverterReader(d *db.DB) error {
 		d.AddStatusPrinter(fmt.Sprintf("SMA-%s", nm), s.Status)
 		log.Printf("Registered SMA inverter reader for %s (poll interval %d seconds, offset %d seconds, timeout %s)\n", s.sma.Name(), poll, offset, s.sma.Timeout.String())
 		if !d.Dryrun {
-			d.AddCallback(time.Second*time.Duration(poll), time.Second*time.Duration(offset), func(now time.Time) {
-				go s.cbPoll(now)
-			})
+			d.AddPoll(s.cbPoll)
 		}
 	}
 	return nil
@@ -117,8 +115,8 @@ func (s *InverterReader) Status() string {
 	return s.status
 }
 
-func (s *InverterReader) cbPoll(now time.Time) {
-	hour := now.Hour()
+func (s *InverterReader) cbPoll() {
+	hour := time.Now().Hour()
 	daytime := hour >= s.d.StartHour && hour < s.d.EndHour
 	var err error
 	for _ = range retries {
