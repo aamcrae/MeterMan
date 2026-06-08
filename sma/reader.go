@@ -46,7 +46,7 @@ type Sma []struct {
 // InverterReader polls the inverter(s)
 type InverterReader struct {
 	d   *core.DB // Database
-	sma *SMA   // Inverter object
+	sma *SMA     // Inverter object
 	// Database element names. These are dynamically allocated.
 	genP     string       // Gauge for current power (Kw)
 	genDP    string       // Derived for daily yield (KwH)

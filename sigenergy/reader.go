@@ -38,7 +38,7 @@ type Sigenergy struct {
 
 // SigenergyReader polls the battery
 type SigenergyReader struct {
-	d      *core.DB       // Database
+	d      *core.DB     // Database
 	size   float64      // Size of battery in kWh
 	batt   *Battery     // Battery object
 	status atomic.Value // Current status

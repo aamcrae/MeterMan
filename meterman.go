@@ -23,8 +23,8 @@ import (
 	_ "net/http/pprof"
 	"strings"
 
-	_ "github.com/aamcrae/MeterMan/csv"
 	"github.com/aamcrae/MeterMan/core"
+	_ "github.com/aamcrae/MeterMan/csv"
 	_ "github.com/aamcrae/MeterMan/hassi"
 	_ "github.com/aamcrae/MeterMan/iammeter"
 	_ "github.com/aamcrae/MeterMan/meter"
