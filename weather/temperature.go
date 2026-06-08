@@ -38,7 +38,6 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
-	"github.com/aamcrae/MeterMan/lib"
 )
 
 const weatherUrl = "http://api.openweathermap.org/data/2.5/weather?id=%s&units=metric&appid=%s"
@@ -69,7 +68,7 @@ func weatherReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	poll := lib.ConfigOrDefault(conf.Poll, 120) // Default poll interval of 120 seconds
+	poll := db.ConfigOrDefault(conf.Poll, 120) // Default poll interval of 120 seconds
 	var get func() (float64, error)
 	switch conf.Tempservice {
 	default:

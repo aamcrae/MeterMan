@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
-	"github.com/aamcrae/MeterMan/lib"
 )
 
 type CsvConfig struct {
@@ -97,7 +96,7 @@ func csvInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	interval := lib.ConfigOrDefault(conf.Interval, 5) // Default of 5 minutes
+	interval := db.ConfigOrDefault(conf.Interval, 5) // Default of 5 minutes
 	c := &csv{d: d, fpath: conf.Base, status: "init"}
 	if !d.Dryrun {
 		d.AddExport(time.Minute*time.Duration(interval), 0, c.Run)
@@ -114,11 +113,11 @@ func (c *csv) Run(now time.Time) {
 	for _, f := range fields {
 		e := c.d.GetElement(f.name)
 		if e != nil && e.Fresh() {
-			fmt.Fprintf(&line, ",%s", lib.FmtFloat(e.Get()))
+			fmt.Fprintf(&line, ",%s", db.FmtFloat(e.Get()))
 			// For accumulators, also store the daily accumulated value
 			if f.accum {
 				a := e.(db.Acc)
-				fmt.Fprintf(&line, ",%s", lib.FmtFloat(a.Daily()))
+				fmt.Fprintf(&line, ",%s", db.FmtFloat(a.Daily()))
 			}
 		} else if f.accum {
 			fmt.Fprint(&line, ",,")

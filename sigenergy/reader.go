@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
-	"github.com/aamcrae/MeterMan/lib"
 )
 
 const retries = 3
@@ -60,13 +59,13 @@ func batteryReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	unit := uint8(lib.ConfigOrDefault(conf.Unit, 247)) // Default poll interval of 60 seconds
-	size := lib.ConfigOrDefault(conf.Size, 32.23)      // Default size of battery is around 32kWh
+	unit := uint8(db.ConfigOrDefault(conf.Unit, 247)) // Default poll interval of 60 seconds
+	size := db.ConfigOrDefault(conf.Size, 32.23)      // Default size of battery is around 32kWh
 	batt, err := NewBattery(conf.Addr, unit)
 	if err != nil {
 		return err
 	}
-	batt.Timeout = lib.ConfigOrDefault(time.Second*time.Duration(conf.Timeout), batt.Timeout)
+	batt.Timeout = db.ConfigOrDefault(time.Second*time.Duration(conf.Timeout), batt.Timeout)
 	batt.Trace = conf.Trace
 	s := &SigenergyReader{d: d, size: size, batt: batt}
 	s.status.Store("init")
@@ -119,10 +118,10 @@ func (s *SigenergyReader) poll() error {
 	s.d.Input(db.A_CHARGE_TOTAL, s.batt.acc_charge)
 	s.d.Input(db.A_DISCHARGE_TOTAL, s.batt.acc_discharge)
 	fmt.Fprintf(&b, "OK")
-	fmt.Fprintf(&b, ", Grid Power %s", lib.FmtFloat(s.batt.grid_power))
-	fmt.Fprintf(&b, ", Battery percent %s", lib.FmtFloat(s.batt.percent))
-	fmt.Fprintf(&b, ", Battery power %s", lib.FmtFloat(s.batt.power))
-	fmt.Fprintf(&b, ", Accum charge %s", lib.FmtFloat(s.batt.acc_charge))
-	fmt.Fprintf(&b, ", Accum discharge %s", lib.FmtFloat(s.batt.acc_discharge))
+	fmt.Fprintf(&b, ", Grid Power %s", db.FmtFloat(s.batt.grid_power))
+	fmt.Fprintf(&b, ", Battery percent %s", db.FmtFloat(s.batt.percent))
+	fmt.Fprintf(&b, ", Battery power %s", db.FmtFloat(s.batt.power))
+	fmt.Fprintf(&b, ", Accum charge %s", db.FmtFloat(s.batt.acc_charge))
+	fmt.Fprintf(&b, ", Accum discharge %s", db.FmtFloat(s.batt.acc_discharge))
 	return nil
 }

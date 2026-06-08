@@ -42,7 +42,6 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
-	"github.com/aamcrae/MeterMan/lib"
 )
 
 const retries = 3
@@ -151,10 +150,10 @@ func (im *imeter) fetch() error {
 		fmt.Fprintf(&b, "Malformed data from meter")
 		return fmt.Errorf("malformed data from meter")
 	}
-	fmt.Fprintf(&b, "OK - Volts: %s, current %s, power %s", lib.FmtFloat(m.Data[0]), lib.FmtFloat(m.Data[1]), lib.FmtFloat(m.Data[2]))
-	fmt.Fprintf(&b, ", Imp: %s, Exp %s", lib.FmtFloat(m.Data[3]), lib.FmtFloat(m.Data[4]))
+	fmt.Fprintf(&b, "OK - Volts: %s, current %s, power %s", db.FmtFloat(m.Data[0]), db.FmtFloat(m.Data[1]), db.FmtFloat(m.Data[2]))
+	fmt.Fprintf(&b, ", Imp: %s, Exp %s", db.FmtFloat(m.Data[3]), db.FmtFloat(m.Data[4]))
 	if len(m.Data) == 7 {
-		fmt.Fprintf(&b, ", Frequency: %s, factor %s", lib.FmtFloat(m.Data[5]), lib.FmtFloat(m.Data[6]))
+		fmt.Fprintf(&b, ", Frequency: %s, factor %s", db.FmtFloat(m.Data[5]), db.FmtFloat(m.Data[6]))
 	}
 	if im.d.Trace {
 		log.Printf("iammeter: version %s, serial number %s", m.Version, m.Serial)

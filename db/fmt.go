@@ -12,22 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package lib
+package db
 
 import (
 	"strconv"
 	"strings"
 )
-
-// ConfigOrDefault will return a value if it is
-// non-zero (or empty), or a default value
-func ConfigOrDefault[T comparable](conf, def T) T {
-	// Check for zero value
-	if conf == *new(T) {
-		return def
-	}
-	return conf
-}
 
 // FmtFloat is a custom float formatter that
 // has a fixed precision of 2 decimal places with trailing zeros removed.

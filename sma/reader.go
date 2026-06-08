@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
-	"github.com/aamcrae/MeterMan/lib"
 )
 
 const retries = 3
@@ -79,7 +78,7 @@ func inverterReader(d *db.DB) error {
 		if err != nil {
 			return err
 		}
-		sma.Timeout = lib.ConfigOrDefault(time.Second*time.Duration(e.Timeout), sma.Timeout)
+		sma.Timeout = db.ConfigOrDefault(time.Second*time.Duration(e.Timeout), sma.Timeout)
 		sma.Trace = e.Trace
 		sma.PktDump = e.Dump
 		s := &InverterReader{d: d, sma: sma}
@@ -150,7 +149,7 @@ func (s *InverterReader) poll(daytime bool) error {
 			log.Printf("Tag %s Daily yield = %g", s.genDaily, d)
 		}
 		s.d.Input(s.genDaily, d)
-		fmt.Fprintf(&b, ", Daily %s", lib.FmtFloat(d))
+		fmt.Fprintf(&b, ", Daily %s", db.FmtFloat(d))
 	}
 	t, err := s.sma.TotalEnergy()
 	if err != nil {
@@ -161,7 +160,7 @@ func (s *InverterReader) poll(daytime bool) error {
 		if s.d.Trace {
 			log.Printf("Tag %s Total yield = %g", s.genT, t)
 		}
-		fmt.Fprintf(&b, ", Total %s", lib.FmtFloat(t))
+		fmt.Fprintf(&b, ", Total %s", db.FmtFloat(t))
 		s.d.Input(s.genT, t)
 		s.d.Input(s.genDP, t)
 	}
@@ -178,7 +177,7 @@ func (s *InverterReader) poll(daytime bool) error {
 				log.Printf("Tag %s volts = %g", s.volts, v)
 			}
 			s.d.Input(s.volts, v)
-			fmt.Fprintf(&b, ", Volts %s", lib.FmtFloat(v))
+			fmt.Fprintf(&b, ", Volts %s", db.FmtFloat(v))
 		}
 	}
 	p, err := s.sma.Power()
@@ -190,7 +189,7 @@ func (s *InverterReader) poll(daytime bool) error {
 		log.Printf("Tag %s power = %g", s.genP, pf)
 	}
 	s.d.Input(s.genP, pf)
-	fmt.Fprintf(&b, ", Power %s", lib.FmtFloat(pf))
+	fmt.Fprintf(&b, ", Power %s", db.FmtFloat(pf))
 
 	mptts, err := s.sma.MPTT()
 	if err != nil {
@@ -204,7 +203,7 @@ func (s *InverterReader) poll(daytime bool) error {
 		}
 		s.d.Input(s.mpttA, mptts[0])
 		s.d.Input(s.mpttB, mptts[1])
-		fmt.Fprintf(&b, ", MPPT-A %s, MPTT-B %s", lib.FmtFloat(mptts[0]), lib.FmtFloat(mptts[1]))
+		fmt.Fprintf(&b, ", MPPT-A %s, MPTT-B %s", db.FmtFloat(mptts[0]), db.FmtFloat(mptts[1]))
 	}
 	return nil
 }

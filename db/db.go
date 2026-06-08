@@ -61,7 +61,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aamcrae/MeterMan/lib"
 	"gopkg.in/yaml.v3"
 )
 
@@ -172,10 +171,10 @@ func (d *DB) Start() error {
 		}
 	}
 	// Override defaults from configuration (if any)
-	d.StartHour = lib.ConfigOrDefault(conf.Daylight[0], d.StartHour)
-	d.EndHour = lib.ConfigOrDefault(conf.Daylight[1], d.EndHour)
-	d.freshness = lib.ConfigOrDefault(time.Minute*time.Duration(conf.Freshness), d.freshness)
-	update := lib.ConfigOrDefault(conf.Update, 60) // default of 60 seconds
+	d.StartHour = ConfigOrDefault(conf.Daylight[0], d.StartHour)
+	d.EndHour = ConfigOrDefault(conf.Daylight[1], d.EndHour)
+	d.freshness = ConfigOrDefault(time.Minute*time.Duration(conf.Freshness), d.freshness)
+	update := ConfigOrDefault(conf.Update, 60) // default of 60 seconds
 	// If a checkpoint file is configured, read it, and set up a
 	// regular callback to write it. The checkpoint file must be
 	// read before the init hooks are called.
@@ -226,7 +225,7 @@ func (d *DB) Start() error {
 		if d.Trace {
 			log.Printf("Adding export, tick %v, offs %v, f count %d, poll count %d", t.tick, t.offs, len(fl), len(d.pollList))
 		}
-		lib.NewTicker(t.tick, t.offs, func(now time.Time) {
+		NewTicker(t.tick, t.offs, func(now time.Time) {
 			go func() {
 				// Run poll list in separate goroutine
 				var wg sync.WaitGroup
@@ -328,7 +327,7 @@ func (d *DB) drainInput() {
 
 // AddCallback adds a callback to be regularly invoked at the interval specified.
 func (d *DB) AddCallback(tick, offset time.Duration, cb func(time.Time)) {
-	lib.NewTicker(tick, offset, func(now time.Time) {
+	NewTicker(tick, offset, func(now time.Time) {
 		d.Execute(func() {
 			cb(now)
 		})
