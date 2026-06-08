@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
@@ -38,10 +39,10 @@ type Sigenergy struct {
 
 // SigenergyReader polls the battery
 type SigenergyReader struct {
-	d      *db.DB   // Database
-	size   float64  // Size of battery in kWh
-	batt   *Battery // Battery object
-	status string   // Current status
+	d      *db.DB       // Database
+	size   float64      // Size of battery in kWh
+	batt   *Battery     // Battery object
+	status atomic.Value // Current status
 }
 
 func init() {
@@ -68,6 +69,7 @@ func batteryReader(d *db.DB) error {
 	batt.Timeout = lib.ConfigOrDefault(time.Second*time.Duration(conf.Timeout), batt.Timeout)
 	batt.Trace = conf.Trace
 	s := &SigenergyReader{d: d, size: size, batt: batt}
+	s.status.Store("init")
 	d.AddStatusPrinter("Battery", s.Status)
 	log.Printf("Registered SigEnergy battery reader for %s (timeout %s)\n", conf.Addr, s.batt.Timeout.String())
 	if !d.Dryrun {
@@ -84,7 +86,7 @@ func batteryReader(d *db.DB) error {
 
 // Status returns a string status for this inverter
 func (s *SigenergyReader) Status() string {
-	return s.status
+	return s.status.Load().(string)
 }
 
 func (s *SigenergyReader) cbPoll() {
@@ -103,7 +105,7 @@ func (s *SigenergyReader) poll() error {
 		log.Printf("Polling battery")
 	}
 	var b strings.Builder
-	defer func() { s.status = b.String() }()
+	defer func() { s.status.Store(b.String()) }()
 	fmt.Fprintf(&b, "%s: ", time.Now().Format("2006-01-02 15:04"))
 	err := s.batt.poll()
 	if err != nil {

@@ -186,7 +186,7 @@ func (d *DB) Start() error {
 				return err
 			}
 			// Add a callback to checkpoint the database at the specified interval.
-			d.AddCallback(time.Second*time.Duration(update), 0, func(now time.Time) {
+			d.AddCallback(time.Second*time.Duration(update), time.Second*15, func(now time.Time) {
 				d.writeCheckpoint(conf.Checkpoint, now)
 			})
 		}
@@ -226,7 +226,7 @@ func (d *DB) Start() error {
 		if d.Trace {
 			log.Printf("Adding export, tick %v, offs %v, f count %d, poll count %d", t.tick, t.offs, len(fl), len(d.pollList))
 		}
-		d.AddCallback(t.tick, t.offs, func(now time.Time) {
+		lib.NewTicker(t.tick, t.offs, func(now time.Time) {
 			go func() {
 				// Run poll list in separate goroutine
 				var wg sync.WaitGroup
@@ -250,15 +250,11 @@ func (d *DB) Start() error {
 	// Register some signal handlers for graceful termination
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
-	echan := lib.WaitChan()
 	for {
 		select {
 		case r := <-d.input:
 			// Process input data
 			d.processInput(r)
-		case ev := <-echan:
-			// Event from ticker, run the callbacks on the main thread
-			ev.Dispatch()
 		case f := <-d.run:
 			// Request to run callback in main thread
 			f()
@@ -332,7 +328,11 @@ func (d *DB) drainInput() {
 
 // AddCallback adds a callback to be regularly invoked at the interval specified.
 func (d *DB) AddCallback(tick, offset time.Duration, cb func(time.Time)) {
-	lib.NewTicker(tick, offset).AddCB(cb)
+	lib.NewTicker(tick, offset, func(now time.Time) {
+		d.Execute(func() {
+			cb(now)
+		})
+	})
 }
 
 // Execute runs a function in the main thread, blocking until

@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
@@ -48,14 +49,14 @@ type InverterReader struct {
 	d   *db.DB // Database
 	sma *SMA   // Inverter object
 	// Database element names. These are dynamically allocated.
-	genP     string // Gauge for current power (Kw)
-	genDP    string // Derived for daily yield (KwH)
-	volts    string // Gauge for current voltage (V)
-	genDaily string // Accum for daily yield (KwH)
-	genT     string // Accum for lifetime yield (KwH)
-	mpttA    string // MPTT A string
-	mpttB    string // MPTT B string
-	status   string // Current status
+	genP     string       // Gauge for current power (Kw)
+	genDP    string       // Derived for daily yield (KwH)
+	volts    string       // Gauge for current voltage (V)
+	genDaily string       // Accum for daily yield (KwH)
+	genT     string       // Accum for lifetime yield (KwH)
+	mpttA    string       // MPTT A string
+	mpttB    string       // MPTT B string
+	status   atomic.Value // Current status
 }
 
 func init() {
@@ -93,6 +94,7 @@ func inverterReader(d *db.DB) error {
 		mptt := fmt.Sprintf("%s-%d", db.G_MPTT, index)
 		s.mpttA = fmt.Sprintf("%s-A", mptt)
 		s.mpttB = fmt.Sprintf("%s-B", mptt)
+		s.status.Store("init")
 		d.AddGauge(s.mpttA)
 		d.AddGauge(s.mpttB)
 		nm := strings.Split(e.Addr, ":")[0]
@@ -107,7 +109,7 @@ func inverterReader(d *db.DB) error {
 
 // Status returns a string status for this inverter
 func (s *InverterReader) Status() string {
-	return s.status
+	return s.status.Load().(string)
 }
 
 func (s *InverterReader) cbPoll() {
@@ -129,7 +131,7 @@ func (s *InverterReader) poll(daytime bool) error {
 		log.Printf("Polling inverter %s", s.sma.Name())
 	}
 	var b strings.Builder
-	defer func() { s.status = b.String() }()
+	defer func() { s.status.Store(b.String()) }()
 	fmt.Fprintf(&b, "%s: ", time.Now().Format("2006-01-02 15:04"))
 	_, _, err := s.sma.Logon()
 	if err != nil {

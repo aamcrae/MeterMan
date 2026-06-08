@@ -38,6 +38,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
@@ -47,7 +48,7 @@ import (
 const retries = 3
 
 type Iammeter struct {
-	Meter  string
+	Meter string
 }
 
 const moduleName = "iammeter"
@@ -57,7 +58,7 @@ type imeter struct {
 	client http.Client
 	url    string
 	volts  string
-	status string
+	status atomic.Value
 }
 
 // Register iamReader as a data source.
@@ -79,7 +80,8 @@ func iamReader(d *db.DB) error {
 	if len(conf.Meter) == 0 {
 		return fmt.Errorf("iammeter: missing URL")
 	}
-	im := &imeter{d: d, url: conf.Meter, status: "init"}
+	im := &imeter{d: d, url: conf.Meter}
+	im.status.Store("init")
 	im.client = http.Client{
 		Timeout: time.Duration(time.Second * 5), // 5 second timeout
 	}
@@ -102,7 +104,7 @@ func iamReader(d *db.DB) error {
 }
 
 func (im *imeter) Status() string {
-	return im.status
+	return im.status.Load().(string)
 }
 
 func (im *imeter) poll() {
@@ -126,7 +128,7 @@ func (im *imeter) fetch() error {
 		Data    []float64 `json:"Data"`
 	}
 	var b strings.Builder
-	defer func() { im.status = b.String() }()
+	defer func() { im.status.Store(b.String()) }()
 	fmt.Fprintf(&b, "%s: ", time.Now().Format("2006-01-02 15:04"))
 	resp, err := im.client.Get(im.url)
 	if err != nil {
