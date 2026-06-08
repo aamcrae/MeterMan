@@ -136,7 +136,7 @@ func NewSMA(inverter string, password string) (*SMA, error) {
 	}
 	s := &SMA{name: inverter, password: enc, conn: conn}
 	s.appSusyid = 125
-	s.Timeout = time.Second * 10 // Default 10 second timeout
+	s.Timeout = time.Second * 5 // Default 5 second timeout
 	return s, nil
 }
 

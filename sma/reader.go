@@ -17,7 +17,6 @@
 //   sma:
 //     - addr: <inverter-name:udp-port>
 //       password: <password>
-//       poll: <poll-seconds>
 //       retry: <poll-retry-seconds>
 //     - ...
 
@@ -27,6 +26,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
@@ -38,8 +38,6 @@ const retries = 3
 type Sma []struct {
 	Addr     string
 	Password string
-	Poll     int
-	Offset   int
 	Timeout  int
 	Volts    bool
 	Trace    bool
@@ -51,14 +49,14 @@ type InverterReader struct {
 	d   *db.DB // Database
 	sma *SMA   // Inverter object
 	// Database element names. These are dynamically allocated.
-	genP     string // Gauge for current power (Kw)
-	genDP    string // Derived for daily yield (KwH)
-	volts    string // Gauge for current voltage (V)
-	genDaily string // Accum for daily yield (KwH)
-	genT     string // Accum for lifetime yield (KwH)
-	mpttA    string // MPTT A string
-	mpttB    string // MPTT B string
-	status   string // Current status
+	genP     string       // Gauge for current power (Kw)
+	genDP    string       // Derived for daily yield (KwH)
+	volts    string       // Gauge for current voltage (V)
+	genDaily string       // Accum for daily yield (KwH)
+	genT     string       // Accum for lifetime yield (KwH)
+	mpttA    string       // MPTT A string
+	mpttB    string       // MPTT B string
+	status   atomic.Value // Current status
 }
 
 func init() {
@@ -77,8 +75,6 @@ func inverterReader(d *db.DB) error {
 		return err
 	}
 	for index, e := range conf {
-		poll := lib.ConfigOrDefault(e.Poll, 60)     // Default poll interval of 60 seconds
-		offset := lib.ConfigOrDefault(e.Offset, -5) // Default offset of -5 seconds
 		sma, err := NewSMA(e.Addr, e.Password)
 		if err != nil {
 			return err
@@ -98,15 +94,14 @@ func inverterReader(d *db.DB) error {
 		mptt := fmt.Sprintf("%s-%d", db.G_MPTT, index)
 		s.mpttA = fmt.Sprintf("%s-A", mptt)
 		s.mpttB = fmt.Sprintf("%s-B", mptt)
+		s.status.Store("init")
 		d.AddGauge(s.mpttA)
 		d.AddGauge(s.mpttB)
 		nm := strings.Split(e.Addr, ":")[0]
 		d.AddStatusPrinter(fmt.Sprintf("SMA-%s", nm), s.Status)
-		log.Printf("Registered SMA inverter reader for %s (poll interval %d seconds, offset %d seconds, timeout %s)\n", s.sma.Name(), poll, offset, s.sma.Timeout.String())
+		log.Printf("Registered SMA inverter reader for %s (timeout %s)\n", s.sma.Name(), s.sma.Timeout.String())
 		if !d.Dryrun {
-			d.AddCallback(time.Second*time.Duration(poll), time.Second*time.Duration(offset), func(now time.Time) {
-				go s.cbPoll(now)
-			})
+			d.AddPoll(s.cbPoll)
 		}
 	}
 	return nil
@@ -114,11 +109,11 @@ func inverterReader(d *db.DB) error {
 
 // Status returns a string status for this inverter
 func (s *InverterReader) Status() string {
-	return s.status
+	return s.status.Load().(string)
 }
 
-func (s *InverterReader) cbPoll(now time.Time) {
-	hour := now.Hour()
+func (s *InverterReader) cbPoll() {
+	hour := time.Now().Hour()
 	daytime := hour >= s.d.StartHour && hour < s.d.EndHour
 	var err error
 	for _ = range retries {
@@ -136,7 +131,7 @@ func (s *InverterReader) poll(daytime bool) error {
 		log.Printf("Polling inverter %s", s.sma.Name())
 	}
 	var b strings.Builder
-	defer func() { s.status = b.String() }()
+	defer func() { s.status.Store(b.String()) }()
 	fmt.Fprintf(&b, "%s: ", time.Now().Format("2006-01-02 15:04"))
 	_, _, err := s.sma.Logon()
 	if err != nil {

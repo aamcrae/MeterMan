@@ -20,28 +20,29 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
 	"github.com/aamcrae/MeterMan/lib"
 )
 
+const retries = 3
+
 type Sigenergy struct {
 	Addr    string
 	Unit    int
 	Size    float64
-	Poll    int
-	Offset  int
 	Timeout int
 	Trace   bool
 }
 
 // SigenergyReader polls the battery
 type SigenergyReader struct {
-	d      *db.DB   // Database
-	size   float64  // Size of battery in kWh
-	batt   *Battery // Battery object
-	status string   // Current status
+	d      *db.DB       // Database
+	size   float64      // Size of battery in kWh
+	batt   *Battery     // Battery object
+	status atomic.Value // Current status
 }
 
 func init() {
@@ -61,8 +62,6 @@ func batteryReader(d *db.DB) error {
 	}
 	unit := uint8(lib.ConfigOrDefault(conf.Unit, 247)) // Default poll interval of 60 seconds
 	size := lib.ConfigOrDefault(conf.Size, 32.23)      // Default size of battery is around 32kWh
-	poll := lib.ConfigOrDefault(conf.Poll, 60)         // Default poll interval of 60 seconds
-	offset := lib.ConfigOrDefault(conf.Offset, -5)     // Default offset of -5 seconds
 	batt, err := NewBattery(conf.Addr, unit)
 	if err != nil {
 		return err
@@ -70,32 +69,35 @@ func batteryReader(d *db.DB) error {
 	batt.Timeout = lib.ConfigOrDefault(time.Second*time.Duration(conf.Timeout), batt.Timeout)
 	batt.Trace = conf.Trace
 	s := &SigenergyReader{d: d, size: size, batt: batt}
+	s.status.Store("init")
 	d.AddStatusPrinter("Battery", s.Status)
-	log.Printf("Registered SigEnergy battery reader for %s (poll interval %d seconds, offset %d seconds, timeout %s)\n", conf.Addr, poll, offset, s.batt.Timeout.String())
+	log.Printf("Registered SigEnergy battery reader for %s (timeout %s)\n", conf.Addr, s.batt.Timeout.String())
 	if !d.Dryrun {
-		s.d.AddGauge(db.G_BATT_POWER)
-		s.d.AddGauge(db.G_BATT_SIZE)
-		s.d.AddGauge(db.G_BATT_PERCENT)
-		s.d.AddGauge(db.G_BATT_STATUS)
-		s.d.AddAccum(db.A_CHARGE_TOTAL, false)
-		s.d.AddAccum(db.A_DISCHARGE_TOTAL, false)
-		d.AddCallback(time.Second*time.Duration(poll), time.Second*time.Duration(offset), func(now time.Time) {
-			go s.cbPoll(now)
-		})
+		d.AddGauge(db.G_BATT_POWER)
+		d.AddGauge(db.G_BATT_SIZE)
+		d.AddGauge(db.G_BATT_PERCENT)
+		d.AddGauge(db.G_BATT_STATUS)
+		d.AddAccum(db.A_CHARGE_TOTAL, false)
+		d.AddAccum(db.A_DISCHARGE_TOTAL, false)
+		d.AddPoll(s.cbPoll)
 	}
 	return nil
 }
 
 // Status returns a string status for this inverter
 func (s *SigenergyReader) Status() string {
-	return s.status
+	return s.status.Load().(string)
 }
 
-func (s *SigenergyReader) cbPoll(now time.Time) {
-	err := s.poll()
-	if err != nil {
-		log.Printf("Battery poll error: %v", err)
+func (s *SigenergyReader) cbPoll() {
+	var err error
+	for _ = range retries {
+		err = s.poll()
+		if err == nil {
+			return
+		}
 	}
+	log.Printf("Battery poll error: %v", err)
 }
 
 func (s *SigenergyReader) poll() error {
@@ -103,7 +105,7 @@ func (s *SigenergyReader) poll() error {
 		log.Printf("Polling battery")
 	}
 	var b strings.Builder
-	defer func() { s.status = b.String() }()
+	defer func() { s.status.Store(b.String()) }()
 	fmt.Fprintf(&b, "%s: ", time.Now().Format("2006-01-02 15:04"))
 	err := s.batt.poll()
 	if err != nil {

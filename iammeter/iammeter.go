@@ -16,11 +16,9 @@
 // The package is configured as a section in the YAML config file:
 //   iammeter:
 //     meter: <url to retrieve data>
-//     poll: <polling interval in seconds>
 // e.g
 // iammeter:
 //   meter: http://admin:admin@meter-hostname/monitorjson
-//   poll: 30
 //
 // The energy meter is polled, and the following values are extracted:
 // Volts (V) -> G_VOLTS (averaged)
@@ -40,16 +38,17 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/aamcrae/MeterMan/db"
 	"github.com/aamcrae/MeterMan/lib"
 )
 
+const retries = 3
+
 type Iammeter struct {
-	Meter  string
-	Poll   int
-	Offset int
+	Meter string
 }
 
 const moduleName = "iammeter"
@@ -59,7 +58,7 @@ type imeter struct {
 	client http.Client
 	url    string
 	volts  string
-	status string
+	status atomic.Value
 }
 
 // Register iamReader as a data source.
@@ -78,44 +77,45 @@ func iamReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	poll := lib.ConfigOrDefault(conf.Poll, 30)     // Default poll of 30 seconds
-	offset := lib.ConfigOrDefault(conf.Offset, -5) // Default offset -5 seconds
 	if len(conf.Meter) == 0 {
 		return fmt.Errorf("iammeter: missing URL")
 	}
-	im := &imeter{d: d, url: conf.Meter, status: "init"}
+	im := &imeter{d: d, url: conf.Meter}
+	im.status.Store("init")
 	im.client = http.Client{
-		Timeout: time.Duration(time.Second * 10), // 10 second timeout
+		Timeout: time.Duration(time.Second * 5), // 5 second timeout
 	}
 	im.d.AddStatusPrinter(moduleName, im.Status)
-	log.Printf("Registered IAMMETER reader (polling interval %d seconds, offset %d)\n", poll, offset)
+	log.Printf("Registered IAMMETER reader")
 	if !d.Dryrun {
 		im.volts = d.AddSubGauge(db.G_VOLTS, true)
-		im.d.AddGauge(db.G_IN_CURRENT)
-		im.d.AddGauge(db.G_OUT_CURRENT)
-		im.d.AddGauge(db.G_IN_POWER)
-		im.d.AddGauge(db.G_OUT_POWER)
-		im.d.AddAccum(db.A_IN_TOTAL, true)
-		im.d.AddAccum(db.A_OUT_TOTAL, true)
-		im.d.AddAccum(db.A_IMPORT, true)
-		im.d.AddAccum(db.A_EXPORT, true)
-		im.d.AddGauge(db.G_FREQ)
-		im.d.AddCallback(time.Second*time.Duration(poll), time.Second*time.Duration(offset), func(now time.Time) {
-			go im.poll()
-		})
+		d.AddGauge(db.G_IN_CURRENT)
+		d.AddGauge(db.G_OUT_CURRENT)
+		d.AddGauge(db.G_IN_POWER)
+		d.AddGauge(db.G_OUT_POWER)
+		d.AddAccum(db.A_IN_TOTAL, true)
+		d.AddAccum(db.A_OUT_TOTAL, true)
+		d.AddAccum(db.A_IMPORT, true)
+		d.AddAccum(db.A_EXPORT, true)
+		d.AddGauge(db.G_FREQ)
+		d.AddPoll(im.poll)
 	}
 	return nil
 }
 
 func (im *imeter) Status() string {
-	return im.status
+	return im.status.Load().(string)
 }
 
 func (im *imeter) poll() {
-	err := im.fetch()
-	if err != nil {
-		log.Printf("iammeter: %v", err)
+	var err error
+	for _ = range retries {
+		err := im.fetch()
+		if err == nil {
+			return
+		}
 	}
+	log.Printf("iammeter: %v", err)
 }
 
 func (im *imeter) fetch() error {
@@ -128,7 +128,7 @@ func (im *imeter) fetch() error {
 		Data    []float64 `json:"Data"`
 	}
 	var b strings.Builder
-	defer func() { im.status = b.String() }()
+	defer func() { im.status.Store(b.String()) }()
 	fmt.Fprintf(&b, "%s: ", time.Now().Format("2006-01-02 15:04"))
 	resp, err := im.client.Get(im.url)
 	if err != nil {

@@ -83,20 +83,27 @@ type DB struct {
 	StartHour int
 	EndHour   int
 
-	yaml       []byte                   // YAML config
-	input      chan input               // Channel for tagged data
-	run        chan func()              // Channel for callbacks
-	elements   map[string]Element       // Map of tags to elements
-	checkpoint map[string]string        // Initial checkpoint data
-	disabled   map[string]struct{}      // Map of disabled features
-	lastDay    int                      // Current day, to check for midnight processing
-	freshness  time.Duration            // shelf life of data
-	status     map[string]statusPrinter // Map of status reporters
+	yaml       []byte                        // YAML config
+	input      chan input                    // Channel for tagged data
+	run        chan func()                   // Channel for callbacks
+	pollList   []func()                      // List of polling functions
+	exportMap  map[tickKey][]func(time.Time) // List of export functions
+	elements   map[string]Element            // Map of tags to elements
+	checkpoint map[string]string             // Initial checkpoint data
+	disabled   map[string]struct{}           // Map of disabled features
+	lastDay    int                           // Current day, to check for midnight processing
+	freshness  time.Duration                 // shelf life of data
+	status     map[string]statusPrinter      // Map of status reporters
 }
 
 type input struct {
 	tag   string  // The name of the tag.
 	value float64 // The value.
+}
+
+type tickKey struct {
+	tick time.Duration
+	offs time.Duration
 }
 
 // List of functions to call after checkpoint data is available.
@@ -114,6 +121,7 @@ func NewDatabase(conf []byte) *DB {
 	d := new(DB)
 	d.Config = make(map[string]*yaml.Decoder)
 	d.yaml = conf
+	d.exportMap = make(map[tickKey][]func(time.Time))
 	d.elements = make(map[string]Element)
 	d.checkpoint = make(map[string]string)
 	d.disabled = make(map[string]struct{})
@@ -178,7 +186,7 @@ func (d *DB) Start() error {
 				return err
 			}
 			// Add a callback to checkpoint the database at the specified interval.
-			d.AddCallback(time.Second*time.Duration(update), 0, func(now time.Time) {
+			d.AddCallback(time.Second*time.Duration(update), time.Second*15, func(now time.Time) {
 				d.writeCheckpoint(conf.Checkpoint, now)
 			})
 		}
@@ -212,6 +220,27 @@ func (d *DB) Start() error {
 	if d.Dryrun {
 		log.Fatalf("Dry run only, exiting")
 	}
+
+	// Initialize the export function callbacks
+	for t, fl := range d.exportMap {
+		if d.Trace {
+			log.Printf("Adding export, tick %v, offs %v, f count %d, poll count %d", t.tick, t.offs, len(fl), len(d.pollList))
+		}
+		lib.NewTicker(t.tick, t.offs, func(now time.Time) {
+			go func() {
+				// Run poll list in separate goroutine
+				var wg sync.WaitGroup
+				for _, f := range d.pollList {
+					wg.Go(f)
+				}
+				wg.Wait()
+				// Run exports in main thread once all pollers have finished
+				d.Execute(func() {
+					d.runExport(now, fl)
+				})
+			}()
+		})
+	}
 	if d.Trace {
 		// Add a callback dump the state of the database every minute
 		d.AddCallback(time.Minute*time.Duration(1), 0, func(now time.Time) {
@@ -221,20 +250,11 @@ func (d *DB) Start() error {
 	// Register some signal handlers for graceful termination
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
-	echan := lib.WaitChan()
 	for {
 		select {
 		case r := <-d.input:
-			// Received tagged data from producer.
-			h, ok := d.elements[r.tag]
-			if ok {
-				h.Update(r.value, time.Now())
-			} else {
-				log.Printf("Unknown tag: %s\n", r.tag)
-			}
-		case ev := <-echan:
-			// Event from ticker, run the callbacks on the main thread
-			ev.Dispatch()
+			// Process input data
+			d.processInput(r)
 		case f := <-d.run:
 			// Request to run callback in main thread
 			f()
@@ -245,6 +265,31 @@ func (d *DB) Start() error {
 			}
 			log.Fatalf("Signal received, exiting")
 		}
+	}
+}
+
+// AddPoll adds a polling function, called before
+// any Export function is called
+func (d *DB) AddPoll(f func()) {
+	d.pollList = append(d.pollList, f)
+}
+
+// AddExport adds an export function.
+func (d *DB) AddExport(t, o time.Duration, f func(time.Time)) {
+	k := tickKey{tick: t, offs: o}
+	d.exportMap[k] = append(d.exportMap[k], f)
+}
+
+// runExport invokes the export function(s)
+func (d *DB) runExport(now time.Time, fl []func(time.Time)) {
+	// Ensure that the input channel is fully drained
+	d.drainInput()
+	if d.Trace {
+		log.Printf("Export run, delay = %v", time.Now().Sub(now))
+	}
+	// Now invoke the export functions
+	for _, f := range fl {
+		f(now)
 	}
 }
 
@@ -259,9 +304,35 @@ func (d *DB) Input(tag string, value float64) {
 	d.input <- input{tag, value}
 }
 
+func (d *DB) processInput(r input) {
+	// Received tagged data from producer.
+	h, ok := d.elements[r.tag]
+	if ok {
+		h.Update(r.value, time.Now())
+	} else {
+		log.Printf("Unknown tag: %s\n", r.tag)
+	}
+}
+
+// Ensure that all pending inputs are read from the channel
+func (d *DB) drainInput() {
+	for {
+		select {
+		case r := <-d.input:
+			d.processInput(r)
+		default:
+			return
+		}
+	}
+}
+
 // AddCallback adds a callback to be regularly invoked at the interval specified.
 func (d *DB) AddCallback(tick, offset time.Duration, cb func(time.Time)) {
-	lib.NewTicker(tick, offset).AddCB(cb)
+	lib.NewTicker(tick, offset, func(now time.Time) {
+		d.Execute(func() {
+			cb(now)
+		})
+	})
 }
 
 // Execute runs a function in the main thread, blocking until
