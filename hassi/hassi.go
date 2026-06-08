@@ -37,7 +37,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aamcrae/MeterMan/db"
+	"github.com/aamcrae/MeterMan/core"
 )
 
 const moduleName = "hassi"
@@ -45,7 +45,7 @@ const moduleName = "hassi"
 type jsonFloat float64
 
 type hassi struct {
-	d      *db.DB
+	d      *core.DB
 	url    string
 	key    string
 	client *http.Client
@@ -62,10 +62,10 @@ type Hassi struct {
 }
 
 func init() {
-	db.RegisterInit(hassiInit)
+	core.RegisterInit(hassiInit)
 }
 
-func hassiInit(d *db.DB) error {
+func hassiInit(d *core.DB) error {
 	var conf Hassi
 
 	dec, ok := d.Config[moduleName]
@@ -76,7 +76,7 @@ func hassiInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	interval := db.ConfigOrDefault(conf.Update, 120) // Default update of 120 seconds
+	interval := core.ConfigOrDefault(conf.Update, 120) // Default update of 120 seconds
 	key := fmt.Sprintf("Bearer %s", conf.Apikey)
 	h := &hassi{d: d, url: conf.Url, key: key, client: &http.Client{}, status: "init", extra: conf.Extra}
 	intv := time.Second * time.Duration(interval)
@@ -104,10 +104,10 @@ func (h *hassi) send(now time.Time) {
 	}
 	var b blk
 	b.Attr = make(map[string]jsonFloat)
-	h.add(db.G_IN_POWER, "in_power", b.Attr)
-	h.add(db.G_OUT_POWER, "out_power", b.Attr)
-	in_p := h.d.GetElement(db.G_IN_POWER)
-	out_p := h.d.GetElement(db.G_OUT_POWER)
+	h.add(core.G_IN_POWER, "in_power", b.Attr)
+	h.add(core.G_OUT_POWER, "out_power", b.Attr)
+	in_p := h.d.GetElement(core.G_IN_POWER)
+	out_p := h.d.GetElement(core.G_OUT_POWER)
 	if in_p.Fresh() && out_p.Fresh() {
 		b.Attr["meter_power"] = jsonFloat(in_p.Get() - out_p.Get())
 		if in_p.Get() == out_p.Get() {
@@ -117,33 +117,33 @@ func (h *hassi) send(now time.Time) {
 		} else {
 			b.State = "importing"
 		}
-		gen_p := h.d.GetElement(db.D_GEN_P)
+		gen_p := h.d.GetElement(core.D_GEN_P)
 		consumption := in_p.Get() - out_p.Get()
 		if gen_p != nil && gen_p.Fresh() {
 			consumption += gen_p.Get()
 		}
-		bp := h.d.GetElement(db.G_BATT_POWER)
+		bp := h.d.GetElement(core.G_BATT_POWER)
 		if bp.Fresh() {
 			consumption -= bp.Get()
 		}
 		b.Attr["consumption"] = jsonFloat(consumption)
 	}
-	h.add(db.G_BATT_POWER, "batt_power", b.Attr)
-	h.add(db.G_BATT_SIZE, "batt_size", b.Attr)
-	h.add(db.G_BATT_PERCENT, "batt_percent", b.Attr)
-	h.add(db.G_VOLTS, "volts", b.Attr)
-	h.add(db.G_FREQ, "frequency", b.Attr)
-	h.add(db.D_GEN_P, "gen_power", b.Attr)
-	h.daily(db.A_OUT_TOTAL, "out", b.Attr)
-	h.daily(db.A_IN_TOTAL, "in", b.Attr)
-	h.daily(db.A_GEN_TOTAL, "gen", b.Attr)
-	h.daily(db.A_IMPORT, "import", b.Attr)
-	h.daily(db.A_EXPORT, "export", b.Attr)
-	h.daily(db.A_CHARGE_TOTAL, "batt_charge", b.Attr)
-	h.daily(db.A_DISCHARGE_TOTAL, "batt_discharge", b.Attr)
+	h.add(core.G_BATT_POWER, "batt_power", b.Attr)
+	h.add(core.G_BATT_SIZE, "batt_size", b.Attr)
+	h.add(core.G_BATT_PERCENT, "batt_percent", b.Attr)
+	h.add(core.G_VOLTS, "volts", b.Attr)
+	h.add(core.G_FREQ, "frequency", b.Attr)
+	h.add(core.D_GEN_P, "gen_power", b.Attr)
+	h.daily(core.A_OUT_TOTAL, "out", b.Attr)
+	h.daily(core.A_IN_TOTAL, "in", b.Attr)
+	h.daily(core.A_GEN_TOTAL, "gen", b.Attr)
+	h.daily(core.A_IMPORT, "import", b.Attr)
+	h.daily(core.A_EXPORT, "export", b.Attr)
+	h.daily(core.A_CHARGE_TOTAL, "batt_charge", b.Attr)
+	h.daily(core.A_DISCHARGE_TOTAL, "batt_discharge", b.Attr)
 	for ek, ev := range h.extra {
 		e := h.d.GetElement(ek)
-		if _, ok := e.(db.Acc); ok {
+		if _, ok := e.(core.Acc); ok {
 			h.daily(ek, ev, b.Attr)
 		} else {
 			h.add(ek, ev, b.Attr)

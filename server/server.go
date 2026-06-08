@@ -24,7 +24,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/aamcrae/MeterMan/db"
+	"github.com/aamcrae/MeterMan/core"
 	"github.com/aamcrae/statusz"
 )
 
@@ -33,7 +33,7 @@ type ApiConfig struct {
 }
 
 type apiServer struct {
-	d *db.DB
+	d *core.DB
 }
 
 type Item struct {
@@ -54,12 +54,12 @@ type Data struct {
 }
 
 func init() {
-	db.RegisterInit(serverInit)
+	core.RegisterInit(serverInit)
 }
 
 // Initialise a http server.
 // The handlers are run from the main database context.
-func serverInit(d *db.DB) error {
+func serverInit(d *core.DB) error {
 	var conf ApiConfig
 	yaml, ok := d.Config["api"]
 	if !ok {
@@ -70,7 +70,7 @@ func serverInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	port := db.ConfigOrDefault(conf.Port, 8080) // Default port is 8080
+	port := core.ConfigOrDefault(conf.Port, 8080) // Default port is 8080
 	s := &apiServer{d: d}
 	apih := func(w http.ResponseWriter, req *http.Request) {
 		s.d.Execute(func() {
@@ -99,10 +99,10 @@ func (s *apiServer) api(w http.ResponseWriter, req *http.Request) {
 		log.Printf("API: Request: %s", req.URL.String())
 	}
 	var c Data
-	c.Power = int((s.d.GetElement(db.G_IN_POWER).Get() - s.d.GetElement(db.G_OUT_POWER).Get()) * 1000.0)
-	s.daily(&c.Import, db.A_IMPORT, db.G_IN_POWER, 1000)
-	s.daily(&c.Export, db.A_EXPORT, db.G_OUT_POWER, 1000)
-	s.daily(&c.Generated, db.A_GEN_TOTAL, db.D_GEN_P, 1000)
+	c.Power = int((s.d.GetElement(core.G_IN_POWER).Get() - s.d.GetElement(core.G_OUT_POWER).Get()) * 1000.0)
+	s.daily(&c.Import, core.A_IMPORT, core.G_IN_POWER, 1000)
+	s.daily(&c.Export, core.A_EXPORT, core.G_OUT_POWER, 1000)
+	s.daily(&c.Generated, core.A_GEN_TOTAL, core.D_GEN_P, 1000)
 	c.Consumption.Daily = c.Generated.Daily + c.Import.Daily - c.Export.Daily
 	c.Consumption.Total = c.Generated.Total + c.Import.Total - c.Export.Total
 	c.Power = c.Import.Power - c.Export.Power
@@ -168,10 +168,10 @@ func (s *apiServer) status(w http.ResponseWriter, req *http.Request) {
 	for _, k := range keys {
 		v := m[k]
 		fmt.Fprintf(w, "<tr><td><bold>%s</bold></td>", k)
-		fmt.Fprintf(w, "<td style=\"text-align:right\">%s</td>", db.FmtFloat(v.Get()))
+		fmt.Fprintf(w, "<td style=\"text-align:right\">%s</td>", core.FmtFloat(v.Get()))
 		switch vt := v.(type) {
-		case db.Acc:
-			fmt.Fprintf(w, "<td style=\"text-align:right\">%s</td>", db.FmtFloat(vt.Daily()))
+		case core.Acc:
+			fmt.Fprintf(w, "<td style=\"text-align:right\">%s</td>", core.FmtFloat(vt.Daily()))
 		default:
 			fmt.Fprintf(w, "<td> </td>")
 		}

@@ -1,4 +1,4 @@
-// Copyright 2025 Andrew McRae
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,16 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package db
+package core
 
-// Battery status - follows https://pvoutput.org/help/api_specification.html#id2
-
-type BattStatus int
-
-const (
-	BATT_INVALID BattStatus = iota
-	BATT_STANDBY
-	BATT_THERMAL
-	BATT_ENABLED
-	BATT_FAULT
+import (
+	"strconv"
+	"strings"
 )
+
+// FmtFloat is a custom float formatter that
+// has a fixed precision of 2 decimal places with trailing zeros removed.
+func FmtFloat(f float64) string {
+	s := strconv.FormatFloat(f, 'f', 2, 64)
+	s = strings.TrimRight(s, "0")
+	last := len(s) - 1
+	if s[last] == '.' {
+		s = s[:last]
+	}
+	return s
+}

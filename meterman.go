@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	_ "github.com/aamcrae/MeterMan/csv"
-	"github.com/aamcrae/MeterMan/db"
+	"github.com/aamcrae/MeterMan/core"
 	_ "github.com/aamcrae/MeterMan/hassi"
 	_ "github.com/aamcrae/MeterMan/iammeter"
 	_ "github.com/aamcrae/MeterMan/meter"
@@ -60,7 +60,7 @@ func main() {
 			log.Println(http.ListenAndServe(fmt.Sprintf("localhost:%d", *port), nil))
 		}()
 	}
-	d := db.NewDatabase(conf)
+	d := core.NewDatabase(conf)
 	d.Trace = *verbose
 	d.Dryrun = *dryrun
 	for feat := range strings.SplitSeq(*disable, ",") {

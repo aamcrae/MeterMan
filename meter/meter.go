@@ -49,7 +49,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aamcrae/MeterMan/db"
+	"github.com/aamcrae/MeterMan/core"
 	"github.com/aamcrae/lcd"
 )
 
@@ -75,22 +75,22 @@ type MeterConfig struct {
 
 // Maps meter label to database tag.
 var tagMap map[string][]string = map[string][]string{
-	"1NtL": {db.A_OUT_TOTAL, db.G_OUT_POWER},
-	"EHtL": {db.A_IN_TOTAL, db.G_IN_POWER},
-	"EHL1": {db.A_IMPORT + "/0"},
-	"EHL2": {db.A_IMPORT + "/1"},
-	"1NL1": {db.A_EXPORT + "/0"},
-	"1NL2": {db.A_EXPORT + "/1"},
+	"1NtL": {core.A_OUT_TOTAL, core.G_OUT_POWER},
+	"EHtL": {core.A_IN_TOTAL, core.G_IN_POWER},
+	"EHL1": {core.A_IMPORT + "/0"},
+	"EHL2": {core.A_IMPORT + "/1"},
+	"1NL1": {core.A_EXPORT + "/0"},
+	"1NL2": {core.A_EXPORT + "/1"},
 }
 
 // Register meterReader as a data source.
 func init() {
-	db.RegisterInit(meterReader)
+	core.RegisterInit(meterReader)
 }
 
 // Create an instance of a meter reader, if there is
 // a config section declared for it.
-func meterReader(d *db.DB) error {
+func meterReader(d *core.DB) error {
 	var conf MeterConfig
 	yaml, ok := d.Config["meter"]
 	if !ok {
@@ -104,14 +104,14 @@ func meterReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	d.AddDiff(db.G_IN_POWER)
-	d.AddDiff(db.G_OUT_POWER)
-	d.AddAccum(db.A_IN_TOTAL, true)
-	d.AddAccum(db.A_OUT_TOTAL, true)
-	d.AddSubAccum(db.A_IMPORT, true)
-	d.AddSubAccum(db.A_IMPORT, true)
-	d.AddSubAccum(db.A_EXPORT, true)
-	d.AddSubAccum(db.A_EXPORT, true)
+	d.AddDiff(core.G_IN_POWER)
+	d.AddDiff(core.G_OUT_POWER)
+	d.AddAccum(core.A_IN_TOTAL, true)
+	d.AddAccum(core.A_OUT_TOTAL, true)
+	d.AddSubAccum(core.A_IMPORT, true)
+	d.AddSubAccum(core.A_IMPORT, true)
+	d.AddSubAccum(core.A_EXPORT, true)
+	d.AddSubAccum(core.A_EXPORT, true)
 	log.Printf("Registered meter LCD reader (%d digits)\n", len(conf.Digit))
 	if !d.Dryrun {
 		go runReader(d, r, &conf)
@@ -121,9 +121,9 @@ func meterReader(d *db.DB) error {
 
 // runReader is a loop that reads the image of the meter panel
 // from an image source, and decodes the LCD digits.
-func runReader(d *db.DB, r *Reader, conf *MeterConfig) {
-	delay := time.Millisecond * time.Duration(db.ConfigOrDefault(conf.Sample, 4900))            // Sample rate in milliseconds
-	timeout := time.Second * time.Duration(db.ConfigOrDefault(time.Duration(conf.Timeout), 20)) // Timeout in seconds
+func runReader(d *core.DB, r *Reader, conf *MeterConfig) {
+	delay := time.Millisecond * time.Duration(core.ConfigOrDefault(conf.Sample, 4900))            // Sample rate in milliseconds
+	timeout := time.Second * time.Duration(core.ConfigOrDefault(time.Duration(conf.Timeout), 20)) // Timeout in seconds
 	lastTime := time.Now()
 	client := http.Client{
 		Timeout: timeout,

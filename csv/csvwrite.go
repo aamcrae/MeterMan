@@ -29,7 +29,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aamcrae/MeterMan/db"
+	"github.com/aamcrae/MeterMan/core"
 )
 
 type CsvConfig struct {
@@ -73,7 +73,7 @@ var fields []field = []field{
 const moduleName = "csv"
 
 type csv struct {
-	d      *db.DB
+	d      *core.DB
 	fpath  string
 	day    int
 	writer *writer
@@ -82,11 +82,11 @@ type csv struct {
 }
 
 func init() {
-	db.RegisterInit(csvInit)
+	core.RegisterInit(csvInit)
 }
 
 // Returns a writer that writes daily CSV files in the form path/year/month/day
-func csvInit(d *db.DB) error {
+func csvInit(d *core.DB) error {
 	var conf CsvConfig
 	yaml, ok := d.Config[moduleName]
 	if !ok {
@@ -96,7 +96,7 @@ func csvInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	interval := db.ConfigOrDefault(conf.Interval, 5) // Default of 5 minutes
+	interval := core.ConfigOrDefault(conf.Interval, 5) // Default of 5 minutes
 	c := &csv{d: d, fpath: conf.Base, status: "init"}
 	if !d.Dryrun {
 		d.AddExport(time.Minute*time.Duration(interval), 0, c.Run)
@@ -113,11 +113,11 @@ func (c *csv) Run(now time.Time) {
 	for _, f := range fields {
 		e := c.d.GetElement(f.name)
 		if e != nil && e.Fresh() {
-			fmt.Fprintf(&line, ",%s", db.FmtFloat(e.Get()))
+			fmt.Fprintf(&line, ",%s", core.FmtFloat(e.Get()))
 			// For accumulators, also store the daily accumulated value
 			if f.accum {
-				a := e.(db.Acc)
-				fmt.Fprintf(&line, ",%s", db.FmtFloat(a.Daily()))
+				a := e.(core.Acc)
+				fmt.Fprintf(&line, ",%s", core.FmtFloat(a.Daily()))
 			}
 		} else if f.accum {
 			fmt.Fprint(&line, ",,")

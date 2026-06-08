@@ -29,7 +29,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/aamcrae/MeterMan/db"
+	"github.com/aamcrae/MeterMan/core"
 )
 
 const retries = 3
@@ -45,7 +45,7 @@ type Sma []struct {
 
 // InverterReader polls the inverter(s)
 type InverterReader struct {
-	d   *db.DB // Database
+	d   *core.DB // Database
 	sma *SMA   // Inverter object
 	// Database element names. These are dynamically allocated.
 	genP     string       // Gauge for current power (Kw)
@@ -59,11 +59,11 @@ type InverterReader struct {
 }
 
 func init() {
-	db.RegisterInit(inverterReader)
+	core.RegisterInit(inverterReader)
 }
 
 // Initialise SMA reader(s).
-func inverterReader(d *db.DB) error {
+func inverterReader(d *core.DB) error {
 	var conf Sma
 	c, ok := d.Config["sma"]
 	if !ok {
@@ -78,19 +78,19 @@ func inverterReader(d *db.DB) error {
 		if err != nil {
 			return err
 		}
-		sma.Timeout = db.ConfigOrDefault(time.Second*time.Duration(e.Timeout), sma.Timeout)
+		sma.Timeout = core.ConfigOrDefault(time.Second*time.Duration(e.Timeout), sma.Timeout)
 		sma.Trace = e.Trace
 		sma.PktDump = e.Dump
 		s := &InverterReader{d: d, sma: sma}
 		// Allocate gauges etc. for the inverter.
-		s.genP = d.AddSubGauge(db.G_GEN_P, false)
+		s.genP = d.AddSubGauge(core.G_GEN_P, false)
 		if e.Volts {
-			s.volts = d.AddSubGauge(db.G_VOLTS, true)
+			s.volts = d.AddSubGauge(core.G_VOLTS, true)
 		}
-		s.genDaily = d.AddSubAccum(db.A_GEN_DAILY, true)
-		s.genT = d.AddSubAccum(db.A_GEN_TOTAL, false)
-		s.genDP = d.AddSubDiff(db.D_GEN_P, false)
-		mptt := fmt.Sprintf("%s-%d", db.G_MPTT, index)
+		s.genDaily = d.AddSubAccum(core.A_GEN_DAILY, true)
+		s.genT = d.AddSubAccum(core.A_GEN_TOTAL, false)
+		s.genDP = d.AddSubDiff(core.D_GEN_P, false)
+		mptt := fmt.Sprintf("%s-%d", core.G_MPTT, index)
 		s.mpttA = fmt.Sprintf("%s-A", mptt)
 		s.mpttB = fmt.Sprintf("%s-B", mptt)
 		s.status.Store("init")
@@ -149,7 +149,7 @@ func (s *InverterReader) poll(daytime bool) error {
 			log.Printf("Tag %s Daily yield = %g", s.genDaily, d)
 		}
 		s.d.Input(s.genDaily, d)
-		fmt.Fprintf(&b, ", Daily %s", db.FmtFloat(d))
+		fmt.Fprintf(&b, ", Daily %s", core.FmtFloat(d))
 	}
 	t, err := s.sma.TotalEnergy()
 	if err != nil {
@@ -160,7 +160,7 @@ func (s *InverterReader) poll(daytime bool) error {
 		if s.d.Trace {
 			log.Printf("Tag %s Total yield = %g", s.genT, t)
 		}
-		fmt.Fprintf(&b, ", Total %s", db.FmtFloat(t))
+		fmt.Fprintf(&b, ", Total %s", core.FmtFloat(t))
 		s.d.Input(s.genT, t)
 		s.d.Input(s.genDP, t)
 	}
@@ -177,7 +177,7 @@ func (s *InverterReader) poll(daytime bool) error {
 				log.Printf("Tag %s volts = %g", s.volts, v)
 			}
 			s.d.Input(s.volts, v)
-			fmt.Fprintf(&b, ", Volts %s", db.FmtFloat(v))
+			fmt.Fprintf(&b, ", Volts %s", core.FmtFloat(v))
 		}
 	}
 	p, err := s.sma.Power()
@@ -189,7 +189,7 @@ func (s *InverterReader) poll(daytime bool) error {
 		log.Printf("Tag %s power = %g", s.genP, pf)
 	}
 	s.d.Input(s.genP, pf)
-	fmt.Fprintf(&b, ", Power %s", db.FmtFloat(pf))
+	fmt.Fprintf(&b, ", Power %s", core.FmtFloat(pf))
 
 	mptts, err := s.sma.MPTT()
 	if err != nil {
@@ -203,7 +203,7 @@ func (s *InverterReader) poll(daytime bool) error {
 		}
 		s.d.Input(s.mpttA, mptts[0])
 		s.d.Input(s.mpttB, mptts[1])
-		fmt.Fprintf(&b, ", MPPT-A %s, MPTT-B %s", db.FmtFloat(mptts[0]), db.FmtFloat(mptts[1]))
+		fmt.Fprintf(&b, ", MPPT-A %s, MPTT-B %s", core.FmtFloat(mptts[0]), core.FmtFloat(mptts[1]))
 	}
 	return nil
 }

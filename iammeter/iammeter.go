@@ -41,7 +41,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/aamcrae/MeterMan/db"
+	"github.com/aamcrae/MeterMan/core"
 )
 
 const retries = 3
@@ -53,7 +53,7 @@ type Iammeter struct {
 const moduleName = "iammeter"
 
 type imeter struct {
-	d      *db.DB
+	d      *core.DB
 	client http.Client
 	url    string
 	volts  string
@@ -62,11 +62,11 @@ type imeter struct {
 
 // Register iamReader as a data source.
 func init() {
-	db.RegisterInit(iamReader)
+	core.RegisterInit(iamReader)
 }
 
 // Set up polling the energy meter, if the config exists for it.
-func iamReader(d *db.DB) error {
+func iamReader(d *core.DB) error {
 	var conf Iammeter
 	c, ok := d.Config[moduleName]
 	if !ok {
@@ -87,16 +87,16 @@ func iamReader(d *db.DB) error {
 	im.d.AddStatusPrinter(moduleName, im.Status)
 	log.Printf("Registered IAMMETER reader")
 	if !d.Dryrun {
-		im.volts = d.AddSubGauge(db.G_VOLTS, true)
-		d.AddGauge(db.G_IN_CURRENT)
-		d.AddGauge(db.G_OUT_CURRENT)
-		d.AddGauge(db.G_IN_POWER)
-		d.AddGauge(db.G_OUT_POWER)
-		d.AddAccum(db.A_IN_TOTAL, true)
-		d.AddAccum(db.A_OUT_TOTAL, true)
-		d.AddAccum(db.A_IMPORT, true)
-		d.AddAccum(db.A_EXPORT, true)
-		d.AddGauge(db.G_FREQ)
+		im.volts = d.AddSubGauge(core.G_VOLTS, true)
+		d.AddGauge(core.G_IN_CURRENT)
+		d.AddGauge(core.G_OUT_CURRENT)
+		d.AddGauge(core.G_IN_POWER)
+		d.AddGauge(core.G_OUT_POWER)
+		d.AddAccum(core.A_IN_TOTAL, true)
+		d.AddAccum(core.A_OUT_TOTAL, true)
+		d.AddAccum(core.A_IMPORT, true)
+		d.AddAccum(core.A_EXPORT, true)
+		d.AddGauge(core.G_FREQ)
 		d.AddPoll(im.poll)
 	}
 	return nil
@@ -150,10 +150,10 @@ func (im *imeter) fetch() error {
 		fmt.Fprintf(&b, "Malformed data from meter")
 		return fmt.Errorf("malformed data from meter")
 	}
-	fmt.Fprintf(&b, "OK - Volts: %s, current %s, power %s", db.FmtFloat(m.Data[0]), db.FmtFloat(m.Data[1]), db.FmtFloat(m.Data[2]))
-	fmt.Fprintf(&b, ", Imp: %s, Exp %s", db.FmtFloat(m.Data[3]), db.FmtFloat(m.Data[4]))
+	fmt.Fprintf(&b, "OK - Volts: %s, current %s, power %s", core.FmtFloat(m.Data[0]), core.FmtFloat(m.Data[1]), core.FmtFloat(m.Data[2]))
+	fmt.Fprintf(&b, ", Imp: %s, Exp %s", core.FmtFloat(m.Data[3]), core.FmtFloat(m.Data[4]))
 	if len(m.Data) == 7 {
-		fmt.Fprintf(&b, ", Frequency: %s, factor %s", db.FmtFloat(m.Data[5]), db.FmtFloat(m.Data[6]))
+		fmt.Fprintf(&b, ", Frequency: %s, factor %s", core.FmtFloat(m.Data[5]), core.FmtFloat(m.Data[6]))
 	}
 	if im.d.Trace {
 		log.Printf("iammeter: version %s, serial number %s", m.Version, m.Serial)
@@ -169,24 +169,24 @@ func (im *imeter) fetch() error {
 	}
 	im.d.Input(im.volts, m.Data[0])
 	if m.Data[2] < 0.0 {
-		im.d.Input(db.G_IN_CURRENT, 0.0)
-		im.d.Input(db.G_IN_POWER, 0.0)
-		im.d.Input(db.G_OUT_CURRENT, m.Data[1])
-		im.d.Input(db.G_OUT_POWER, m.Data[2]/-1000.0)
+		im.d.Input(core.G_IN_CURRENT, 0.0)
+		im.d.Input(core.G_IN_POWER, 0.0)
+		im.d.Input(core.G_OUT_CURRENT, m.Data[1])
+		im.d.Input(core.G_OUT_POWER, m.Data[2]/-1000.0)
 	} else {
-		im.d.Input(db.G_OUT_POWER, 0.0)
-		im.d.Input(db.G_OUT_CURRENT, 0.0)
-		im.d.Input(db.G_IN_CURRENT, m.Data[1])
-		im.d.Input(db.G_IN_POWER, m.Data[2]/1000.0)
+		im.d.Input(core.G_OUT_POWER, 0.0)
+		im.d.Input(core.G_OUT_CURRENT, 0.0)
+		im.d.Input(core.G_IN_CURRENT, m.Data[1])
+		im.d.Input(core.G_IN_POWER, m.Data[2]/1000.0)
 	}
 	// ImportEnergy
-	im.d.Input(db.A_IN_TOTAL, m.Data[3])
-	im.d.Input(db.A_IMPORT, m.Data[3])
+	im.d.Input(core.A_IN_TOTAL, m.Data[3])
+	im.d.Input(core.A_IMPORT, m.Data[3])
 	// ExportGrid
-	im.d.Input(db.A_OUT_TOTAL, m.Data[4])
-	im.d.Input(db.A_EXPORT, m.Data[4])
+	im.d.Input(core.A_OUT_TOTAL, m.Data[4])
+	im.d.Input(core.A_EXPORT, m.Data[4])
 	if len(m.Data) == 7 {
-		im.d.Input(db.G_FREQ, m.Data[5])
+		im.d.Input(core.G_FREQ, m.Data[5])
 	}
 	return nil
 }

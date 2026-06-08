@@ -46,7 +46,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aamcrae/MeterMan/db"
+	"github.com/aamcrae/MeterMan/core"
 )
 
 type Pvoutput struct {
@@ -60,7 +60,7 @@ type Pvoutput struct {
 const moduleName = "pvoutput"
 
 type pvWriter struct {
-	d      *db.DB
+	d      *core.DB
 	pvurl  string
 	id     string
 	key    string
@@ -70,10 +70,10 @@ type pvWriter struct {
 }
 
 func init() {
-	db.RegisterInit(pvoutputInit)
+	core.RegisterInit(pvoutputInit)
 }
 
-func pvoutputInit(d *db.DB) error {
+func pvoutputInit(d *core.DB) error {
 	var conf Pvoutput
 	c, ok := d.Config[moduleName]
 	if !ok {
@@ -83,8 +83,8 @@ func pvoutputInit(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	interval := db.ConfigOrDefault(conf.Interval, 5) // Default update of 5 minutes
-	url := db.ConfigOrDefault(conf.Pvurl, "https://pvoutput.org/service/r2/addstatus.jsp")
+	interval := core.ConfigOrDefault(conf.Interval, 5) // Default update of 5 minutes
+	url := core.ConfigOrDefault(conf.Pvurl, "https://pvoutput.org/service/r2/addstatus.jsp")
 	p := &pvWriter{d: d, pvurl: url, id: conf.Systemid, key: conf.Apikey, client: &http.Client{}, trace: conf.Trace || d.Trace, status: "init"}
 	if !d.Dryrun {
 		d.AddExport(time.Minute*time.Duration(interval), 0, p.upload)
@@ -100,16 +100,16 @@ func (p *pvWriter) upload(now time.Time) {
 	fmt.Fprintf(&b, "%s: ", now.Format("2006-01-02 15:04"))
 	pv_power, pv_power_ok := p.getPVPower()
 	pv_daily, pv_daily_ok := p.getPVDaily()
-	temp := p.d.GetElement(db.G_TEMP)
-	volts := p.d.GetElement(db.G_VOLTS)
-	imp := p.d.GetAccum(db.A_IN_TOTAL)
-	exp := p.d.GetAccum(db.A_OUT_TOTAL)
-	b_charge := p.d.GetAccum(db.A_CHARGE_TOTAL)
-	b_discharge := p.d.GetAccum(db.A_DISCHARGE_TOTAL)
-	b_status := p.d.GetElement(db.G_BATT_STATUS)
-	b_power := p.d.GetElement(db.G_BATT_POWER)
-	b_size := p.d.GetElement(db.G_BATT_SIZE)
-	b_percent := p.d.GetElement(db.G_BATT_PERCENT)
+	temp := p.d.GetElement(core.G_TEMP)
+	volts := p.d.GetElement(core.G_VOLTS)
+	imp := p.d.GetAccum(core.A_IN_TOTAL)
+	exp := p.d.GetAccum(core.A_OUT_TOTAL)
+	b_charge := p.d.GetAccum(core.A_CHARGE_TOTAL)
+	b_discharge := p.d.GetAccum(core.A_DISCHARGE_TOTAL)
+	b_status := p.d.GetElement(core.G_BATT_STATUS)
+	b_power := p.d.GetElement(core.G_BATT_POWER)
+	b_size := p.d.GetElement(core.G_BATT_SIZE)
+	b_percent := p.d.GetElement(core.G_BATT_PERCENT)
 	hour := now.Hour()
 	daytime := hour >= p.d.StartHour && hour < p.d.EndHour
 
@@ -271,21 +271,21 @@ func (p *pvWriter) send(req *http.Request, b *strings.Builder) {
 // If it is not valid, an attempt is made to derive it from any
 // valid sub-values.
 func (p *pvWriter) getPVPower() (float64, bool) {
-	pwr := p.d.GetElement(db.D_GEN_P)
+	pwr := p.d.GetElement(core.D_GEN_P)
 	if isValid(pwr) {
 		return pwr.Get(), true
 	}
 	if p.trace {
-		log.Printf("%s not valid, trying sub-values", db.A_GEN_TOTAL)
+		log.Printf("%s not valid, trying sub-values", core.A_GEN_TOTAL)
 	}
 	for i := range 2 {
-		pe := p.d.GetElement(fmt.Sprintf("%s/%d", db.D_GEN_P, i))
+		pe := p.d.GetElement(fmt.Sprintf("%s/%d", core.D_GEN_P, i))
 		if pe == nil {
 			break
 		}
 		if isValid(pe) {
 			if p.trace {
-				log.Printf("Using 2 x %s/%d (value %g)", db.D_GEN_P, i, pe.Get())
+				log.Printf("Using 2 x %s/%d (value %g)", core.D_GEN_P, i, pe.Get())
 			}
 			return pe.Get() * 2, true
 		}
@@ -300,21 +300,21 @@ func (p *pvWriter) getPVPower() (float64, bool) {
 // If it is not valid, an attempt is made to derive it from any
 // valid sub-values.
 func (p *pvWriter) getPVDaily() (float64, bool) {
-	pd := p.d.GetAccum(db.A_GEN_TOTAL)
+	pd := p.d.GetAccum(core.A_GEN_TOTAL)
 	if isValid(pd) {
 		return pd.Daily(), true
 	}
 	if p.trace {
-		log.Printf("%s not valid, trying sub-values", db.A_GEN_TOTAL)
+		log.Printf("%s not valid, trying sub-values", core.A_GEN_TOTAL)
 	}
 	for i := range 2 {
-		pe := p.d.GetAccum(fmt.Sprintf("%s/%d", db.A_GEN_TOTAL, i))
+		pe := p.d.GetAccum(fmt.Sprintf("%s/%d", core.A_GEN_TOTAL, i))
 		if pe == nil {
 			break
 		}
 		if isValid(pe) {
 			if p.trace {
-				log.Printf("Using 2 x %s/%d (value %g)", db.A_GEN_TOTAL, i, pe.Daily())
+				log.Printf("Using 2 x %s/%d (value %g)", core.A_GEN_TOTAL, i, pe.Daily())
 			}
 			return pe.Daily() * 2, true
 		}
@@ -327,8 +327,8 @@ func (p *pvWriter) getPVDaily() (float64, bool) {
 
 // getPower returns the current import/export power (as Watts)
 func (p *pvWriter) getPower() (float64, error) {
-	d_in := p.d.GetElement(db.G_IN_POWER)
-	d_out := p.d.GetElement(db.G_OUT_POWER)
+	d_in := p.d.GetElement(core.G_IN_POWER)
+	d_out := p.d.GetElement(core.G_OUT_POWER)
 	if p.trace {
 		log.Printf("IN-P  = %g, valid = %v", d_in.Get(), isValid(d_in))
 		log.Printf("OUT-P = %g, valid = %v", d_out.Get(), isValid(d_out))
@@ -340,6 +340,6 @@ func (p *pvWriter) getPower() (float64, error) {
 }
 
 // isValid will return true if the element is not nil and is fresh
-func isValid(e db.Element) bool {
+func isValid(e core.Element) bool {
 	return e != nil && e.Fresh()
 }

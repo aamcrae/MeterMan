@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// package db stores tagged data sent over a channel from data providers,
+// package core stores tagged data sent over a channel from data providers,
 // and at specified intervals, invokes handlers to process the data.
 // Data can be stored as gauges or accumulators.
 // The stored data is checkpointed at selected intervals.
@@ -33,13 +33,13 @@
 //
 //                 (MyModule) init()
 //                            -> RegisterInit(MyInit)
-//  db.Start()
+//  core.Start()
 //             -> MyInit(db)
 //                   -> Initialise module, save input channel, start producer goroutine
-//                   -> db.AddCallback(interval, offset, MyConsumer)  [to register consumer]
+//                   -> core.AddCallback(interval, offset, MyConsumer)  [to register consumer]
 //     ...
 //  <processing loop>
-//                                  <- MyProducer db.Input()
+//                                  <- MyProducer core.Input()
 //    <receives tagged data>
 //          <updates elements>
 //    <each-interval>
@@ -49,7 +49,7 @@
 // All setup (registering callbacks, creating database elements etc) must be completed
 // as part of the Start() initialisation, before the processing loop is entered.
 
-package db
+package core
 
 import (
 	"bytes"

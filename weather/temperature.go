@@ -37,7 +37,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aamcrae/MeterMan/db"
+	"github.com/aamcrae/MeterMan/core"
 )
 
 const weatherUrl = "http://api.openweathermap.org/data/2.5/weather?id=%s&units=metric&appid=%s"
@@ -55,10 +55,10 @@ type Weather struct {
 }
 
 func init() {
-	db.RegisterInit(weatherReader)
+	core.RegisterInit(weatherReader)
 }
 
-func weatherReader(d *db.DB) error {
+func weatherReader(d *core.DB) error {
 	var conf Weather
 	dec, ok := d.Config["weather"]
 	if !ok {
@@ -68,7 +68,7 @@ func weatherReader(d *db.DB) error {
 	if err != nil {
 		return err
 	}
-	poll := db.ConfigOrDefault(conf.Poll, 120) // Default poll interval of 120 seconds
+	poll := core.ConfigOrDefault(conf.Poll, 120) // Default poll interval of 120 seconds
 	var get func() (float64, error)
 	switch conf.Tempservice {
 	default:
@@ -89,14 +89,14 @@ func weatherReader(d *db.DB) error {
 		}
 	}
 	log.Printf("Registered temperature reader using service %s, polling every %d seconds\n", conf.Tempservice, poll)
-	d.AddGauge(db.G_TEMP)
+	d.AddGauge(core.G_TEMP)
 	if !d.Dryrun {
 		go reader(d, poll, get)
 	}
 	return nil
 }
 
-func reader(d *db.DB, poll int, get func() (float64, error)) {
+func reader(d *core.DB, poll int, get func() (float64, error)) {
 	for {
 		t, err := get()
 		if err != nil {
@@ -105,7 +105,7 @@ func reader(d *db.DB, poll int, get func() (float64, error)) {
 			if d.Trace {
 				log.Printf("Current temperature: %g\n", t)
 			}
-			d.Input(db.G_TEMP, t)
+			d.Input(core.G_TEMP, t)
 		}
 		time.Sleep(time.Duration(poll) * time.Second)
 	}
