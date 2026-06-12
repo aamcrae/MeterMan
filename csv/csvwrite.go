@@ -21,12 +21,13 @@
 package csv
 
 import (
-	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/aamcrae/MeterMan/core"
@@ -38,9 +39,8 @@ type CsvConfig struct {
 }
 
 type writer struct {
+	io.WriteCloser
 	name string
-	file *os.File
-	buf  *bufio.Writer
 }
 
 const header = "#date,time"
@@ -78,7 +78,7 @@ type csv struct {
 	day    int
 	writer *writer
 	lines  int
-	status string
+	status atomic.Value
 }
 
 func init() {
@@ -97,7 +97,8 @@ func csvInit(d *core.DB) error {
 		return err
 	}
 	interval := core.ConfigOrDefault(conf.Interval, 5) // Default of 5 minutes
-	c := &csv{d: d, fpath: conf.Base, status: "init"}
+	c := &csv{d: d, fpath: conf.Base}
+	c.status.Store("init")
 	if !d.Dryrun {
 		d.AddExport(time.Minute*time.Duration(interval), 0, c.Run)
 	}
@@ -125,21 +126,20 @@ func (c *csv) Run(now time.Time) {
 			fmt.Fprint(&line, ",")
 		}
 	}
-	// Delegate writing the line to a separate goroutine.
-	go c.write(now, line.String())
+	// Delegate the file I/O to a goroutine.
+	go c.addCSV(now, line.String())
 }
 
-// write writes the line to the CSV file, and if necessary
+// addCSV writes the line to the CSV file, and if necessary
 // creating a new file.
-func (c *csv) write(now time.Time, l string) {
+func (c *csv) addCSV(now time.Time, l string) {
 	var b strings.Builder
-	defer func() { c.status = b.String() }()
+	defer func() { c.status.Store(b.String()) }()
 	fmt.Fprintf(&b, "%s: ", now.Format("2006-01-02 15:04"))
-	// Check for new day.
+	// If a new day, close the current file and create a new CSV file
 	if now.YearDay() != c.day {
 		if c.writer != nil {
 			c.writer.Close()
-			c.writer = nil
 			c.lines = 0
 		}
 		var err error
@@ -147,18 +147,20 @@ func (c *csv) write(now time.Time, l string) {
 		c.writer, created, err = NewWriter(c.fpath, now)
 		if err != nil {
 			log.Printf("%s: %v", c.fpath, err)
-			fmt.Fprintf(&b, "NewWriter Err: - %v", err)
+			fmt.Fprintf(&b, "NewWrite err: %v", err)
 			return
 		}
 		if created {
-			fmt.Fprint(c.writer, header)
+			// Add CSV column header
+			var h strings.Builder
+			fmt.Fprint(&h, header)
 			for _, f := range fields {
-				fmt.Fprintf(c.writer, ",%s", f.name)
+				fmt.Fprintf(&h, ",%s", f.name)
 				if f.accum {
-					fmt.Fprintf(c.writer, ",%s-DAILY", f.name)
+					fmt.Fprintf(&h, ",%s-DAILY", f.name)
 				}
 			}
-			fmt.Fprint(c.writer, "\n")
+			fmt.Fprintln(c.writer, h.String())
 			c.lines++
 		}
 		c.day = now.YearDay()
@@ -168,13 +170,12 @@ func (c *csv) write(now time.Time, l string) {
 		log.Printf("Writing CSV line to %s\n", c.writer.name)
 	}
 	c.lines++
-	fmt.Fprintf(c.writer, "%s\n", l)
+	fmt.Fprintln(c.writer, l)
 	fmt.Fprintf(&b, "OK - file %s, lines %d", c.writer.name, c.lines)
-	c.writer.Flush()
 }
 
 func (c *csv) Status() string {
-	return c.status
+	return c.status.Load().(string)
 }
 
 // NewWriter creates a new file writer.
@@ -195,18 +196,5 @@ func NewWriter(p string, t time.Time) (*writer, bool, error) {
 		}
 		created = true
 	}
-	return &writer{fn, f, bufio.NewWriter(f)}, created, nil
-}
-
-func (wr *writer) Write(p []byte) (n int, err error) {
-	return wr.buf.Write(p)
-}
-
-func (wr *writer) Flush() error {
-	return wr.buf.Flush()
-}
-
-func (wr *writer) Close() error {
-	wr.buf.Flush()
-	return wr.file.Close()
+	return &writer{f, fn}, created, nil
 }
