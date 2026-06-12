@@ -35,6 +35,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/aamcrae/MeterMan/core"
@@ -49,7 +50,7 @@ type hassi struct {
 	url    string
 	key    string
 	client *http.Client
-	status string
+	status atomic.Value
 	extra  map[string]string
 }
 
@@ -78,7 +79,8 @@ func hassiInit(d *core.DB) error {
 	}
 	interval := core.ConfigOrDefault(conf.Update, 120) // Default update of 120 seconds
 	key := fmt.Sprintf("Bearer %s", conf.Apikey)
-	h := &hassi{d: d, url: conf.Url, key: key, client: &http.Client{}, status: "init", extra: conf.Extra}
+	h := &hassi{d: d, url: conf.Url, key: key, client: &http.Client{}, extra: conf.Extra}
+	h.status.Store("Init")
 	intv := time.Second * time.Duration(interval)
 	if d.Trace {
 		log.Printf("hassi: extra fields: %v", h.extra)
@@ -93,7 +95,7 @@ func hassiInit(d *core.DB) error {
 
 // Status returns the current status
 func (h *hassi) Status() string {
-	return h.status
+	return h.status.Load().(string)
 }
 
 // Upload any updated tags to Home Assistant.
@@ -152,7 +154,7 @@ func (h *hassi) send(now time.Time) {
 	// Send request asynchronously.
 	go func() {
 		var str strings.Builder
-		defer func() { h.status = str.String() }()
+		defer func() { h.status.Store(str.String()) }()
 		fmt.Fprintf(&str, "%s: ", now.Format("2006-01-02 15:04"))
 		buf := new(bytes.Buffer)
 		json.NewEncoder(buf).Encode(&b)

@@ -44,6 +44,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/aamcrae/MeterMan/core"
@@ -66,7 +67,7 @@ type pvWriter struct {
 	key    string
 	client *http.Client
 	trace  bool
-	status string
+	status atomic.Value
 }
 
 func init() {
@@ -85,7 +86,8 @@ func pvoutputInit(d *core.DB) error {
 	}
 	interval := core.ConfigOrDefault(conf.Interval, 5) // Default update of 5 minutes
 	url := core.ConfigOrDefault(conf.Pvurl, "https://pvoutput.org/service/r2/addstatus.jsp")
-	p := &pvWriter{d: d, pvurl: url, id: conf.Systemid, key: conf.Apikey, client: &http.Client{}, trace: conf.Trace || d.Trace, status: "init"}
+	p := &pvWriter{d: d, pvurl: url, id: conf.Systemid, key: conf.Apikey, client: &http.Client{}, trace: conf.Trace || d.Trace}
+	p.status.Store("Init")
 	if !d.Dryrun {
 		d.AddExport(time.Minute*time.Duration(interval), 0, p.upload)
 	}
@@ -224,7 +226,7 @@ func (p *pvWriter) upload(now time.Time) {
 	if err != nil {
 		log.Printf("pvoutput: NewRequest failed: %v", err)
 		fmt.Fprintf(&b, "NewRequest err: %v", err)
-		p.status = b.String()
+		p.status.Store(b.String())
 		return
 	}
 	if p.trace {
@@ -242,12 +244,12 @@ func (p *pvWriter) upload(now time.Time) {
 }
 
 func (p *pvWriter) Status() string {
-	return p.status
+	return p.status.Load().(string)
 }
 
 // Send request to server.
 func (p *pvWriter) send(req *http.Request, b *strings.Builder) {
-	defer func() { p.status = b.String() }()
+	defer func() { p.status.Store(b.String()) }()
 	resp, err := p.client.Do(req)
 	if err != nil {
 		log.Printf("pvoutput: Request failed: %v", err)
@@ -263,7 +265,7 @@ func (p *pvWriter) send(req *http.Request, b *strings.Builder) {
 		log.Printf("pvoutput: %s: %s", resp.Status, body)
 		fmt.Fprintf(b, " - err: %s", resp.Status)
 	} else {
-		fmt.Fprintf(b, " - OK")
+		fmt.Fprint(b, " - OK")
 	}
 }
 
