@@ -79,10 +79,6 @@ func (m *MultiAccum) Fresh() bool {
 	return true
 }
 
-func (m *MultiAccum) Checkpoint() string {
-	return ""
-}
-
 func (m *MultiAccum) Daily() float64 {
 	var v float64
 	for _, a := range m.accums {

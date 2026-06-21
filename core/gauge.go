@@ -43,9 +43,6 @@ func (g *Gauge) Update(value float64, ts time.Time) {
 	g.ts = ts
 }
 
-func (g *Gauge) Midnight() {
-}
-
 func (g *Gauge) Get() float64 {
 	return g.value
 }

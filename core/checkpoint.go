@@ -24,6 +24,10 @@ import (
 	"time"
 )
 
+type Checkpoint interface {
+	Checkpoint() string
+}
+
 // readCheckpoint reads the checkpoint data into a map.
 // The checkpoint file contains lines of the form:
 //
@@ -76,9 +80,11 @@ func (d *DB) writeCheckpoint(file string, now time.Time) {
 	wr := bufio.NewWriter(f)
 	defer wr.Flush()
 	for n, e := range d.elements {
-		s := e.Checkpoint()
-		if len(s) != 0 {
-			fmt.Fprintf(wr, "%s:%s\n", n, s)
+		if ch, ok := e.(Checkpoint); ok {
+			s := ch.Checkpoint()
+			if len(s) != 0 {
+				fmt.Fprintf(wr, "%s:%s\n", n, s)
+			}
 		}
 	}
 	fmt.Fprintf(wr, "%s:%d\n", C_TIME, now.Unix())

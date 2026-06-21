@@ -367,7 +367,9 @@ func (d *DB) newDay(now time.Time) {
 	if today != d.lastDay {
 		d.lastDay = today
 		for _, el := range d.elements {
-			el.Midnight()
+			if acc, ok := el.(Acc); ok {
+				acc.Midnight()
+			}
 		}
 		if d.Trace {
 			log.Printf("Day reset!")

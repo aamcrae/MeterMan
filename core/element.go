@@ -21,16 +21,15 @@ import (
 // Element represents a data item in the database.
 type Element interface {
 	Update(float64, time.Time) // Update element with new value.
-	Midnight()                 // Called when it is midnight for end-of-day processing
 	Get() float64              // Get the element's value
 	Timestamp() time.Time      // Return the timestamp of the last update.
 	Fresh() bool               // Value is still fresh.
-	Checkpoint() string        // Return a checkpoint string.
 }
 
 // Acc is a common interface for accumulators.
 type Acc interface {
 	Element
+	Midnight()      // Called when it is midnight for end-of-day processing
 	Daily() float64 // Return the daily total.
 }
 
@@ -112,16 +111,10 @@ func (d *DB) GetElements() map[string]Element {
 
 // GetAccum returns the named accumulator.
 func (d *DB) GetAccum(name string) Acc {
-	el, ok := d.elements[name]
-	if !ok {
-		return nil
+	if el, ok := d.elements[name]; ok {
+		if a, ok := el.(Acc); ok {
+			return a
+		}
 	}
-	switch a := el.(type) {
-	case *Accum:
-		return a
-	case *MultiAccum:
-		return a
-	default:
-		return nil
-	}
+	return nil
 }

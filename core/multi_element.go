@@ -44,12 +44,6 @@ func (m *MultiElement) Update(value float64, ts time.Time) {
 	panic(fmt.Errorf("Update called on MultiElement"))
 }
 
-func (m *MultiElement) Midnight() {
-	for _, g := range m.elements {
-		g.Midnight()
-	}
-}
-
 func (m *MultiElement) Get() float64 {
 	var v float64
 	for _, g := range m.elements {
@@ -81,8 +75,4 @@ func (m *MultiElement) Fresh() bool {
 		}
 	}
 	return true
-}
-
-func (m *MultiElement) Checkpoint() string {
-	return ""
 }
