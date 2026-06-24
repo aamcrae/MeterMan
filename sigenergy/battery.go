@@ -33,17 +33,16 @@ const (
 	F_LAST
 )
 
-const F_COUNT = int(F_LAST)
-
 type Battery struct {
-	Timeout time.Duration // Timeout
-	Trace   bool
-	addr    string
+	Timeout  time.Duration // Timeout
+	Trace    bool
+	addr     string
+	fieldMap map[string]int
 
 	requests []modbus.BuilderRequest
 	client   *modbus.Client
 
-	Values [F_COUNT]float64
+	Values [F_LAST]float64
 }
 
 var Fields = []struct {
@@ -60,19 +59,12 @@ var Fields = []struct {
 	{"acc_discharge", F_ACC_DISCHARGE, modbus.FieldTypeUint64, 30204, 100.0},
 }
 
-var fieldMap map[string]int
-
-func init() {
-	fieldMap = make(map[string]int, len(Fields))
-	for i, n := range Fields {
-		fieldMap[n.Name] = i
-	}
-}
-
 func NewBattery(addr string, unit uint8) (*Battery, error) {
 
 	b := modbus.NewRequestBuilder(addr, unit)
-	for _, f := range Fields {
+	fieldMap := make(map[string]int, len(Fields))
+	for i, f := range Fields {
+		fieldMap[f.Name] = i
 		b.AddField(modbus.Field{Name: f.Name, Type: f.mType, Address: f.addr})
 	}
 
@@ -86,6 +78,7 @@ func NewBattery(addr string, unit uint8) (*Battery, error) {
 		Timeout:  time.Second * 10,
 		Trace:    false,
 		addr:     addr,
+		fieldMap: fieldMap,
 		requests: requests,
 		client:   client,
 	}, nil
@@ -103,7 +96,7 @@ func (b *Battery) Poll() error {
 		}
 		results, _ := req.ExtractFields(resp, true)
 		for _, f := range results {
-			fi, ok := fieldMap[f.Field.Name]
+			fi, ok := b.fieldMap[f.Field.Name]
 			if !ok {
 				return fmt.Errorf("unknown field name: %s", f.Field.Name)
 			}
