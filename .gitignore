@@ -6,6 +6,7 @@
 MeterMan
 utils/readtemp/readtemp
 utils/smaping/smaping
+utils/battery/battery
 
 # Test binary, build with `go test -c`
 *.test
