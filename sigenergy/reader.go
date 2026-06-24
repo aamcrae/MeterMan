@@ -106,22 +106,22 @@ func (s *SigenergyReader) poll() error {
 	var b strings.Builder
 	defer func() { s.status.Store(b.String()) }()
 	fmt.Fprintf(&b, "%s: ", time.Now().Format("2006-01-02 15:04"))
-	err := s.batt.poll()
+	err := s.batt.Poll()
 	if err != nil {
 		fmt.Fprintf(&b, "Error - %v", err)
 		return err
 	}
-	s.d.Input(core.G_BATT_POWER, s.batt.power)
-	s.d.Input(core.G_BATT_PERCENT, s.batt.percent)
+	s.d.Input(core.G_BATT_POWER, s.batt.Values[F_POWER])
+	s.d.Input(core.G_BATT_PERCENT, s.batt.Values[F_PERCENT])
 	s.d.Input(core.G_BATT_SIZE, s.size)
 	s.d.Input(core.G_BATT_STATUS, float64(core.BATT_ENABLED))
-	s.d.Input(core.A_CHARGE_TOTAL, s.batt.acc_charge)
-	s.d.Input(core.A_DISCHARGE_TOTAL, s.batt.acc_discharge)
+	s.d.Input(core.A_CHARGE_TOTAL, s.batt.Values[F_ACC_CHARGE])
+	s.d.Input(core.A_DISCHARGE_TOTAL, s.batt.Values[F_ACC_DISCHARGE])
 	fmt.Fprintf(&b, "OK")
-	fmt.Fprintf(&b, ", Grid Power %s", core.FmtFloat(s.batt.grid_power))
-	fmt.Fprintf(&b, ", Battery percent %s", core.FmtFloat(s.batt.percent))
-	fmt.Fprintf(&b, ", Battery power %s", core.FmtFloat(s.batt.power))
-	fmt.Fprintf(&b, ", Accum charge %s", core.FmtFloat(s.batt.acc_charge))
-	fmt.Fprintf(&b, ", Accum discharge %s", core.FmtFloat(s.batt.acc_discharge))
+	fmt.Fprintf(&b, ", Grid Power %s", core.FmtFloat(s.batt.Values[F_GRID_POWER]))
+	fmt.Fprintf(&b, ", Battery percent %s", core.FmtFloat(s.batt.Values[F_PERCENT]))
+	fmt.Fprintf(&b, ", Battery power %s", core.FmtFloat(s.batt.Values[F_POWER]))
+	fmt.Fprintf(&b, ", Accum charge %s", core.FmtFloat(s.batt.Values[F_ACC_CHARGE]))
+	fmt.Fprintf(&b, ", Accum discharge %s", core.FmtFloat(s.batt.Values[F_ACC_DISCHARGE]))
 	return nil
 }

@@ -22,6 +22,21 @@ import (
 	"github.com/aldas/go-modbus-client"
 )
 
+type Field = int
+
+const (
+	F_GRID_POWER Field = iota
+	F_PERCENT
+	F_POWER
+	F_MAX_CHARGE
+	F_MAX_DISCHARGE
+	F_ACC_CHARGE
+	F_ACC_DISCHARGE
+	F_LAST
+)
+
+const F_COUNT = int(F_LAST)
+
 type Battery struct {
 	Timeout time.Duration // Timeout
 	Trace   bool
@@ -30,30 +45,42 @@ type Battery struct {
 	requests []modbus.BuilderRequest
 	client   *modbus.Client
 
-	grid_power    float64
-	percent       float64
-	power         float64
-	max_charge    float64
-	max_discharge float64
-	acc_charge    float64
-	acc_discharge float64
+	Values[F_COUNT] float64
+}
+
+var Fields = []struct {
+	Name string
+	Index Field
+	mType modbus.FieldType
+	addr uint16
+	divisor float64
+}{
+	{ "grid_power", F_GRID_POWER, modbus.FieldTypeInt32, 30005, 1000.0},
+	{ "percent", F_PERCENT, modbus.FieldTypeUint16, 30014, 10.0},
+	{ "power", F_POWER, modbus.FieldTypeInt32, 30037, 1000.0},
+	{ "max_charge", F_MAX_CHARGE, modbus.FieldTypeUint32, 30064, 100.0},
+	{ "max_discharge", F_MAX_DISCHARGE, modbus.FieldTypeUint32, 30066, 100.0},
+	{ "acc_charge", F_ACC_CHARGE, modbus.FieldTypeUint64, 30200, 100.0},
+	{ "acc_discharge", F_ACC_DISCHARGE, modbus.FieldTypeUint64, 30204, 100.0},
+}
+
+var fieldMap map[string]int
+
+func init() {
+	fieldMap = make(map[string]int, len(Fields))
+	for i, n := range Fields {
+		fieldMap[n.Name] = i
+	}
 }
 
 func NewBattery(addr string, unit uint8) (*Battery, error) {
 
 	b := modbus.NewRequestBuilder(addr, unit)
+	for _, f := range Fields {
+		b.AddField(modbus.Field{Name: f.Name, Type: f.mType, Address: f.addr})
+	}
 
-	requests, err := b.
-		AddField(modbus.Field{Name: "grid_sensor", Type: modbus.FieldTypeUint16, Address: 30004}).
-		AddField(modbus.Field{Name: "grid_power", Type: modbus.FieldTypeInt32, Address: 30005}).
-		AddField(modbus.Field{Name: "percent", Type: modbus.FieldTypeUint16, Address: 30014}).
-		AddField(modbus.Field{Name: "power", Type: modbus.FieldTypeInt32, Address: 30037}).
-		AddField(modbus.Field{Name: "state", Type: modbus.FieldTypeUint16, Address: 30051}).
-		AddField(modbus.Field{Name: "max_charge", Type: modbus.FieldTypeUint32, Address: 30064}).
-		AddField(modbus.Field{Name: "max_discharge", Type: modbus.FieldTypeUint32, Address: 30066}).
-		AddField(modbus.Field{Name: "acc_charge", Type: modbus.FieldTypeUint64, Address: 30200}).
-		AddField(modbus.Field{Name: "acc_discharge", Type: modbus.FieldTypeUint64, Address: 30204}).
-		ReadInputRegistersTCP()
+	requests, err := b.ReadInputRegistersTCP()
 	if err != nil {
 		return nil, err
 	}
@@ -68,37 +95,42 @@ func NewBattery(addr string, unit uint8) (*Battery, error) {
 	}, nil
 }
 
-func (b *Battery) poll() error {
+func (b *Battery) Poll() error {
 	if err := b.client.Connect(context.Background(), b.addr); err != nil {
 		return fmt.Errorf("connect to %s: %w", b.addr, err)
 	}
 	defer b.client.Close()
-	findex := 0
 	for _, req := range b.requests {
 		resp, err := b.client.Do(context.Background(), req)
 		if err != nil {
 			return fmt.Errorf("req failed: %w", err)
 		}
-		fields, _ := req.ExtractFields(resp, true)
-		for _, f := range fields {
-			switch findex {
-			case 1:
-				b.grid_power = float64(f.Value.(int32)) / 1000.0
-			case 2:
-				b.percent = float64(f.Value.(uint16)) / 10.0
-			case 3:
-				b.power = float64(f.Value.(int32)) / 1000.0
-			case 5:
-				b.max_charge = float64(f.Value.(uint32)) / 100.0
-			case 6:
-				b.max_discharge = float64(f.Value.(uint32)) / 100.0
-			case 7:
-				b.acc_charge = float64(f.Value.(uint64)) / 100.0
-			case 8:
-				b.acc_discharge = float64(f.Value.(uint64)) / 100.0
+		results, _ := req.ExtractFields(resp, true)
+		for _, f := range results {
+			fi, ok := fieldMap[f.Field.Name]
+			if !ok {
+				return fmt.Errorf("unknown field name: %s", f.Field.Name)
 			}
-			findex++
+			ft := &Fields[fi]
+			b.Values[ft.Index] = getValue(f.Value, ft.mType, ft.divisor)
 		}
 	}
 	return nil
+}
+
+func getValue(value any, t modbus.FieldType, divisor float64) float64 {
+	switch t {
+	case modbus.FieldTypeInt16:
+		return float64(value.(int16)) / divisor
+	case modbus.FieldTypeUint16:
+		return float64(value.(uint16)) / divisor
+	case modbus.FieldTypeInt32:
+		return float64(value.(int32)) / divisor
+	case modbus.FieldTypeUint32:
+		return float64(value.(uint32)) / divisor
+	case modbus.FieldTypeUint64:
+		return float64(value.(uint64)) / divisor
+	default:
+		panic(fmt.Sprintf("Unhandled modbus type: %v", t))
+	}
 }

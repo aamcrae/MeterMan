@@ -15,13 +15,11 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"log"
 
-	"github.com/aldas/go-modbus-client"
-	_ "github.com/aldas/go-modbus-client/packet"
+	batt "github.com/aamcrae/MeterMan/sigenergy"
 )
 
 var battery = flag.String("battery", "tcp://battery:502", "Battery address and port")
@@ -34,36 +32,15 @@ func init() {
 func main() {
 	id := uint8(*unitId)
 
-	b := modbus.NewRequestBuilder(*battery, id)
-
-	requests, _ := b.
-		AddField(modbus.Field{Name: "grid_sensor", Type: modbus.FieldTypeUint16, Address: 30004}).
-		AddField(modbus.Field{Name: "grid_power", Type: modbus.FieldTypeInt32, Address: 30005}).
-		AddField(modbus.Field{Name: "percent", Type: modbus.FieldTypeUint16, Address: 30014}).
-		AddField(modbus.Field{Name: "power", Type: modbus.FieldTypeInt32, Address: 30037}).
-		AddField(modbus.Field{Name: "state", Type: modbus.FieldTypeUint16, Address: 30051}).
-		AddField(modbus.Field{Name: "max_charge", Type: modbus.FieldTypeUint32, Address: 30064}).
-		AddField(modbus.Field{Name: "max_discharge", Type: modbus.FieldTypeUint32, Address: 30066}).
-		AddField(modbus.Field{Name: "rated_charge", Type: modbus.FieldTypeUint32, Address: 30068}).
-		AddField(modbus.Field{Name: "rated_discharge", Type: modbus.FieldTypeUint32, Address: 30070}).
-		AddField(modbus.Field{Name: "acc_consume", Type: modbus.FieldTypeUint64, Address: 30094}).
-		AddField(modbus.Field{Name: "batt_acc_charge", Type: modbus.FieldTypeUint64, Address: 30200}).
-		AddField(modbus.Field{Name: "batt_acc_discharge", Type: modbus.FieldTypeUint64, Address: 30204}).
-		ReadInputRegistersTCP()
-
-	client := modbus.NewTCPClient()
-	if err := client.Connect(context.Background(), *battery); err != nil {
-		log.Fatalf("%s: connect %v", *battery, err)
+	b, err := batt.NewBattery(*battery, id)
+	if err != nil {
+		log.Fatalf("%s: create %v", *battery, err)
 	}
-	defer client.Close()
-	for _, req := range requests {
-		resp, err := client.Do(context.Background(), req)
-		if err != nil {
-			log.Fatalf("resp error: %v", err)
-		}
-		fields, _ := req.ExtractFields(resp, true)
-		for _, f := range fields {
-			fmt.Printf("%s: value %v\n", f.Field.Name, f.Value)
-		}
+	err = b.Poll()
+	if err != nil {
+		log.Fatalf("%s: poll %v", *battery, err)
+	}
+	for _, f := range batt.Fields {
+		fmt.Printf("%12s: value %f\n", f.Name, b.Values[f.Index])
 	}
 }
