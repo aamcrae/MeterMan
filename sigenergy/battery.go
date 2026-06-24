@@ -45,23 +45,23 @@ type Battery struct {
 	requests []modbus.BuilderRequest
 	client   *modbus.Client
 
-	Values[F_COUNT] float64
+	Values [F_COUNT]float64
 }
 
 var Fields = []struct {
-	Name string
-	Index Field
-	mType modbus.FieldType
-	addr uint16
+	Name    string
+	Index   Field
+	mType   modbus.FieldType
+	addr    uint16
 	divisor float64
 }{
-	{ "grid_power", F_GRID_POWER, modbus.FieldTypeInt32, 30005, 1000.0},
-	{ "percent", F_PERCENT, modbus.FieldTypeUint16, 30014, 10.0},
-	{ "power", F_POWER, modbus.FieldTypeInt32, 30037, 1000.0},
-	{ "max_charge", F_MAX_CHARGE, modbus.FieldTypeUint32, 30064, 100.0},
-	{ "max_discharge", F_MAX_DISCHARGE, modbus.FieldTypeUint32, 30066, 100.0},
-	{ "acc_charge", F_ACC_CHARGE, modbus.FieldTypeUint64, 30200, 100.0},
-	{ "acc_discharge", F_ACC_DISCHARGE, modbus.FieldTypeUint64, 30204, 100.0},
+	{"grid_power", F_GRID_POWER, modbus.FieldTypeInt32, 30005, 1000.0},
+	{"percent", F_PERCENT, modbus.FieldTypeUint16, 30014, 10.0},
+	{"power", F_POWER, modbus.FieldTypeInt32, 30037, 1000.0},
+	{"max_charge", F_MAX_CHARGE, modbus.FieldTypeUint32, 30064, 100.0},
+	{"max_discharge", F_MAX_DISCHARGE, modbus.FieldTypeUint32, 30066, 100.0},
+	{"acc_charge", F_ACC_CHARGE, modbus.FieldTypeUint64, 30200, 100.0},
+	{"acc_discharge", F_ACC_DISCHARGE, modbus.FieldTypeUint64, 30204, 100.0},
 }
 
 var fieldMap map[string]int
