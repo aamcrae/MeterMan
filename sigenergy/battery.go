@@ -23,19 +23,19 @@ import (
 )
 
 type Battery struct {
-	Timeout  time.Duration // Timeout
-	Trace    bool
-	addr     string
+	Timeout time.Duration // Timeout
+	Trace   bool
+	addr    string
 
 	requests []modbus.BuilderRequest
 	client   *modbus.Client
 	indexMap map[string]int
-	values []*float64
+	values   []*float64
 
-	GridPower float64
-	Percent float64
-	Power float64
-	AccCharge float64
+	GridPower    float64
+	Percent      float64
+	Power        float64
+	AccCharge    float64
 	AccDischarge float64
 }
 
@@ -58,7 +58,7 @@ func NewBattery(addr string, unit uint8) (*Battery, error) {
 		Trace:    false,
 		addr:     addr,
 		indexMap: make(map[string]int, len(fields)),
-		values: make([]*float64, len(fields)),
+		values:   make([]*float64, len(fields)),
 	}
 
 	b := modbus.NewRequestBuilder(addr, unit)
