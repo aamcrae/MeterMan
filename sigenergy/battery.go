@@ -99,24 +99,24 @@ func (b *Battery) Poll() error {
 				return fmt.Errorf("unknown field name: %s", f.Field.Name)
 			}
 			ft := &fields[fi]
-			*b.values[fi] = getValue(f.Value, ft.mType, ft.divisor)
+			*b.values[fi] = getValue(f.Value, ft.mType) / ft.divisor
 		}
 	}
 	return nil
 }
 
-func getValue(value any, t modbus.FieldType, divisor float64) float64 {
+func getValue(value any, t modbus.FieldType) float64 {
 	switch t {
 	case modbus.FieldTypeInt16:
-		return float64(value.(int16)) / divisor
+		return float64(value.(int16))
 	case modbus.FieldTypeUint16:
-		return float64(value.(uint16)) / divisor
+		return float64(value.(uint16))
 	case modbus.FieldTypeInt32:
-		return float64(value.(int32)) / divisor
+		return float64(value.(int32))
 	case modbus.FieldTypeUint32:
-		return float64(value.(uint32)) / divisor
+		return float64(value.(uint32))
 	case modbus.FieldTypeUint64:
-		return float64(value.(uint64)) / divisor
+		return float64(value.(uint64))
 	default:
 		panic(fmt.Sprintf("Unhandled modbus type: %v", t))
 	}
