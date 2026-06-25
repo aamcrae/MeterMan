@@ -40,7 +40,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("%s: poll %v", *battery, err)
 	}
-	for _, f := range batt.Fields {
-		fmt.Printf("%12s: value %f\n", f.Name, b.Values[f.Index])
-	}
+	fmt.Printf("Grid power: %f\n", b.GridPower)
+	fmt.Printf("     Power: %f\n", b.Power)
+	fmt.Printf("   Percent: %f\n", b.Percent)
+	fmt.Printf("Acc charge: %f\n", b.AccCharge)
+	fmt.Printf(" discharge: %f\n", b.AccDischarge)
 }

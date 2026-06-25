@@ -22,66 +22,64 @@ import (
 	"github.com/aldas/go-modbus-client"
 )
 
-type Field = int
-
-const (
-	F_GRID_POWER Field = iota
-	F_PERCENT
-	F_POWER
-	F_ACC_CHARGE
-	F_ACC_DISCHARGE
-	F_LAST
-)
-
 type Battery struct {
 	Timeout  time.Duration // Timeout
 	Trace    bool
 	addr     string
-	fieldMap map[string]int
 
 	requests []modbus.BuilderRequest
 	client   *modbus.Client
+	indexMap map[string]int
+	values []*float64
 
-	Values [F_LAST]float64
+	GridPower float64
+	Percent float64
+	Power float64
+	AccCharge float64
+	AccDischarge float64
 }
 
-var Fields = []struct {
-	Name    string
-	Index   Field
+var fields = []struct {
+	name    string
 	mType   modbus.FieldType
 	addr    uint16
 	divisor float64
 }{
-	{"grid_power", F_GRID_POWER, modbus.FieldTypeInt32, 30005, 1000.0},
-	{"percent", F_PERCENT, modbus.FieldTypeUint16, 30014, 10.0},
-	{"power", F_POWER, modbus.FieldTypeInt32, 30037, 1000.0},
-	{"acc_charge", F_ACC_CHARGE, modbus.FieldTypeUint64, 30200, 100.0},
-	{"acc_discharge", F_ACC_DISCHARGE, modbus.FieldTypeUint64, 30204, 100.0},
+	{"grid_power", modbus.FieldTypeInt32, 30005, 1000.0},
+	{"percent", modbus.FieldTypeUint16, 30014, 10.0},
+	{"power", modbus.FieldTypeInt32, 30037, 1000.0},
+	{"acc_charge", modbus.FieldTypeUint64, 30200, 100.0},
+	{"acc_discharge", modbus.FieldTypeUint64, 30204, 100.0},
 }
 
 func NewBattery(addr string, unit uint8) (*Battery, error) {
-
-	b := modbus.NewRequestBuilder(addr, unit)
-	fieldMap := make(map[string]int, len(Fields))
-	for i, f := range Fields {
-		fieldMap[f.Name] = i
-		b.AddField(modbus.Field{Name: f.Name, Type: f.mType, Address: f.addr})
+	batt := &Battery{
+		Timeout:  time.Second * 10,
+		Trace:    false,
+		addr:     addr,
+		indexMap: make(map[string]int, len(fields)),
+		values: make([]*float64, len(fields)),
 	}
 
-	requests, err := b.ReadInputRegistersTCP()
+	b := modbus.NewRequestBuilder(addr, unit)
+	for i, f := range fields {
+		batt.indexMap[f.name] = i
+		b.AddField(modbus.Field{Name: f.name, Type: f.mType, Address: f.addr})
+	}
+
+	var err error
+	batt.requests, err = b.ReadInputRegistersTCP()
 	if err != nil {
 		return nil, err
 	}
 
-	client := modbus.NewTCPClient()
-	return &Battery{
-		Timeout:  time.Second * 10,
-		Trace:    false,
-		addr:     addr,
-		fieldMap: fieldMap,
-		requests: requests,
-		client:   client,
-	}, nil
+	batt.client = modbus.NewTCPClient()
+	batt.values[0] = &batt.GridPower
+	batt.values[1] = &batt.Percent
+	batt.values[2] = &batt.Power
+	batt.values[3] = &batt.AccCharge
+	batt.values[4] = &batt.AccDischarge
+	return batt, nil
 }
 
 func (b *Battery) Poll() error {
@@ -96,12 +94,12 @@ func (b *Battery) Poll() error {
 		}
 		results, _ := req.ExtractFields(resp, true)
 		for _, f := range results {
-			fi, ok := b.fieldMap[f.Field.Name]
+			fi, ok := b.indexMap[f.Field.Name]
 			if !ok {
 				return fmt.Errorf("unknown field name: %s", f.Field.Name)
 			}
-			ft := &Fields[fi]
-			b.Values[ft.Index] = getValue(f.Value, ft.mType, ft.divisor)
+			ft := &fields[fi]
+			*b.values[fi] = getValue(f.Value, ft.mType, ft.divisor)
 		}
 	}
 	return nil
