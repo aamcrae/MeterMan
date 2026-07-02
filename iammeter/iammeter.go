@@ -109,7 +109,7 @@ func (im *imeter) Status() string {
 func (im *imeter) poll() {
 	var err error
 	for _ = range retries {
-		err := im.fetch()
+		err = im.fetch()
 		if err == nil {
 			return
 		}
